@@ -1,0 +1,21 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+backend/venv/
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+.next/
+out/
+
+# Logs
+*.log
