@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --input: #ffffff;
 }
 
 @theme inline {
@@ -12,15 +19,247 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
 }
 
 body {
+  margin: 0;
+  min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ============================================================
+   FuneralOS Design System
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  --fos-page: #f8fafc;
+  --fos-surface: #ffffff;
+  --fos-surface-muted: #f1f5f9;
+  --fos-border: #e2e8f0;
+
+  --fos-text: #0f172a;
+  --fos-text-secondary: #475569;
+  --fos-text-muted: #64748b;
+
+  --fos-primary: #0f172a;
+  --fos-primary-hover: #1e293b;
+
+  --fos-success-bg: #f0fdf4;
+  --fos-success-text: #15803d;
+
+  --fos-warning-bg: #fffbeb;
+  --fos-warning-text: #b45309;
+
+  --fos-danger-bg: #fef2f2;
+  --fos-danger-text: #b91c1c;
+
+  --fos-info-bg: #eff6ff;
+  --fos-info-text: #1d4ed8;
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --fos-page: #0f172a;
+  --fos-surface: #1e293b;
+  --fos-surface-muted: #273449;
+  --fos-border: #334155;
+
+  --fos-text: #f8fafc;
+  --fos-text-secondary: #cbd5e1;
+  --fos-text-muted: #94a3b8;
+
+  --fos-primary: #f8fafc;
+  --fos-primary-hover: #e2e8f0;
+
+  --fos-success-bg: #052e16;
+  --fos-success-text: #86efac;
+
+  --fos-warning-bg: #451a03;
+  --fos-warning-text: #fcd34d;
+
+  --fos-danger-bg: #450a0a;
+  --fos-danger-text: #fca5a5;
+
+  --fos-info-bg: #172554;
+  --fos-info-text: #93c5fd;
+}
+
+html,
+body {
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+body {
+  background: var(--fos-page);
+  color: var(--fos-text);
+}
+
+/* ============================================================
+   FuneralOS Form Controls
+   Keep typed text readable in every theme.
+   ============================================================ */
+
+input,
+textarea,
+select {
+  color: var(--fos-text);
+  background-color: var(--fos-surface);
+  border-color: var(--fos-border);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--fos-text-muted);
+  opacity: 1;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  color: var(--fos-text);
+  background-color: var(--fos-surface);
+}
+
+option {
+  color: var(--fos-text);
+  background-color: var(--fos-surface);
+}
+
+/* ============================================================
+   FUNERALOS TENANT BRANDING
+   ============================================================ */
+
+:root {
+  --brand-primary: #0f172a;
+  --brand-secondary: #64748b;
+  --brand-watermark-opacity: 0.05;
+}
+
+/* Primary brand utility */
+.brand-primary {
+  background-color: var(--brand-primary);
+}
+
+/* Secondary brand utility */
+.brand-secondary {
+  background-color: var(--brand-secondary);
+}
+
+/* Brand text */
+.brand-primary-text {
+  color: var(--brand-primary);
+}
+
+.brand-secondary-text {
+  color: var(--brand-secondary);
+}
+
+/* Brand border */
+.brand-primary-border {
+  border-color: var(--brand-primary);
+}
+
+/* Global watermark */
+.brand-watermark {
+  position: relative;
+}
+
+.brand-watermark::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+
+  background-image: var(--brand-watermark-url);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: min(55vw, 650px);
+
+  opacity: var(--brand-watermark-opacity);
+
+  pointer-events: none;
+
+  z-index: 0;
+}
+
+.brand-watermark > * {
+  position: relative;
+  z-index: 1;
+}
+/* ============================================================
+   GLOBAL FUNERALOS THEME SURFACE
+   ============================================================ */
+
+html,
+body {
+  min-height: 100%;
+}
+
+html {
+  background: var(--fos-page);
+}
+
+body {
+  background: var(--fos-page);
+  color: var(--fos-text);
+}
+
+/* Brand-aware interactive elements */
+.brand-primary-button {
+  background-color: var(--brand-primary);
+  color: #ffffff;
+}
+
+.brand-primary-button:hover {
+  opacity: 0.9;
+}
+
+.brand-secondary-button {
+  background-color: var(--brand-secondary);
+  color: #ffffff;
+}
+
+.brand-secondary-button:hover {
+  opacity: 0.9;
+}
+
+/* Brand gradient */
+.brand-gradient {
+  background: linear-gradient(
+    90deg,
+    var(--brand-primary),
+    var(--brand-secondary)
+  );
+}
+
+/* Brand focus ring */
+.brand-focus:focus {
+  outline: none;
+  box-shadow:
+    0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--brand-primary) 20%,
+      transparent
+    );
+}
+
+/* Consistent scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color:
+    var(--fos-border)
+    transparent;
 }

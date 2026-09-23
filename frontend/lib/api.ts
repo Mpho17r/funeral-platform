@@ -16,6 +16,15 @@ api.interceptors.request.use((config) => {
     }
   }
 
+  // Let the browser/Axios set the correct multipart/form-data
+  // Content-Type and boundary when sending FormData.
+  if (
+    typeof FormData !== "undefined" &&
+    config.data instanceof FormData
+  ) {
+    delete config.headers["Content-Type"];
+  }
+
   return config;
 });
 

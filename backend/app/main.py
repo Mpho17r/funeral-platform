@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -17,6 +18,22 @@ from app.api.financials import router as financials_router
 from app.api.payments import router as payments_router
 from app.api.families import router as families_router
 from app.api.dashboard import router as dashboard_router
+
+from app.api.membership_plans import router as membership_plans_router
+from app.api.membership_plan_benefits import (
+    router as membership_plan_benefits_router
+)
+from app.api.membership_contributions import (
+    router as membership_contributions_router
+)
+from app.api.memberships import router as memberships_router
+from app.api.members import router as members_router
+from app.api.covered_dependents import (
+    router as covered_dependents_router
+)
+from app.api.membership_payments import (
+    router as membership_payments_router
+)
 
 
 # ============================================================
@@ -74,10 +91,6 @@ app.include_router(
 )
 
 app.include_router(
-    financials_router
-)
-
-app.include_router(
     services_router
 )
 
@@ -86,14 +99,54 @@ app.include_router(
 )
 
 app.include_router(
+    financials_router
+)
+
+app.include_router(
     payments_router
 )
+
 app.include_router(
     families_router
 )
 
 app.include_router(
     dashboard_router
+)
+
+# Membership plans
+app.include_router(
+    membership_plans_router
+)
+
+# Membership plan benefits
+app.include_router(
+    membership_plan_benefits_router
+)
+
+# Memberships
+app.include_router(
+    memberships_router
+)
+
+# Members
+app.include_router(
+    members_router
+)
+
+# Covered dependents
+app.include_router(
+    covered_dependents_router
+)
+
+# Membership contributions
+app.include_router(
+    membership_contributions_router
+)
+
+# Membership payments
+app.include_router(
+    membership_payments_router
 )
 
 
@@ -116,7 +169,6 @@ def root():
 
 @app.get("/health")
 def health_check():
-
     database_status = "unknown"
 
     try:

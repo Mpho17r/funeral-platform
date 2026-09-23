@@ -1,0 +1,338 @@
+from datetime import date
+from decimal import Decimal
+from uuid import uuid4
+
+from app.models.audit_log import AuditLog
+from app.models.member import Member
+from app.models.membership import Membership
+from app.models.membership_contribution import MembershipContribution
+from app.models.membership_plan import MembershipPlan
+from app.models.membership_payment import MembershipPayment
+
+
+def create_membership_with_contribution(db, test_data):
+    business = test_data["business_a"]
+
+    member = Member(
+        business_id=business.id,
+        member_number=f"MEM-{uuid4().hex[:8]}",
+        first_name="Test",
+        last_name="Member",
+        status="active",
+    )
+    db.add(member)
+    db.flush()
+
+    plan = MembershipPlan(
+        business_id=business.id,
+        name="Standard Plan",
+        description="Test membership plan",
+        monthly_contribution=Decimal("500.00"),
+        is_active=True,
+    )
+    db.add(plan)
+    db.flush()
+
+    membership = Membership(
+        business_id=business.id,
+        member_id=member.id,
+        plan_id=plan.id,
+        membership_number=f"POL-{uuid4().hex[:8]}",
+        start_date=date(2026, 9, 1),
+        status="active",
+        next_due_date=date(2026, 10, 1),
+    )
+    db.add(membership)
+    db.flush()
+
+    contribution = MembershipContribution(
+        business_id=business.id,
+        membership_id=membership.id,
+        contribution_period=date(2026, 9, 1),
+        amount_due=Decimal("500.00"),
+        amount_paid=Decimal("0.00"),
+        due_date=date(2026, 9, 1),
+        status="due",
+    )
+    db.add(contribution)
+    db.commit()
+
+    return membership, contribution
+
+
+def test_main_admin_can_create_membership_payment_and_audit_is_created(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    headers = auth_headers(test_data["main_admin"])
+
+    response = client.post(
+        "/membership-payments",
+        headers=headers,
+        json={
+            "membership_id": str(membership.id),
+            "contribution_id": str(contribution.id),
+            "amount": "500.00",
+            "payment_method": "eft",
+            "reference": "PAY-TEST-001",
+            "payment_date": "2026-09-15",
+            "notes": "September contribution",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    data = response.json()
+
+    assert data["membership_id"] == str(membership.id)
+    assert data["contribution_id"] == str(contribution.id)
+    assert Decimal(data["amount"]) == Decimal("500.00")
+    assert data["payment_method"] == "eft"
+    assert data["reference"] == "PAY-TEST-001"
+    assert data["payment_date"] == "2026-09-15"
+
+    payment = (
+        db.query(MembershipPayment)
+        .filter(MembershipPayment.id == data["id"])
+        .one()
+    )
+
+    audit_log = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.business_id == test_data["business_a"].id,
+            AuditLog.user_id == test_data["main_admin"].id,
+            AuditLog.action == "membership.payment_created",
+            AuditLog.entity_type == "membership_payment",
+            AuditLog.entity_id == payment.id,
+        )
+        .one()
+    )
+
+    assert audit_log.details == {
+        "amount": "500.00",
+        "payment_method": "eft",
+        "reference": "PAY-TEST-001",
+        "payment_date": "2026-09-15",
+        "membership_id": str(membership.id),
+        "contribution_id": str(contribution.id),
+    }
+
+    assert audit_log.notes == (
+        "Membership payment created by Main Admin."
+    )
+
+
+def test_main_admin_can_update_membership_payment_and_audit_records_changes(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("300.00"),
+        payment_method="cash",
+        reference="PAY-TEST-002",
+        payment_date=date(2026, 9, 10),
+        notes="Initial payment",
+    )
+
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+
+    headers = auth_headers(test_data["main_admin"])
+
+    response = client.patch(
+        f"/membership-payments/{payment.id}",
+        headers=headers,
+        json={
+            "amount": "400.00",
+            "payment_method": "eft",
+            "reference": "PAY-TEST-002-UPDATED",
+            "payment_date": "2026-09-15",
+            "notes": "Updated payment",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+
+    data = response.json()
+
+    assert Decimal(data["amount"]) == Decimal("400.00")
+    assert data["payment_method"] == "eft"
+    assert data["reference"] == "PAY-TEST-002-UPDATED"
+    assert data["payment_date"] == "2026-09-15"
+    assert data["notes"] == "Updated payment"
+
+    audit_log = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.business_id == test_data["business_a"].id,
+            AuditLog.user_id == test_data["main_admin"].id,
+            AuditLog.action == "membership.payment_updated",
+            AuditLog.entity_type == "membership_payment",
+            AuditLog.entity_id == payment.id,
+        )
+        .one()
+    )
+
+    assert audit_log.details == {
+        "changes": {
+            "amount": {
+                "before": "300.00",
+                "after": "400.00",
+            },
+            "payment_method": {
+                "before": "cash",
+                "after": "eft",
+            },
+            "reference": {
+                "before": "PAY-TEST-002",
+                "after": "PAY-TEST-002-UPDATED",
+            },
+            "payment_date": {
+                "before": "2026-09-10",
+                "after": "2026-09-15",
+            },
+            "notes": {
+                "before": "Initial payment",
+                "after": "Updated payment",
+            },
+        }
+    }
+
+    assert audit_log.notes == (
+        "Membership payment updated by Main Admin."
+    )
+
+
+def test_manager_cannot_create_membership_payment(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    headers = auth_headers(test_data["manager"])
+
+    response = client.post(
+        "/membership-payments",
+        headers=headers,
+        json={
+            "membership_id": str(membership.id),
+            "contribution_id": str(contribution.id),
+            "amount": "500.00",
+            "payment_method": "cash",
+            "reference": "PAY-TEST-003",
+            "payment_date": "2026-09-15",
+        },
+    )
+
+    assert response.status_code == 403, response.text
+
+
+def test_manager_cannot_update_membership_payment(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("300.00"),
+        payment_method="cash",
+        reference="PAY-TEST-004",
+        payment_date=date(2026, 9, 10),
+        notes="Initial payment",
+    )
+
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+
+    headers = auth_headers(test_data["manager"])
+
+    response = client.patch(
+        f"/membership-payments/{payment.id}",
+        headers=headers,
+        json={
+            "amount": "400.00",
+        },
+    )
+
+    assert response.status_code == 403, response.text
+
+
+def test_payment_updates_contribution_amount_paid(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    headers = auth_headers(test_data["main_admin"])
+
+    response = client.post(
+        "/membership-payments",
+        headers=headers,
+        json={
+            "membership_id": str(membership.id),
+            "contribution_id": str(contribution.id),
+            "amount": "300.00",
+            "payment_method": "cash",
+            "reference": "PAY-TEST-005",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    db.refresh(contribution)
+
+    assert contribution.amount_paid == Decimal("300.00")
+    assert contribution.status == "partially_paid"
+
+    response = client.patch(
+        f"/membership-payments/{response.json()['id']}",
+        headers=headers,
+        json={
+            "amount": "500.00",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+
+    db.refresh(contribution)
+
+    assert contribution.amount_paid == Decimal("500.00")
+    assert contribution.status == "paid"

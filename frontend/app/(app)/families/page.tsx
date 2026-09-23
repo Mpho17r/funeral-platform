@@ -93,6 +93,9 @@ export default function FamiliesPage() {
 
   return (
     <main className="min-h-screen bg-slate-100">
+      <div className="flex min-h-screen">
+
+        <div className="min-w-0 flex-1">
       {/* HEADER */}
       <header className="border-b bg-white">
         <div className="mx-auto max-w-7xl px-6 py-5 md:px-8">
@@ -399,6 +402,8 @@ export default function FamiliesPage() {
           </div>
         )}
       </section>
+        </div>
+      </div>
     </main>
   );
 }

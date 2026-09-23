@@ -7,7 +7,9 @@ from alembic import context
 
 from app.config import settings
 from app.database import Base
+
 import app.models
+
 
 config = context.config
 
@@ -19,10 +21,20 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def get_database_url() -> str:
+    """
+    Use the database URL supplied through Alembic's -x db_url argument
+    when provided. Otherwise, use the application's configured database.
+    """
+    x_args = context.get_x_argument(as_dictionary=True)
+
+    return x_args.get("db_url") or settings.database_url
+
+
 def run_migrations_offline() -> None:
     """Run migrations in offline mode."""
 
-    url = settings.database_url
+    url = get_database_url()
 
     context.configure(
         url=url,
@@ -43,7 +55,7 @@ def run_migrations_online() -> None:
         {},
     )
 
-    configuration["sqlalchemy.url"] = settings.database_url
+    configuration["sqlalchemy.url"] = get_database_url()
 
     connectable = engine_from_config(
         configuration,

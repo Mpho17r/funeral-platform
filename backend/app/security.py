@@ -21,6 +21,7 @@ def create_access_token(
     user_id: str,
     business_id: str,
     role: str,
+    auth_type: str = "business_user",
 ) -> str:
 
     expires_at = datetime.now(timezone.utc) + timedelta(
@@ -29,6 +30,7 @@ def create_access_token(
 
     payload = {
         "sub": user_id,
+        "auth_type": auth_type,
         "business_id": business_id,
         "role": role,
         "exp": expires_at,

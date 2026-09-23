@@ -3,8 +3,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.constants import (
+    MANAGEABLE_ROLES,
+    ROLE_MAIN_ADMIN,
+    ROLE_MANAGER,
+    ROLE_STAFF,
+)
 from app.database import get_db
-from app.dependencies.roles import require_admin
+from app.dependencies.roles import require_manager_or_admin
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.security import hash_password
@@ -16,13 +22,56 @@ router = APIRouter(
 )
 
 
+def can_manage_role(current_role: str, target_role: str) -> bool:
+    """Return whether the current role can manage the target role."""
+    if current_role == ROLE_MAIN_ADMIN:
+        return target_role in MANAGEABLE_ROLES
+
+    if current_role == ROLE_MANAGER:
+        return target_role == ROLE_STAFF
+
+    return False
+
+
+def can_manage_user(current_role: str, target_role: str) -> bool:
+    """Return whether the current user can manage the target user."""
+    if target_role == ROLE_MAIN_ADMIN:
+        return False
+
+    return can_manage_role(current_role, target_role)
+
+
+def get_business_user(
+    user_id: UUID,
+    db: Session,
+    current_user: dict,
+) -> User:
+    """Fetch a user while enforcing tenant isolation."""
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id,
+            User.business_id == current_user["business_id"],
+        )
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    return user
+
+
 @router.get(
     "",
     response_model=list[UserResponse],
 )
 def list_users(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(require_manager_or_admin),
 ):
     users = (
         db.query(User)
@@ -42,8 +91,20 @@ def list_users(
 def create_user(
     data: UserCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(require_manager_or_admin),
 ):
+    if data.role not in MANAGEABLE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only manager and staff accounts can be created here",
+        )
+
+    if not can_manage_role(current_user["role"], data.role):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to create this role",
+        )
+
     existing_user = (
         db.query(User)
         .filter(User.email == data.email)
@@ -54,12 +115,6 @@ def create_user(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered",
-        )
-
-    if data.role not in {"admin", "staff"}:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid role",
         )
 
     user = User(
@@ -85,24 +140,9 @@ def create_user(
 def get_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(require_manager_or_admin),
 ):
-    user = (
-        db.query(User)
-        .filter(
-            User.id == user_id,
-            User.business_id == current_user["business_id"],
-        )
-        .first()
-    )
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
-    return user
+    return get_business_user(user_id, db, current_user)
 
 
 @router.patch(
@@ -113,28 +153,48 @@ def update_user(
     user_id: UUID,
     data: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(require_manager_or_admin),
 ):
-    user = (
-        db.query(User)
-        .filter(
-            User.id == user_id,
-            User.business_id == current_user["business_id"],
-        )
-        .first()
-    )
+    user = get_business_user(user_id, db, current_user)
 
-    if not user:
+    if user.id == current_user["user_id"]:
+        if data.role is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot change your own role",
+            )
+
+        if data.is_active is False:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot deactivate yourself",
+            )
+
+        if data.full_name is not None:
+            user.full_name = data.full_name
+
+        db.commit()
+        db.refresh(user)
+
+        return user
+
+    if not can_manage_user(current_user["role"], user.role):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage this user",
         )
 
     if data.role is not None:
-        if data.role not in {"admin", "staff"}:
+        if data.role not in MANAGEABLE_ROLES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid role",
+                detail="Only manager and staff roles can be assigned here",
+            )
+
+        if not can_manage_role(current_user["role"], data.role):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to assign this role",
             )
 
         user.role = data.role
@@ -158,27 +218,20 @@ def update_user(
 def deactivate_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(require_manager_or_admin),
 ):
-    user = (
-        db.query(User)
-        .filter(
-            User.id == user_id,
-            User.business_id == current_user["business_id"],
-        )
-        .first()
-    )
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+    user = get_business_user(user_id, db, current_user)
 
     if user.id == current_user["user_id"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You cannot deactivate yourself",
+        )
+
+    if not can_manage_user(current_user["role"], user.role):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to deactivate this user",
         )
 
     user.is_active = False

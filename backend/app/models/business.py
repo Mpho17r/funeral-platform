@@ -1,7 +1,8 @@
 import uuid
+
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, String, Text
+from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -9,6 +10,7 @@ from app.database import Base
 
 
 class Business(Base):
+
     __tablename__ = "businesses"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -29,6 +31,10 @@ class Business(Base):
         index=True,
     )
 
+    # ========================================================
+    # BRANDING
+    # ========================================================
+
     logo_url: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -39,6 +45,66 @@ class Business(Base):
         default="#000000",
         nullable=False,
     )
+
+    secondary_color: Mapped[str] = mapped_column(
+        String(20),
+        default="#64748b",
+        nullable=False,
+    )
+
+    watermark_url: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    watermark_opacity: Mapped[float] = mapped_column(
+        default=0.05,
+        nullable=False,
+    )
+
+    theme_preference: Mapped[str] = mapped_column(
+        String(20),
+        default="system",
+        nullable=False,
+    )
+
+    # ========================================================
+    # MEMBERSHIP COVER POLICY
+    # ========================================================
+
+    grace_period_days: Mapped[int] = mapped_column(
+        Integer,
+        default=30,
+        nullable=False,
+    )
+
+    cover_during_arrears: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+
+    lapse_after_days: Mapped[int] = mapped_column(
+        Integer,
+        default=90,
+        nullable=False,
+    )
+
+    reinstatement_policy: Mapped[str] = mapped_column(
+        String(30),
+        default="automatic",
+        nullable=False,
+    )
+
+    # Possible values:
+    #
+    # automatic
+    # manual
+    # not_allowed
+
+    # ========================================================
+    # BUSINESS CONTACT DETAILS
+    # ========================================================
 
     phone: Mapped[str | None] = mapped_column(
         String(30),
@@ -55,11 +121,19 @@ class Business(Base):
         nullable=True,
     )
 
+    # ========================================================
+    # STATUS
+    # ========================================================
+
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
         nullable=False,
     )
+
+    # ========================================================
+    # TIMESTAMPS
+    # ========================================================
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

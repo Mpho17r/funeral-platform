@@ -11,7 +11,12 @@ from app.api.payments import router as payments_router
 from app.api.services import router as services_router
 from app.api.tasks import router as tasks_router
 from app.api.users import router as users_router
-
+from app.api.members import router as members_router
+from app.api.membership_plans import router as membership_plans_router
+from app.api.membership_plan_benefits import router as membership_plan_benefits_router
+from app.api.memberships import router as memberships_router
+from app.api.membership_contributions import router as membership_contributions_router
+from app.api.membership_payments import router as membership_payments_router
 
 api_router = APIRouter()
 
@@ -26,3 +31,9 @@ api_router.include_router(payments_router)
 api_router.include_router(services_router)
 api_router.include_router(tasks_router)
 api_router.include_router(users_router)
+api_router.include_router(members_router)
+
+api_router.include_router(membership_plans_router)
+api_router.include_router(memberships_router)
+api_router.include_router(membership_contributions_router)
+api_router.include_router(membership_payments_router)

@@ -1,4 +1,5 @@
 import uuid
+
 from datetime import date, datetime, timezone
 
 from sqlalchemy import Date, DateTime, ForeignKey, String, Text
@@ -27,6 +28,25 @@ class FuneralCase(Base):
     case_number: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
+        index=True,
+    )
+
+    # Optional membership connection.
+    # A case can still exist as a private/non-covered funeral.
+    membership_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("memberships.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    # Optional covered dependent connection.
+    # Used when the deceased person is covered through a member's
+    # membership rather than being the primary member.
+    covered_dependent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("covered_dependents.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
 

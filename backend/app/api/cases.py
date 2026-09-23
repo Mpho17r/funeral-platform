@@ -1,19 +1,32 @@
 from uuid import UUID
+
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+
 from app.dependencies.auth import get_current_user
 
 from app.models.funeral_case import FuneralCase
+
 from app.models.case_contact import CaseContact
+
 from app.models.case_document import CaseDocument
+
 from app.models.case_service import CaseService
+
 from app.models.case_task import CaseTask
+
 from app.models.case_financial import CaseFinancial
+
 from app.models.case_payment import CasePayment
+
+from app.models.membership import Membership
+
+from app.models.covered_dependent import CoveredDependent
 
 from app.schemas.funeral_case import (
     FuneralCaseCreate,
@@ -31,11 +44,163 @@ from app.schemas.case_summary import (
     CaseFinancialSummary,
 )
 
+from app.services.membership_status import is_membership_covered
+
 
 router = APIRouter(
     prefix="/cases",
     tags=["Funeral Cases"],
 )
+
+
+# ============================================================
+# MEMBERSHIP / COVERAGE VALIDATION HELPERS
+# ============================================================
+
+def validate_case_coverage_links(
+    db: Session,
+    business_id,
+    membership_id: UUID | None,
+    covered_dependent_id: UUID | None,
+    coverage_date,
+):
+    """
+    Validate membership/dependent relationships for a funeral case.
+
+    This function does NOT reject an uncovered member.
+
+    An uncovered case can still be created because staff need to
+    record and manage the funeral even when the business will not
+    provide cover benefits.
+
+    Returns:
+        membership
+        covered_dependent
+        membership_covered
+        dependent_covered
+    """
+
+    membership = None
+    covered_dependent = None
+    membership_covered = False
+    dependent_covered = False
+
+    # --------------------------------------------------------
+    # DEPENDENT CANNOT EXIST WITHOUT A MEMBERSHIP
+    # --------------------------------------------------------
+
+    if covered_dependent_id is not None and membership_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "A covered dependent requires a membership."
+            ),
+        )
+
+    # --------------------------------------------------------
+    # MEMBERSHIP VALIDATION
+    # --------------------------------------------------------
+
+    if membership_id is not None:
+        membership = (
+            db.query(Membership)
+            .filter(
+                Membership.id == membership_id,
+                Membership.business_id == business_id,
+            )
+            .first()
+        )
+
+        if not membership:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Membership not found for this business",
+            )
+
+        membership_covered = is_membership_covered(
+            db,
+            membership,
+            today=coverage_date,
+        )
+
+    # --------------------------------------------------------
+    # COVERED DEPENDENT VALIDATION
+    # --------------------------------------------------------
+
+    if covered_dependent_id is not None:
+        covered_dependent = (
+            db.query(CoveredDependent)
+            .filter(
+                CoveredDependent.id == covered_dependent_id,
+                CoveredDependent.business_id == business_id,
+            )
+            .first()
+        )
+
+        if not covered_dependent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=(
+                    "Covered dependent not found for this business"
+                ),
+            )
+
+        if (
+            membership is None
+            or covered_dependent.membership_id != membership.id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Covered dependent does not belong to the selected membership"
+                ),
+            )
+
+        # ----------------------------------------------------
+        # DEPENDENT STATUS / COVER DATES
+        # ----------------------------------------------------
+
+        dependent_covered = (
+            covered_dependent.status == "active"
+            and covered_dependent.cover_start_date <= coverage_date
+            and (
+                covered_dependent.cover_end_date is None
+                or coverage_date <= covered_dependent.cover_end_date
+            )
+        )
+
+    return (
+        membership,
+        covered_dependent,
+        membership_covered,
+        dependent_covered,
+    )
+
+
+def get_case_coverage_date(
+    funeral_date,
+    date_of_death,
+):
+    """
+    Determine the date used when evaluating funeral cover.
+
+    Prefer date of death because cover should be determined at
+    the time of death.
+
+    Fall back to funeral date when date of death is unavailable.
+
+    If neither exists, use today's date.
+    """
+
+    if date_of_death is not None:
+        return date_of_death
+
+    if funeral_date is not None:
+        return funeral_date
+
+    from datetime import date
+
+    return date.today()
 
 
 # ============================================================
@@ -78,6 +243,10 @@ def create_case(
 ):
     business_id = current_user["business_id"]
 
+    # --------------------------------------------------------
+    # PREVENT DUPLICATE CASE NUMBERS
+    # --------------------------------------------------------
+
     existing_case = (
         db.query(FuneralCase)
         .filter(
@@ -92,6 +261,31 @@ def create_case(
             status_code=status.HTTP_409_CONFLICT,
             detail="Case number already exists for this business",
         )
+
+    # --------------------------------------------------------
+    # DETERMINE COVERAGE DATE
+    # --------------------------------------------------------
+
+    coverage_date = get_case_coverage_date(
+        data.funeral_date,
+        data.date_of_death,
+    )
+
+    # --------------------------------------------------------
+    # VALIDATE MEMBERSHIP / DEPENDENT LINKS
+    # --------------------------------------------------------
+
+    validate_case_coverage_links(
+        db=db,
+        business_id=business_id,
+        membership_id=data.membership_id,
+        covered_dependent_id=data.covered_dependent_id,
+        coverage_date=coverage_date,
+    )
+
+    # --------------------------------------------------------
+    # CREATE CASE
+    # --------------------------------------------------------
 
     case = FuneralCase(
         business_id=business_id,
@@ -385,6 +579,51 @@ def update_case(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Case number already exists for this business",
             )
+
+    # --------------------------------------------------------
+    # DETERMINE FINAL MEMBERSHIP / DEPENDENT VALUES
+    # --------------------------------------------------------
+
+    final_membership_id = (
+        updates["membership_id"]
+        if "membership_id" in updates
+        else case.membership_id
+    )
+
+    final_dependent_id = (
+        updates["covered_dependent_id"]
+        if "covered_dependent_id" in updates
+        else case.covered_dependent_id
+    )
+
+    final_funeral_date = (
+        updates["funeral_date"]
+        if "funeral_date" in updates
+        else case.funeral_date
+    )
+
+    final_date_of_death = (
+        updates["date_of_death"]
+        if "date_of_death" in updates
+        else case.date_of_death
+    )
+
+    # --------------------------------------------------------
+    # VALIDATE MEMBERSHIP / DEPENDENT LINKS
+    # --------------------------------------------------------
+
+    coverage_date = get_case_coverage_date(
+        final_funeral_date,
+        final_date_of_death,
+    )
+
+    validate_case_coverage_links(
+        db=db,
+        business_id=business_id,
+        membership_id=final_membership_id,
+        covered_dependent_id=final_dependent_id,
+        coverage_date=coverage_date,
+    )
 
     # --------------------------------------------------------
     # APPLY UPDATES

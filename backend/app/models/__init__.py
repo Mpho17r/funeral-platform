@@ -7,6 +7,12 @@ from app.models.case_contact import CaseContact
 from app.models.case_service import CaseService
 from app.models.case_financial import CaseFinancial
 from app.models.case_payment import CasePayment
+from app.models.membership import Membership
+from app.models.membership_contribution import MembershipContribution
+from app.models.membership_payment import MembershipPayment
+from app.models.permission import Permission
+from app.models.role_permission import RolePermission
+from app.models.user_permission import UserPermission
 
 __all__ = [
     "Business",
@@ -14,3 +20,11 @@ __all__ = [
     "FuneralCase",
     "CaseTask",
 ]
+
+from app.models.membership_plan import MembershipPlan
+from app.models.member import Member
+
+from app.models.audit_log import AuditLog
+
+from app.models.covered_dependent import CoveredDependent
+from app.models.membership_plan_benefit import MembershipPlanBenefit
