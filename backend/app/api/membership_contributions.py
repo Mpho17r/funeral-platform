@@ -7,8 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
-from app.dependencies.roles import require_business_user, require_main_admin
+from app.dependencies.roles import require_permission
 from app.models.membership import Membership
 from app.models.membership_contribution import MembershipContribution
 from app.models.membership_payment import MembershipPayment
@@ -137,12 +136,11 @@ def recalculate_contribution(
     "",
     response_model=MembershipContributionResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_main_admin)],
 )
 def create_membership_contribution(
     payload: MembershipContributionCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("contributions.create")),
 ):
     business_id = get_business_id(current_user)
 
@@ -208,12 +206,11 @@ def create_membership_contribution(
 @router.get(
     "",
     response_model=list[MembershipContributionResponse],
-    dependencies=[Depends(require_business_user)],
 )
 def list_membership_contributions(
     membership_id: UUID | None = None,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("contributions.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -238,12 +235,11 @@ def list_membership_contributions(
 @router.get(
     "/{contribution_id}",
     response_model=MembershipContributionResponse,
-    dependencies=[Depends(require_business_user)],
 )
 def get_membership_contribution(
     contribution_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("contributions.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -266,13 +262,12 @@ def get_membership_contribution(
 @router.patch(
     "/{contribution_id}",
     response_model=MembershipContributionResponse,
-    dependencies=[Depends(require_main_admin)],
 )
 def update_membership_contribution(
     contribution_id: UUID,
     payload: MembershipContributionUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("contributions.edit")),
 ):
     business_id = get_business_id(current_user)
 
