@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.roles import require_permission
 from app.models.case_financial import CaseFinancial
 from app.models.case_payment import CasePayment
 from app.models.funeral_case import FuneralCase
@@ -172,7 +172,7 @@ def create_payment(
     case_id: UUID,
     payment_data: CasePaymentCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("payments.create")),
 ):
     business_id = get_business_id(current_user)
 
@@ -284,7 +284,7 @@ def create_payment(
 def list_case_payments(
     case_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("payments.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -336,7 +336,7 @@ def list_case_payments(
 def get_payment(
     payment_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("payments.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -371,7 +371,7 @@ def update_payment(
     payment_id: UUID,
     payment_data: CasePaymentUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("payments.edit")),
 ):
     business_id = get_business_id(current_user)
 
@@ -459,7 +459,7 @@ def update_payment(
 def delete_payment(
     payment_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("payments.delete")),
 ):
     business_id = get_business_id(current_user)
 
