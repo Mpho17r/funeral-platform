@@ -15,6 +15,8 @@ from app.schemas.membership_plan_benefit import (
     MembershipPlanBenefitResponse,
     MembershipPlanBenefitUpdate,
 )
+from app.services.audit_service import create_audit_log
+
 
 router = APIRouter(
     prefix="/membership-plan-benefits",
@@ -134,7 +136,33 @@ def create_benefit(
     db.add(benefit)
 
     try:
+        db.flush()
+
+        create_audit_log(
+            db=db,
+            business_id=business_id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="membership_plan_benefit.created",
+            entity_type="membership_plan_benefit",
+            entity_id=benefit.id,
+            details={
+                "plan_id": str(benefit.plan_id),
+                "name": benefit.name,
+                "benefit_type": benefit.benefit_type,
+                "monetary_limit": (
+                    str(benefit.monetary_limit)
+                    if benefit.monetary_limit is not None
+                    else None
+                ),
+                "quantity_limit": benefit.quantity_limit,
+                "is_included": benefit.is_included,
+                "is_active": benefit.is_active,
+            },
+            notes="Membership plan benefit created by Main Admin.",
+        )
+
         db.commit()
+
     except IntegrityError:
         db.rollback()
         raise HTTPException(
@@ -143,7 +171,6 @@ def create_benefit(
         )
 
     db.refresh(benefit)
-
     return benefit
 
 
@@ -236,8 +263,52 @@ def update_benefit(
     if "name" in updates and updates["name"] is not None:
         updates["name"] = updates["name"].strip()
 
+    previous = {
+        "plan_id": str(benefit.plan_id),
+        "name": benefit.name,
+        "description": benefit.description,
+        "benefit_type": benefit.benefit_type,
+        "monetary_limit": (
+            str(benefit.monetary_limit)
+            if benefit.monetary_limit is not None
+            else None
+        ),
+        "quantity_limit": benefit.quantity_limit,
+        "is_included": benefit.is_included,
+        "is_active": benefit.is_active,
+    }
+
     for field, value in updates.items():
         setattr(benefit, field, value)
+
+    new_values = {
+        "plan_id": str(benefit.plan_id),
+        "name": benefit.name,
+        "description": benefit.description,
+        "benefit_type": benefit.benefit_type,
+        "monetary_limit": (
+            str(benefit.monetary_limit)
+            if benefit.monetary_limit is not None
+            else None
+        ),
+        "quantity_limit": benefit.quantity_limit,
+        "is_included": benefit.is_included,
+        "is_active": benefit.is_active,
+    }
+
+    create_audit_log(
+        db=db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="membership_plan_benefit.updated",
+        entity_type="membership_plan_benefit",
+        entity_id=benefit.id,
+        details={
+            "previous": previous,
+            "new": new_values,
+        },
+        notes="Membership plan benefit updated by Main Admin.",
+    )
 
     db.commit()
     db.refresh(benefit)
@@ -260,6 +331,32 @@ def delete_benefit(
         db,
         benefit_id,
         business_id,
+    )
+
+    previous = {
+        "plan_id": str(benefit.plan_id),
+        "name": benefit.name,
+        "description": benefit.description,
+        "benefit_type": benefit.benefit_type,
+        "monetary_limit": (
+            str(benefit.monetary_limit)
+            if benefit.monetary_limit is not None
+            else None
+        ),
+        "quantity_limit": benefit.quantity_limit,
+        "is_included": benefit.is_included,
+        "is_active": benefit.is_active,
+    }
+
+    create_audit_log(
+        db=db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="membership_plan_benefit.deleted",
+        entity_type="membership_plan_benefit",
+        entity_id=benefit.id,
+        details=previous,
+        notes="Membership plan benefit deleted by Main Admin.",
     )
 
     db.delete(benefit)
