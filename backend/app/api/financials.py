@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.roles import require_permission
 
 from app.models.case_financial import CaseFinancial
 from app.models.case_payment import CasePayment
@@ -236,7 +236,7 @@ def create_financial(
     case_id: UUID,
     payload: CaseFinancialCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("financials.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -332,7 +332,7 @@ def create_financial(
 def get_case_financial(
     case_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("financials.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -378,7 +378,7 @@ def get_case_financial(
 def get_financial(
     financial_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("financials.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -425,7 +425,7 @@ def update_financial(
     financial_id: UUID,
     payload: CaseFinancialUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("financials.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -493,7 +493,7 @@ def update_financial(
 def recalculate_case_financial(
     case_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("financials.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -591,7 +591,7 @@ def recalculate_case_financial(
 def delete_financial(
     financial_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("financials.manage")),
 ):
     business_id = get_business_id(current_user)
 
