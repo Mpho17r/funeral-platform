@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.roles import require_business_user, require_main_admin
+from app.dependencies.roles import require_permission
 from app.models.membership_plan import MembershipPlan
 from app.models.membership_plan_benefit import MembershipPlanBenefit
 from app.schemas.membership_plan_benefit import (
@@ -105,7 +105,7 @@ def validate_benefit_limits(
 def create_benefit(
     payload: MembershipPlanBenefitCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("membership_plans.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -181,7 +181,7 @@ def create_benefit(
 def list_benefits(
     plan_id: UUID | None = None,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_business_user),
+    current_user: dict = Depends(require_permission("membership_plans.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -208,7 +208,7 @@ def list_benefits(
 def get_benefit(
     benefit_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_business_user),
+    current_user: dict = Depends(require_permission("membership_plans.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -227,7 +227,7 @@ def update_benefit(
     benefit_id: UUID,
     payload: MembershipPlanBenefitUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("membership_plans.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -323,7 +323,7 @@ def update_benefit(
 def delete_benefit(
     benefit_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("membership_plans.manage")),
 ):
     business_id = get_business_id(current_user)
 
