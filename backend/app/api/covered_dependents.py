@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.auth import get_current_user
-from app.dependencies.roles import require_business_user, require_main_admin
+from app.dependencies.roles import require_permission
 from app.models.covered_dependent import CoveredDependent
 from app.models.membership import Membership
 from app.schemas.covered_dependent import (
@@ -101,7 +101,7 @@ def serialize_value(value):
     "",
     response_model=CoveredDependentResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_main_admin)],
+    dependencies=[Depends(require_permission("memberships.manage"))],
 )
 def create_covered_dependent(
     payload: CoveredDependentCreate,
@@ -190,7 +190,7 @@ def create_covered_dependent(
 @router.get(
     "",
     response_model=list[CoveredDependentResponse],
-    dependencies=[Depends(require_business_user)],
+    dependencies=[Depends(require_permission("memberships.view"))],
 )
 def list_covered_dependents(
     membership_id: UUID | None = None,
@@ -219,7 +219,7 @@ def list_covered_dependents(
 @router.get(
     "/{dependent_id}",
     response_model=CoveredDependentResponse,
-    dependencies=[Depends(require_business_user)],
+    dependencies=[Depends(require_permission("memberships.view"))],
 )
 def get_covered_dependent_by_id(
     dependent_id: UUID,
@@ -238,7 +238,7 @@ def get_covered_dependent_by_id(
 @router.patch(
     "/{dependent_id}",
     response_model=CoveredDependentResponse,
-    dependencies=[Depends(require_main_admin)],
+    dependencies=[Depends(require_permission("memberships.manage"))],
 )
 def update_covered_dependent(
     dependent_id: UUID,
@@ -341,7 +341,7 @@ def update_covered_dependent(
 @router.delete(
     "/{dependent_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_main_admin)],
+    dependencies=[Depends(require_permission("memberships.manage"))],
 )
 def delete_covered_dependent(
     dependent_id: UUID,
