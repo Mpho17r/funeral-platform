@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.roles import require_permission
 from app.models.case_contact import CaseContact
 from app.models.funeral_case import FuneralCase
 
@@ -36,7 +36,7 @@ def get_business_id(current_user: dict) -> UUID:
 @router.get("")
 def list_families(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("families.view")),
 ):
     business_id = get_business_id(current_user)
 
