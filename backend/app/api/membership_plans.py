@@ -4,10 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.roles import (
-    require_business_user,
-    require_main_admin,
-)
+from app.dependencies.roles import require_permission
 from app.models.membership_plan import MembershipPlan
 from app.schemas.membership_plan import (
     MembershipPlanCreate,
@@ -53,7 +50,7 @@ def get_business_id(current_user: dict) -> UUID:
 def create_membership_plan(
     plan_data: MembershipPlanCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("membership_plans.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -83,7 +80,7 @@ def create_membership_plan(
 )
 def list_membership_plans(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_business_user),
+    current_user: dict = Depends(require_permission("membership_plans.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -111,7 +108,7 @@ def list_membership_plans(
 def get_membership_plan(
     plan_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_business_user),
+    current_user: dict = Depends(require_permission("membership_plans.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -146,7 +143,7 @@ def update_membership_plan(
     plan_id: UUID,
     plan_data: MembershipPlanUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("membership_plans.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -193,7 +190,7 @@ def update_membership_plan(
 def delete_membership_plan(
     plan_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("membership_plans.manage")),
 ):
     business_id = get_business_id(current_user)
 
