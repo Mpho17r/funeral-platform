@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.roles import require_permission
 
 from app.models.case_task import CaseTask
 from app.models.funeral_case import FuneralCase
@@ -114,9 +114,7 @@ def create_task(
 
     db: Session = Depends(get_db),
 
-    current_user: dict = Depends(
-        get_current_user
-    ),
+    current_user: dict = Depends(require_permission("tasks.manage")),
 ):
 
     business_id = get_business_id(
@@ -188,9 +186,7 @@ def list_case_tasks(
 
     db: Session = Depends(get_db),
 
-    current_user: dict = Depends(
-        get_current_user
-    ),
+    current_user: dict = Depends(require_permission("tasks.view")),
 ):
 
     business_id = get_business_id(
@@ -241,9 +237,7 @@ def get_task(
 
     db: Session = Depends(get_db),
 
-    current_user: dict = Depends(
-        get_current_user
-    ),
+    current_user: dict = Depends(require_permission("tasks.view")),
 ):
 
     business_id = get_business_id(
@@ -285,9 +279,7 @@ def update_task(
 
     db: Session = Depends(get_db),
 
-    current_user: dict = Depends(
-        get_current_user
-    ),
+    current_user: dict = Depends(require_permission("tasks.manage")),
 ):
 
     business_id = get_business_id(
@@ -392,9 +384,7 @@ def delete_task(
 
     db: Session = Depends(get_db),
 
-    current_user: dict = Depends(
-        get_current_user
-    ),
+    current_user: dict = Depends(require_permission("tasks.manage")),
 ):
 
     business_id = get_business_id(
