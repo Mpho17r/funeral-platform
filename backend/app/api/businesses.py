@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.auth import get_current_user
-from app.dependencies.roles import require_main_admin
+from app.dependencies.roles import require_main_admin, require_permission
 from app.models.business import Business
 from app.schemas.business import BusinessCreate, BusinessResponse
 from app.services.audit_service import create_audit_log
@@ -163,7 +163,7 @@ def update_business_branding(
     business_id: UUID,
     branding_data: BusinessBrandingUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("branding.manage")),
 ):
     verify_business_access(
         business_id,
@@ -196,7 +196,7 @@ def update_business_cover_policy(
     business_id: UUID,
     policy_data: BusinessCoverPolicyUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("settings.manage")),
 ):
     verify_business_access(
         business_id,
@@ -274,7 +274,7 @@ async def upload_business_logo(
     business_id: UUID,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("branding.manage")),
 ):
     verify_business_access(
         business_id,
@@ -287,10 +287,12 @@ async def upload_business_logo(
     )
 
     try:
-        logo_url = await save_business_branding_file(
+        contents = await file.read()
+        logo_url = save_business_branding_file(
             business_id=business_id,
             file=file,
-            kind="logo",
+            contents=contents,
+            file_type="logo",
         )
     except ValueError as exc:
         raise HTTPException(
@@ -314,7 +316,7 @@ async def upload_business_watermark(
     business_id: UUID,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("branding.manage")),
 ):
     verify_business_access(
         business_id,
@@ -327,10 +329,12 @@ async def upload_business_watermark(
     )
 
     try:
-        watermark_url = await save_business_branding_file(
+        contents = await file.read()
+        watermark_url = save_business_branding_file(
             business_id=business_id,
             file=file,
-            kind="watermark",
+            contents=contents,
+            file_type="watermark",
         )
     except ValueError as exc:
         raise HTTPException(
