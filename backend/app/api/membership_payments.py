@@ -7,8 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
-from app.dependencies.roles import require_business_user, require_main_admin
+from app.dependencies.roles import require_permission
 from app.models.membership import Membership
 from app.models.membership_contribution import MembershipContribution
 from app.models.membership_payment import MembershipPayment
@@ -131,12 +130,11 @@ def recalculate_contribution(
     "",
     response_model=MembershipPaymentResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_main_admin)],
 )
 def create_membership_payment(
     payload: MembershipPaymentCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("payments.create")),
 ):
     business_id = get_business_id(current_user)
 
@@ -257,13 +255,12 @@ def create_membership_payment(
 @router.get(
     "",
     response_model=list[MembershipPaymentResponse],
-    dependencies=[Depends(require_business_user)],
 )
 def list_membership_payments(
     membership_id: UUID | None = None,
     contribution_id: UUID | None = None,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("payments.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -292,12 +289,11 @@ def list_membership_payments(
 @router.get(
     "/{payment_id}",
     response_model=MembershipPaymentResponse,
-    dependencies=[Depends(require_business_user)],
 )
 def get_membership_payment(
     payment_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("payments.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -320,13 +316,12 @@ def get_membership_payment(
 @router.patch(
     "/{payment_id}",
     response_model=MembershipPaymentResponse,
-    dependencies=[Depends(require_main_admin)],
 )
 def update_membership_payment(
     payment_id: UUID,
     payload: MembershipPaymentUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("payments.edit")),
 ):
     business_id = get_business_id(current_user)
 
@@ -488,12 +483,11 @@ def update_membership_payment(
 @router.delete(
     "/{payment_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_main_admin)],
 )
 def delete_membership_payment(
     payment_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("payments.delete")),
 ):
     business_id = get_business_id(current_user)
 
@@ -567,134 +561,3 @@ def delete_membership_payment(
     db.commit()
 
     return None
-
-def test_main_admin_can_delete_membership_payment_and_recalculate_contribution(
-    client,
-    db,
-    test_data,
-    auth_headers,
-):
-    membership, contribution = create_membership_with_contribution(
-        db,
-        test_data,
-    )
-
-    payment = MembershipPayment(
-        business_id=test_data["business_a"].id,
-        membership_id=membership.id,
-        contribution_id=contribution.id,
-        amount=Decimal("300.00"),
-        payment_method="cash",
-        reference="PAY-DELETE-001",
-        payment_date=date(2026, 9, 15),
-        notes="Payment to delete",
-    )
-
-    db.add(payment)
-    db.commit()
-    db.refresh(payment)
-
-    headers = auth_headers(test_data["main_admin"])
-
-    response = client.delete(
-        f"/membership-payments/{payment.id}",
-        headers=headers,
-    )
-
-    assert response.status_code == 204, response.text
-
-    deleted_payment = (
-        db.query(MembershipPayment)
-        .filter(MembershipPayment.id == payment.id)
-        .first()
-    )
-
-    assert deleted_payment is None
-
-    db.refresh(contribution)
-
-    assert contribution.amount_paid == Decimal("0.00")
-    assert contribution.status == "due"
-
-    audit_log = (
-        db.query(AuditLog)
-        .filter(
-            AuditLog.business_id == test_data["business_a"].id,
-            AuditLog.user_id == test_data["main_admin"].id,
-            AuditLog.action == "membership.payment_deleted",
-            AuditLog.entity_type == "membership_payment",
-            AuditLog.entity_id == payment.id,
-        )
-        .one()
-    )
-
-    assert audit_log.details == {
-        "amount": "300.00",
-        "payment_method": "cash",
-        "reference": "PAY-DELETE-001",
-        "payment_date": "2026-09-15",
-        "membership_id": str(membership.id),
-        "contribution_id": str(contribution.id),
-    }
-
-    assert audit_log.notes == (
-        "Membership payment deleted by Main Admin."
-    )
-
-
-def test_manager_cannot_delete_membership_payment(
-    client,
-    db,
-    test_data,
-    auth_headers,
-):
-    membership, contribution = create_membership_with_contribution(
-        db,
-        test_data,
-    )
-
-    payment = MembershipPayment(
-        business_id=test_data["business_a"].id,
-        membership_id=membership.id,
-        contribution_id=contribution.id,
-        amount=Decimal("300.00"),
-        payment_method="cash",
-        reference="PAY-DELETE-002",
-        payment_date=date(2026, 9, 15),
-    )
-
-    db.add(payment)
-    db.commit()
-    db.refresh(payment)
-
-    headers = auth_headers(test_data["manager"])
-
-    response = client.delete(
-        f"/membership-payments/{payment.id}",
-        headers=headers,
-    )
-
-    assert response.status_code == 403, response.text
-
-    existing_payment = (
-        db.query(MembershipPayment)
-        .filter(MembershipPayment.id == payment.id)
-        .one()
-    )
-
-    assert existing_payment.id == payment.id
-
-
-def test_delete_nonexistent_membership_payment_returns_404(
-    client,
-    test_data,
-    auth_headers,
-):
-    headers = auth_headers(test_data["main_admin"])
-
-    response = client.delete(
-        f"/membership-payments/{uuid4()}",
-        headers=headers,
-    )
-
-    assert response.status_code == 404, response.text

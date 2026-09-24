@@ -48,10 +48,10 @@ def create_membership_with_contribution(db, test_data):
     contribution = MembershipContribution(
         business_id=business.id,
         membership_id=membership.id,
-        contribution_period=date(2026, 9, 1),
+        contribution_period=date(2026, 10, 1),
         amount_due=Decimal("500.00"),
         amount_paid=Decimal("0.00"),
-        due_date=date(2026, 9, 1),
+        due_date=date(2026, 10, 1),
         status="due",
     )
     db.add(contribution)
@@ -336,3 +336,134 @@ def test_payment_updates_contribution_amount_paid(
 
     assert contribution.amount_paid == Decimal("500.00")
     assert contribution.status == "paid"
+
+def test_main_admin_can_delete_membership_payment_and_recalculate_contribution(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("300.00"),
+        payment_method="cash",
+        reference="PAY-DELETE-001",
+        payment_date=date(2026, 9, 15),
+        notes="Payment to delete",
+    )
+
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+
+    headers = auth_headers(test_data["main_admin"])
+
+    response = client.delete(
+        f"/membership-payments/{payment.id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 204, response.text
+
+    deleted_payment = (
+        db.query(MembershipPayment)
+        .filter(MembershipPayment.id == payment.id)
+        .first()
+    )
+
+    assert deleted_payment is None
+
+    db.refresh(contribution)
+
+    assert contribution.amount_paid == Decimal("0.00")
+    assert contribution.status == "due"
+
+    audit_log = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.business_id == test_data["business_a"].id,
+            AuditLog.user_id == test_data["main_admin"].id,
+            AuditLog.action == "membership.payment_deleted",
+            AuditLog.entity_type == "membership_payment",
+            AuditLog.entity_id == payment.id,
+        )
+        .one()
+    )
+
+    assert audit_log.details == {
+        "amount": "300.00",
+        "payment_method": "cash",
+        "reference": "PAY-DELETE-001",
+        "payment_date": "2026-09-15",
+        "membership_id": str(membership.id),
+        "contribution_id": str(contribution.id),
+    }
+
+    assert audit_log.notes == (
+        "Membership payment deleted by Main Admin."
+    )
+
+
+def test_manager_cannot_delete_membership_payment(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("300.00"),
+        payment_method="cash",
+        reference="PAY-DELETE-002",
+        payment_date=date(2026, 9, 15),
+    )
+
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+
+    headers = auth_headers(test_data["manager"])
+
+    response = client.delete(
+        f"/membership-payments/{payment.id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 403, response.text
+
+    existing_payment = (
+        db.query(MembershipPayment)
+        .filter(MembershipPayment.id == payment.id)
+        .one()
+    )
+
+    assert existing_payment.id == payment.id
+
+
+def test_delete_nonexistent_membership_payment_returns_404(
+    client,
+    test_data,
+    auth_headers,
+):
+    headers = auth_headers(test_data["main_admin"])
+
+    response = client.delete(
+        f"/membership-payments/{uuid4()}",
+        headers=headers,
+    )
+
+    assert response.status_code == 404, response.text
