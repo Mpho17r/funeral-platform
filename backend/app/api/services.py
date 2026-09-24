@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.roles import require_permission
 
 from app.models.case_service import CaseService
 from app.models.funeral_case import FuneralCase
@@ -93,7 +93,7 @@ def create_service(
     case_id: UUID,
     service_data: CaseServiceCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("services.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -154,7 +154,7 @@ def create_service(
 def list_case_services(
     case_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("services.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -199,7 +199,7 @@ def list_case_services(
 def get_service(
     service_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("services.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -234,7 +234,7 @@ def update_service(
     service_id: UUID,
     service_data: CaseServiceUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("services.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -302,7 +302,7 @@ def update_service(
 def delete_service(
     service_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("services.manage")),
 ):
     business_id = get_business_id(current_user)
 

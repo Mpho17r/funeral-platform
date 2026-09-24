@@ -2,6 +2,7 @@
 FuneralOS permission catalogue.
 
 Roles remain:
+
     main_admin
     manager
     staff
@@ -10,6 +11,7 @@ Permissions describe what a user is allowed to do.
 """
 
 PERMISSIONS = {
+
     # Dashboard
     "dashboard.view": "View the business dashboard",
 
@@ -65,6 +67,16 @@ PERMISSIONS = {
     # Tasks
     "tasks.view": "View tasks",
     "tasks.manage": "Manage tasks",
+
+    # Case financials
+    "financials.view": "View case financial records",
+    "financials.manage": "Manage case financial records",
+
+    # Application users
+    "users.view": "View business user accounts",
+    "users.create": "Create business user accounts",
+    "users.edit": "Edit business user accounts",
+    "users.delete": "Delete business user accounts",
 
     # Employees
     "employees.view": "View employees",

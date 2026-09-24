@@ -12,6 +12,7 @@ from app.main import app
 from app.models.business import Business
 from app.models.user import User
 from app.security import hash_password
+from app.services.permission_seed import sync_permission_system
 
 
 TEST_DATABASE_URL = "postgresql+psycopg://mac@localhost:5432/funeralos_test"
@@ -126,6 +127,9 @@ def db():
 
         session.commit()
 
+        # Rebuild the application permission catalogue and
+        # default Manager/Staff role permissions for each test.
+
         yield session
 
     finally:
@@ -142,6 +146,9 @@ def client(db):
     """
     FastAPI TestClient using the test database session.
     """
+
+    # Seed the real application permission catalogue for API tests.
+    sync_permission_system(db)
 
     def override_get_db():
         yield db

@@ -10,7 +10,7 @@ from app.constants import (
     ROLE_STAFF,
 )
 from app.database import get_db
-from app.dependencies.roles import require_manager_or_admin
+from app.dependencies.roles import require_permission
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.security import hash_password
@@ -71,7 +71,7 @@ def get_business_user(
 )
 def list_users(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_manager_or_admin),
+    current_user: dict = Depends(require_permission("users.view")),
 ):
     users = (
         db.query(User)
@@ -91,7 +91,7 @@ def list_users(
 def create_user(
     data: UserCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_manager_or_admin),
+    current_user: dict = Depends(require_permission("users.create")),
 ):
     if data.role not in MANAGEABLE_ROLES:
         raise HTTPException(
@@ -140,7 +140,7 @@ def create_user(
 def get_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_manager_or_admin),
+    current_user: dict = Depends(require_permission("users.view")),
 ):
     return get_business_user(user_id, db, current_user)
 
@@ -153,7 +153,7 @@ def update_user(
     user_id: UUID,
     data: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_manager_or_admin),
+    current_user: dict = Depends(require_permission("users.edit")),
 ):
     user = get_business_user(user_id, db, current_user)
 
@@ -218,7 +218,7 @@ def update_user(
 def deactivate_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_manager_or_admin),
+    current_user: dict = Depends(require_permission("users.delete")),
 ):
     user = get_business_user(user_id, db, current_user)
 

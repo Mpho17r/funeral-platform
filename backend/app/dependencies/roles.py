@@ -1,6 +1,11 @@
-from fastapi import Depends, HTTPException, status
+from uuid import UUID
 
+from fastapi import Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.database import get_db
 from app.dependencies.auth import get_current_user
+from app.services.permission_service import has_permission
 
 
 BUSINESS_ROLES = {
@@ -52,6 +57,38 @@ def require_staff_or_above(
             detail="Business user access required",
         )
     return current_user
+
+
+def require_permission(permission_key: str):
+    """
+    Create a FastAPI dependency that requires a specific
+    FuneralOS permission.
+
+    Authentication and tenant identity are established by
+    get_current_user(). Permission evaluation is then handled
+    centrally by has_permission().
+    """
+
+    def permission_dependency(
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ):
+        allowed = has_permission(
+            db,
+            user_id=UUID(str(current_user["user_id"])),
+            role=current_user["role"],
+            permission_key=permission_key,
+        )
+
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission required: {permission_key}",
+            )
+
+        return current_user
+
+    return permission_dependency
 
 
 # Temporary compatibility alias.

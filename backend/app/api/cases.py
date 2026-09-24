@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 
-from app.dependencies.auth import get_current_user
+from app.dependencies.roles import require_permission
 
 from app.models.funeral_case import FuneralCase
 
@@ -213,7 +213,7 @@ def get_case_coverage_date(
 )
 def list_cases(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("cases.view")),
 ):
     cases = (
         db.query(FuneralCase)
@@ -239,7 +239,7 @@ def list_cases(
 def create_case(
     data: FuneralCaseCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("cases.create")),
 ):
     business_id = current_user["business_id"]
 
@@ -310,7 +310,7 @@ def create_case(
 def get_case_summary(
     case_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("cases.view")),
 ):
     business_id = current_user["business_id"]
 
@@ -504,7 +504,7 @@ def get_case_summary(
 def get_case(
     case_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("cases.view")),
 ):
     case = (
         db.query(FuneralCase)
@@ -536,7 +536,7 @@ def update_case(
     case_id: UUID,
     data: FuneralCaseUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("cases.edit")),
 ):
     business_id = current_user["business_id"]
 
@@ -649,7 +649,7 @@ def update_case(
 def delete_case(
     case_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("cases.delete")),
 ):
     business_id = current_user["business_id"]
 
