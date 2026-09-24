@@ -510,7 +510,7 @@ def test_manager_cannot_manually_reinstate_membership(
     )
 
     assert response.status_code == 403
-    assert "Main Admin" in response.json()["detail"]
+    assert response.json()["detail"] == "Permission required: memberships.manage"
 
 
 def test_staff_cannot_manually_reinstate_membership(
@@ -534,7 +534,7 @@ def test_staff_cannot_manually_reinstate_membership(
     )
 
     assert response.status_code == 403
-    assert "Main Admin" in response.json()["detail"]
+    assert response.json()["detail"] == "Permission required: memberships.manage"
 
 
 def test_wrong_business_cannot_reinstate_membership(
