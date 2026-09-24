@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.roles import require_permission
 from app.models.case_document import CaseDocument
 from app.models.funeral_case import FuneralCase
 from app.schemas.case_document import (
@@ -101,7 +101,7 @@ def upload_document(
     document_type: str = Form(...),
     description: str | None = Form(None),
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("documents.manage")),
     db: Session = Depends(get_db),
 ):
     business_id = get_user_business_id(current_user)
@@ -258,7 +258,7 @@ def upload_document(
 )
 def list_documents(
     case_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("documents.view")),
     db: Session = Depends(get_db),
 ):
     business_id = get_user_business_id(current_user)
@@ -302,7 +302,7 @@ def list_documents(
 )
 def get_document(
     document_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("documents.view")),
     db: Session = Depends(get_db),
 ):
     business_id = get_user_business_id(current_user)
@@ -335,7 +335,7 @@ def get_document(
 )
 def download_document(
     document_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("documents.view")),
     db: Session = Depends(get_db),
 ):
     business_id = get_user_business_id(current_user)
@@ -394,7 +394,7 @@ def download_document(
 def update_document(
     document_id: UUID,
     payload: CaseDocumentUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("documents.manage")),
     db: Session = Depends(get_db),
 ):
     business_id = get_user_business_id(current_user)
@@ -438,7 +438,7 @@ def update_document(
 )
 def delete_document(
     document_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("documents.manage")),
     db: Session = Depends(get_db),
 ):
     business_id = get_user_business_id(current_user)
