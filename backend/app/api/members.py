@@ -5,10 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.roles import (
-    require_business_user,
-    require_main_admin,
-)
+from app.dependencies.roles import require_permission
 from app.models.member import Member
 from app.schemas.member import (
     MemberCreate,
@@ -48,7 +45,7 @@ def get_business_id(current_user: dict) -> UUID:
 def create_member(
     member_data: MemberCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("members.create")),
 ):
     business_id = get_business_id(current_user)
 
@@ -94,7 +91,7 @@ def create_member(
 )
 def list_members(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_business_user),
+    current_user: dict = Depends(require_permission("members.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -113,7 +110,7 @@ def list_members(
 def get_member(
     member_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_business_user),
+    current_user: dict = Depends(require_permission("members.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -143,7 +140,7 @@ def update_member(
     member_id: UUID,
     member_data: MemberUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("members.edit")),
 ):
     business_id = get_business_id(current_user)
 
@@ -205,7 +202,7 @@ def update_member(
 def delete_member(
     member_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_main_admin),
+    current_user: dict = Depends(require_permission("members.delete")),
 ):
     business_id = get_business_id(current_user)
 
