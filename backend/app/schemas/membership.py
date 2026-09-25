@@ -50,22 +50,27 @@ class MembershipCreate(BaseModel):
 
 
 class MembershipUpdate(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+
     membership_number: str | None = Field(
         default=None,
         min_length=1,
         max_length=50,
     )
+
     plan_id: UUID | None = None
+
     start_date: date | None = None
-    status: str | None = None
+
     next_due_date: date | None = None
-    arrears_since: date | None = None
-    lapsed_at: date | None = None
-    cancelled_at: date | None = None
 
     @field_validator("membership_number")
+
     @classmethod
+
     def validate_membership_number(cls, value: str | None) -> str | None:
+
         if value is None:
             return None
 
@@ -73,22 +78,6 @@ class MembershipUpdate(BaseModel):
 
         if not value:
             raise ValueError("Membership number cannot be empty")
-
-        return value
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-
-        value = value.lower().strip()
-
-        if value not in MEMBERSHIP_STATUSES:
-            raise ValueError(
-                "Membership status must be one of: "
-                "active, arrears, lapsed, cancelled"
-            )
 
         return value
 

@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
+from app.models.audit_log import AuditLog
 from app.models.member import Member
 from app.models.membership import Membership
 from app.models.membership_contribution import MembershipContribution
@@ -363,6 +364,76 @@ def test_staff_with_memberships_edit_can_update_membership(
     assert response.json()["next_due_date"] == "2026-11-01"
 
 
+def test_membership_patch_cannot_change_lifecycle_status(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+        status="active",
+    )
+    db.commit()
+
+    grant_permission(
+        db,
+        "staff",
+        "memberships.edit",
+    )
+    db.commit()
+
+    response = client.patch(
+        f"/memberships/{membership.id}",
+        headers=auth_headers(test_data["staff"]),
+        json={
+            "status": "cancelled",
+        },
+    )
+
+    assert response.status_code == 422
+    assert any(
+        error["loc"][-1] == "status"
+        for error in response.json()["detail"]
+    )
+
+
+def test_membership_patch_cannot_change_lifecycle_timestamps(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+        status="active",
+    )
+    db.commit()
+
+    grant_permission(
+        db,
+        "staff",
+        "memberships.edit",
+    )
+    db.commit()
+
+    response = client.patch(
+        f"/memberships/{membership.id}",
+        headers=auth_headers(test_data["staff"]),
+        json={
+            "lapsed_at": "2026-09-01",
+        },
+    )
+
+    assert response.status_code == 422
+    assert any(
+        error["loc"][-1] == "lapsed_at"
+        for error in response.json()["detail"]
+    )
+
+
 def test_staff_without_memberships_edit_cannot_update_membership(
     client,
     db,
@@ -391,6 +462,195 @@ def test_staff_without_memberships_edit_cannot_update_membership(
     )
 
     assert response.status_code == 403
+
+
+def test_main_admin_can_cancel_active_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+        status="active",
+    )
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/cancel",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert data["status"] == "cancelled"
+    assert data["cancelled_at"] is not None
+    assert data["arrears_since"] is None
+    assert data["lapsed_at"] is None
+
+
+def test_manager_can_cancel_active_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+        status="active",
+    )
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/cancel",
+        headers=auth_headers(test_data["manager"]),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "cancelled"
+
+
+def test_staff_without_memberships_manage_cannot_cancel_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+        status="active",
+    )
+    db.commit()
+
+    revoke_permission(
+        db,
+        "staff",
+        "memberships.manage",
+    )
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/cancel",
+        headers=auth_headers(test_data["staff"]),
+    )
+
+    assert response.status_code == 403
+
+
+def test_wrong_business_cannot_cancel_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+        status="active",
+    )
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/cancel",
+        headers=auth_headers(test_data["other_business_manager"]),
+    )
+
+    assert response.status_code == 404
+
+
+def test_already_cancelled_membership_cannot_be_cancelled_again(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+        status="cancelled",
+    )
+    membership.cancelled_at = date(2026, 9, 1)
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/cancel",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Membership is already cancelled"
+
+
+def test_cancellation_creates_membership_audit_log(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+        status="active",
+    )
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/cancel",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 200, response.text
+
+    audit_log = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.business_id == test_data["business_a"].id,
+            AuditLog.user_id == test_data["main_admin"].id,
+            AuditLog.action == "membership.cancelled",
+            AuditLog.entity_type == "membership",
+            AuditLog.entity_id == membership.id,
+        )
+        .one()
+    )
+
+    assert audit_log.details == {
+        "previous_status": "active",
+        "new_status": "cancelled",
+    }
+    assert audit_log.notes == "Membership cancelled."
+
+
+def test_lapsed_membership_can_be_cancelled(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+        status="lapsed",
+    )
+    membership.lapsed_at = date(2026, 9, 1)
+    membership.arrears_since = date(2026, 8, 1)
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/cancel",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert data["status"] == "cancelled"
+    assert data["cancelled_at"] is not None
+    assert data["lapsed_at"] is None
+    assert data["arrears_since"] is None
 
 
 def test_staff_with_memberships_manage_can_reinstate_membership(

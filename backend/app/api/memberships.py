@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -348,24 +349,75 @@ def update_membership(
             )
 
     # --------------------------------------------------------
-    # Cancellation timestamp
-    # --------------------------------------------------------
-
-    if (
-        "status" in updates
-        and updates["status"] == "cancelled"
-        and membership.cancelled_at is None
-    ):
-        from datetime import date
-
-        updates["cancelled_at"] = date.today()
-
-    # --------------------------------------------------------
     # Apply updates
     # --------------------------------------------------------
 
     for field, value in updates.items():
         setattr(membership, field, value)
+
+    db.commit()
+    db.refresh(membership)
+
+    return membership
+
+
+# ============================================================
+# CANCEL MEMBERSHIP
+# POST /memberships/{membership_id}/cancel
+# ============================================================
+
+@router.post(
+    "/{membership_id}/cancel",
+    response_model=MembershipResponse,
+)
+def cancel_membership(
+    membership_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("memberships.manage")),
+):
+    business_id = get_business_id(current_user)
+
+    membership = (
+        db.query(Membership)
+        .filter(
+            Membership.id == membership_id,
+            Membership.business_id == business_id,
+        )
+        .first()
+    )
+
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membership not found",
+        )
+
+    if membership.status == "cancelled":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Membership is already cancelled",
+        )
+
+    previous_status = membership.status
+
+    membership.status = "cancelled"
+    membership.cancelled_at = date.today()
+    membership.arrears_since = None
+    membership.lapsed_at = None
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=current_user["user_id"],
+        action="membership.cancelled",
+        entity_type="membership",
+        entity_id=membership.id,
+        details={
+            "previous_status": previous_status,
+            "new_status": membership.status,
+        },
+        notes="Membership cancelled.",
+    )
 
     db.commit()
     db.refresh(membership)
