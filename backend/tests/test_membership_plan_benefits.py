@@ -268,7 +268,7 @@ def test_main_admin_can_update_benefit(
     assert Decimal(data["monetary_limit"]) == Decimal("20000.00")
 
 
-def test_manager_cannot_create_update_or_delete_benefit(
+def test_manager_can_create_update_or_delete_benefit(
     client,
     db,
     test_data,
@@ -282,32 +282,47 @@ def test_manager_cannot_create_update_or_delete_benefit(
         auth_headers(test_data["manager"]),
     )
 
-    assert create_as_manager.status_code == 403
+    assert create_as_manager.status_code == 201, create_as_manager.text
 
-    create_response = create_benefit(
-        client,
-        plan,
-        auth_headers(test_data["main_admin"]),
-    )
+    created_data = create_as_manager.json()
+    created_benefit_id = created_data["id"]
 
-    assert create_response.status_code == 201
-
-    benefit_id = create_response.json()["id"]
+    assert created_data["plan_id"] == str(plan.id)
+    assert created_data["name"] == "Funeral Cover"
 
     update_response = client.patch(
-        f"/membership-plan-benefits/{benefit_id}",
+        f"/membership-plan-benefits/{created_benefit_id}",
         headers=auth_headers(test_data["manager"]),
-        json={"name": "Not Allowed"},
+        json={
+            "name": "Enhanced Funeral Cover",
+            "monetary_limit": "20000.00",
+        },
     )
 
-    assert update_response.status_code == 403
+    assert update_response.status_code == 200, update_response.text
+
+    updated_data = update_response.json()
+
+    assert updated_data["name"] == "Enhanced Funeral Cover"
+    assert Decimal(updated_data["monetary_limit"]) == Decimal("20000.00")
 
     delete_response = client.delete(
-        f"/membership-plan-benefits/{benefit_id}",
+        f"/membership-plan-benefits/{created_benefit_id}",
         headers=auth_headers(test_data["manager"]),
     )
 
-    assert delete_response.status_code == 403
+    assert delete_response.status_code == 204, delete_response.text
+
+    deleted = (
+        db.query(MembershipPlanBenefit)
+        .filter(
+            MembershipPlanBenefit.id == uuid.UUID(created_benefit_id)
+        )
+        .first()
+    )
+
+    assert deleted is None
+
 
 
 def test_cross_tenant_plan_cannot_be_used(
@@ -374,14 +389,14 @@ def test_other_business_cannot_access_benefit(
         json={"name": "Cross Tenant"},
     )
 
-    assert update_response.status_code == 403
+    assert update_response.status_code == 404
 
     delete_response = client.delete(
         f"/membership-plan-benefits/{benefit_id}",
         headers=other_manager,
     )
 
-    assert delete_response.status_code == 403
+    assert delete_response.status_code == 404
 
 
 def test_main_admin_can_delete_benefit(

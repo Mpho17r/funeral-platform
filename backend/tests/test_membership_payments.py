@@ -222,7 +222,7 @@ def test_main_admin_can_update_membership_payment_and_audit_records_changes(
     )
 
 
-def test_manager_cannot_create_membership_payment(
+def test_manager_can_create_membership_payment(
     client,
     db,
     test_data,
@@ -248,10 +248,17 @@ def test_manager_cannot_create_membership_payment(
         },
     )
 
-    assert response.status_code == 403, response.text
+    assert response.status_code == 201, response.text
+
+    data = response.json()
+
+    assert data["membership_id"] == str(membership.id)
+    assert data["contribution_id"] == str(contribution.id)
+    assert Decimal(data["amount"]) == Decimal("500.00")
 
 
-def test_manager_cannot_update_membership_payment(
+
+def test_manager_can_update_membership_payment(
     client,
     db,
     test_data,
@@ -287,7 +294,12 @@ def test_manager_cannot_update_membership_payment(
         },
     )
 
-    assert response.status_code == 403, response.text
+    assert response.status_code == 200, response.text
+
+    data = response.json()
+
+    assert Decimal(data["amount"]) == Decimal("400.00")
+
 
 
 def test_payment_updates_contribution_amount_paid(
@@ -411,7 +423,7 @@ def test_main_admin_can_delete_membership_payment_and_recalculate_contribution(
     )
 
 
-def test_manager_cannot_delete_membership_payment(
+def test_manager_can_delete_membership_payment(
     client,
     db,
     test_data,
@@ -436,23 +448,24 @@ def test_manager_cannot_delete_membership_payment(
     db.commit()
     db.refresh(payment)
 
+    payment_id = payment.id
+
     headers = auth_headers(test_data["manager"])
 
     response = client.delete(
-        f"/membership-payments/{payment.id}",
+        f"/membership-payments/{payment_id}",
         headers=headers,
     )
 
-    assert response.status_code == 403, response.text
+    assert response.status_code == 204, response.text
 
     existing_payment = (
         db.query(MembershipPayment)
-        .filter(MembershipPayment.id == payment.id)
-        .one()
+        .filter(MembershipPayment.id == payment_id)
+        .first()
     )
 
-    assert existing_payment.id == payment.id
-
+    assert existing_payment is None
 
 def test_delete_nonexistent_membership_payment_returns_404(
     client,

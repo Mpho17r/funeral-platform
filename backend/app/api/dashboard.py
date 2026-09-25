@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.roles import require_permission
 
 from app.models.funeral_case import FuneralCase
 from app.models.case_financial import CaseFinancial
@@ -40,7 +40,7 @@ router = APIRouter(
 )
 def get_dashboard_summary(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("dashboard.view")),
 ):
     business_id = current_user["business_id"]
 

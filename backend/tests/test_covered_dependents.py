@@ -256,7 +256,7 @@ def test_main_admin_can_delete_and_audit_covered_dependent(
     assert audit.details["first_name"] == "Lerato"
 
 
-def test_manager_cannot_create_update_or_delete_covered_dependent(
+def test_manager_can_create_update_or_delete_covered_dependent(
     client,
     db,
     test_data,
@@ -289,7 +289,11 @@ def test_manager_cannot_create_update_or_delete_covered_dependent(
         headers=auth_headers(manager),
     )
 
-    assert create_as_manager.status_code == 403
+    assert create_as_manager.status_code == 201, create_as_manager.text
+
+    created_data = create_as_manager.json()
+    assert created_data["first_name"] == "Jane"
+    assert created_data["membership_id"] == str(membership.id)
 
     update_as_manager = client.patch(
         f"/covered-dependents/{dependent_id}",
@@ -297,14 +301,24 @@ def test_manager_cannot_create_update_or_delete_covered_dependent(
         headers=auth_headers(manager),
     )
 
-    assert update_as_manager.status_code == 403
+    assert update_as_manager.status_code == 200, update_as_manager.text
+    assert update_as_manager.json()["status"] == "removed"
 
     delete_as_manager = client.delete(
-        f"/covered-dependents/{dependent_id}",
+        f"/covered-dependents/{created_data["id"]}",
         headers=auth_headers(manager),
     )
 
-    assert delete_as_manager.status_code == 403
+    assert delete_as_manager.status_code == 204, delete_as_manager.text
+
+    deleted = (
+        db.query(CoveredDependent)
+        .filter(CoveredDependent.id == uuid.UUID(created_data["id"]))
+        .first()
+    )
+
+    assert deleted is None
+
 
 
 def test_duplicate_covered_dependent_returns_409(
@@ -450,11 +464,11 @@ def test_other_business_cannot_access_dependent(
         headers=auth_headers(manager_b),
     )
 
-    assert update_response.status_code == 403
+    assert update_response.status_code == 404
 
     delete_response = client.delete(
         f"/covered-dependents/{dependent_id}",
         headers=auth_headers(manager_b),
     )
 
-    assert delete_response.status_code == 403
+    assert delete_response.status_code == 404

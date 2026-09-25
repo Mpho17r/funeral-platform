@@ -486,10 +486,10 @@ def test_main_admin_can_manually_reinstate_paid_lapsed_membership(
         "previous_status": "lapsed",
         "new_status": "active",
     }
-    assert audit_log.notes == "Membership manually reinstated by Main Admin."
+    assert audit_log.notes == "Membership manually reinstated."
 
 
-def test_manager_cannot_manually_reinstate_membership(
+def test_manager_can_manually_reinstate_paid_lapsed_membership(
     client,
     db,
     test_data,
@@ -509,8 +509,31 @@ def test_manager_cannot_manually_reinstate_membership(
         headers=auth_headers(test_data["manager"]),
     )
 
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Permission required: memberships.manage"
+    assert response.status_code == 200, response.text
+
+    data = response.json()
+
+    assert data["status"] == "active"
+    assert data["lapsed_at"] is None
+    assert data["arrears_since"] is None
+
+    audit_log = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.business_id == business.id,
+            AuditLog.user_id == test_data["manager"].id,
+            AuditLog.action == "membership.reinstated",
+            AuditLog.entity_type == "membership",
+            AuditLog.entity_id == membership.id,
+        )
+        .one()
+    )
+
+    assert audit_log.details == {
+        "previous_status": "lapsed",
+        "new_status": "active",
+    }
+
 
 
 def test_staff_cannot_manually_reinstate_membership(
@@ -559,7 +582,7 @@ def test_wrong_business_cannot_reinstate_membership(
         headers=auth_headers(test_data["other_business_manager"]),
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 404
 
 
 def test_active_membership_cannot_be_reinstated(

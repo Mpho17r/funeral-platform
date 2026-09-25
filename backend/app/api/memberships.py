@@ -467,7 +467,7 @@ def reinstate_membership(
             "previous_status": previous_status,
             "new_status": membership.status,
         },
-        notes="Membership manually reinstated by Main Admin.",
+        notes="Membership manually reinstated.",
     )
 
     db.commit()
