@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.auth import get_current_user
+from app.dependencies.roles import require_permission
 from app.models.case_contact import CaseContact
 from app.models.funeral_case import FuneralCase
 from app.schemas.case_contact import (
@@ -69,7 +70,7 @@ def get_case_for_business(
 def get_case_contacts(
     case_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("contacts.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -101,7 +102,7 @@ def create_case_contact(
     case_id: UUID,
     contact: CaseContactCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("contacts.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -141,7 +142,7 @@ def create_case_contact(
 def get_case_contact(
     contact_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("contacts.view")),
 ):
     business_id = get_business_id(current_user)
 
@@ -171,7 +172,7 @@ def update_case_contact(
     contact_id: UUID,
     contact_update: CaseContactUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("contacts.manage")),
 ):
     business_id = get_business_id(current_user)
 
@@ -210,7 +211,7 @@ def update_case_contact(
 def delete_case_contact(
     contact_id: UUID,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_permission("contacts.manage")),
 ):
     business_id = get_business_id(current_user)
 

@@ -49,8 +49,6 @@ DEFAULT_ROLE_PERMISSIONS = {
         "cases.edit",
         "families.view",
         "families.manage",
-        "contacts.view",
-        "contacts.manage",
         "members.view",
         "membership_plans.view",
         "memberships.view",
