@@ -178,7 +178,7 @@ def create_covered_dependent(
                 else None
             ),
         },
-        notes="Covered dependent created by Main Admin.",
+        notes="Covered dependent created.",
     )
 
     db.commit()
@@ -329,7 +329,7 @@ def update_covered_dependent(
             "membership_id": str(dependent.membership_id),
             "changes": changes,
         },
-        notes="Covered dependent updated by Main Admin.",
+        notes="Covered dependent updated.",
     )
 
     db.commit()
@@ -376,7 +376,7 @@ def delete_covered_dependent(
                 else None
             ),
         },
-        notes="Covered dependent deleted by Main Admin.",
+        notes="Covered dependent deleted.",
     )
 
     db.delete(dependent)

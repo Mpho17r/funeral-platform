@@ -243,7 +243,7 @@ def create_membership_payment(
                 else None
             ),
         },
-        notes="Membership payment created by Main Admin.",
+        notes="Membership payment created.",
     )
 
     db.commit()
@@ -472,7 +472,7 @@ def update_membership_payment(
                 for field in updates
             }
         },
-        notes="Membership payment updated by Main Admin.",
+        notes="Membership payment updated.",
     )
 
     db.commit()
@@ -555,7 +555,7 @@ def delete_membership_payment(
         entity_type="membership_payment",
         entity_id=payment_id,
         details=payment_details,
-        notes="Membership payment deleted by Main Admin.",
+        notes="Membership payment deleted.",
     )
 
     db.commit()

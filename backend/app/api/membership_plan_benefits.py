@@ -158,7 +158,7 @@ def create_benefit(
                 "is_included": benefit.is_included,
                 "is_active": benefit.is_active,
             },
-            notes="Membership plan benefit created by Main Admin.",
+            notes="Membership plan benefit created.",
         )
 
         db.commit()
@@ -307,7 +307,7 @@ def update_benefit(
             "previous": previous,
             "new": new_values,
         },
-        notes="Membership plan benefit updated by Main Admin.",
+        notes="Membership plan benefit updated.",
     )
 
     db.commit()
@@ -356,7 +356,7 @@ def delete_benefit(
         entity_type="membership_plan_benefit",
         entity_id=benefit.id,
         details=previous,
-        notes="Membership plan benefit deleted by Main Admin.",
+        notes="Membership plan benefit deleted.",
     )
 
     db.delete(benefit)

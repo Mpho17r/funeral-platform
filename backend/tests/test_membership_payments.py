@@ -126,7 +126,7 @@ def test_main_admin_can_create_membership_payment_and_audit_is_created(
     }
 
     assert audit_log.notes == (
-        "Membership payment created by Main Admin."
+        "Membership payment created."
     )
 
 
@@ -218,7 +218,7 @@ def test_main_admin_can_update_membership_payment_and_audit_records_changes(
     }
 
     assert audit_log.notes == (
-        "Membership payment updated by Main Admin."
+        "Membership payment updated."
     )
 
 
@@ -419,7 +419,7 @@ def test_main_admin_can_delete_membership_payment_and_recalculate_contribution(
     }
 
     assert audit_log.notes == (
-        "Membership payment deleted by Main Admin."
+        "Membership payment deleted."
     )
 
 

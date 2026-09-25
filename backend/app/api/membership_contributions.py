@@ -194,7 +194,7 @@ def create_membership_contribution(
             "due_date": contribution.due_date.isoformat(),
             "status": contribution.status,
         },
-        notes="Membership contribution created by Main Admin.",
+        notes="Membership contribution created.",
     )
 
     db.commit()
@@ -393,7 +393,7 @@ def update_membership_contribution(
                 for field in new_values
             }
         },
-        notes="Membership contribution updated by Main Admin.",
+        notes="Membership contribution updated.",
     )
 
     db.commit()
