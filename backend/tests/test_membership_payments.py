@@ -222,6 +222,107 @@ def test_main_admin_can_update_membership_payment_and_audit_records_changes(
     )
 
 
+def test_updating_payment_cannot_overpay_contribution(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("300.00"),
+        payment_method="cash",
+        reference="PAY-UPDATE-OVERPAY-001",
+        payment_date=date(2026, 9, 15),
+        notes="Initial payment",
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+
+    headers = auth_headers(test_data["main_admin"])
+
+    response = client.patch(
+        f"/membership-payments/{payment.id}",
+        headers=headers,
+        json={
+            "amount": "600.00",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Updated payment would exceed the contribution amount due."
+    )
+
+    db.refresh(payment)
+    db.refresh(contribution)
+
+    assert payment.amount == Decimal("300.00")
+    assert contribution.amount_paid == Decimal("0.00")
+
+
+def test_updating_payment_cannot_use_duplicate_reference(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    first_payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("200.00"),
+        payment_method="cash",
+        reference="PAY-REFERENCE-001",
+        payment_date=date(2026, 9, 15),
+    )
+
+    second_payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("100.00"),
+        payment_method="cash",
+        reference="PAY-REFERENCE-002",
+        payment_date=date(2026, 9, 15),
+    )
+
+    db.add_all([first_payment, second_payment])
+    db.commit()
+    db.refresh(second_payment)
+
+    headers = auth_headers(test_data["main_admin"])
+
+    response = client.patch(
+        f"/membership-payments/{second_payment.id}",
+        headers=headers,
+        json={
+            "reference": "PAY-REFERENCE-001",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "A payment with this reference already exists."
+    )
+
+    db.refresh(second_payment)
+    assert second_payment.reference == "PAY-REFERENCE-002"
+
+
 def test_manager_can_create_membership_payment(
     client,
     db,
@@ -364,7 +465,7 @@ def test_main_admin_can_delete_membership_payment_and_recalculate_contribution(
         business_id=test_data["business_a"].id,
         membership_id=membership.id,
         contribution_id=contribution.id,
-        amount=Decimal("300.00"),
+        amount=Decimal("500.00"),
         payment_method="cash",
         reference="PAY-DELETE-001",
         payment_date=date(2026, 9, 15),
@@ -396,6 +497,7 @@ def test_main_admin_can_delete_membership_payment_and_recalculate_contribution(
 
     assert contribution.amount_paid == Decimal("0.00")
     assert contribution.status == "due"
+    assert contribution.paid_at is None
 
     audit_log = (
         db.query(AuditLog)
@@ -410,7 +512,7 @@ def test_main_admin_can_delete_membership_payment_and_recalculate_contribution(
     )
 
     assert audit_log.details == {
-        "amount": "300.00",
+        "amount": "500.00",
         "payment_method": "cash",
         "reference": "PAY-DELETE-001",
         "payment_date": "2026-09-15",

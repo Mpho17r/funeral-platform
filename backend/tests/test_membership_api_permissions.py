@@ -7,6 +7,7 @@ from app.models.member import Member
 from app.models.membership import Membership
 from app.models.membership_contribution import MembershipContribution
 from app.models.membership_plan import MembershipPlan
+from app.models.membership_payment import MembershipPayment
 from app.models.permission import Permission
 from app.models.role_permission import RolePermission
 from app.models.user_permission import UserPermission
@@ -651,6 +652,70 @@ def test_lapsed_membership_can_be_cancelled(
     assert data["cancelled_at"] is not None
     assert data["lapsed_at"] is None
     assert data["arrears_since"] is None
+
+
+def test_cancelling_membership_does_not_modify_contributions_or_payments(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+        status="active",
+    )
+
+    contribution = MembershipContribution(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_period=date(2026, 10, 1),
+        amount_due=Decimal("500.00"),
+        amount_paid=Decimal("300.00"),
+        due_date=date(2026, 10, 1),
+        status="partially_paid",
+        paid_at=None,
+    )
+    db.add(contribution)
+    db.flush()
+
+    payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("300.00"),
+        payment_method="eft",
+        reference="CANCEL-FINANCIAL-001",
+        payment_date=date(2026, 9, 15),
+        notes="Payment before cancellation",
+    )
+    db.add(payment)
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/cancel",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "cancelled"
+
+    db.refresh(membership)
+    db.refresh(contribution)
+    db.refresh(payment)
+
+    assert membership.status == "cancelled"
+    assert membership.cancelled_at is not None
+
+    assert contribution.amount_due == Decimal("500.00")
+    assert contribution.amount_paid == Decimal("300.00")
+    assert contribution.status == "partially_paid"
+    assert contribution.paid_at is None
+
+    assert payment.amount == Decimal("300.00")
+    assert payment.payment_method == "eft"
+    assert payment.reference == "CANCEL-FINANCIAL-001"
+    assert payment.contribution_id == contribution.id
 
 
 def test_staff_with_memberships_manage_can_reinstate_membership(

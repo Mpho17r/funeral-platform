@@ -270,14 +270,12 @@ def update_membership_contribution(
     current_user=Depends(require_permission("contributions.edit")),
 ):
     business_id = get_business_id(current_user)
-
     contribution = db.scalar(
         select(MembershipContribution).where(
             MembershipContribution.id == contribution_id,
             MembershipContribution.business_id == business_id,
         )
     )
-
     if not contribution:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -285,7 +283,6 @@ def update_membership_contribution(
         )
 
     updates = payload.model_dump(exclude_unset=True)
-
     if not updates:
         return contribution
 
@@ -297,10 +294,10 @@ def update_membership_contribution(
         )
         for field in updates
     }
+    previous_status = contribution.status
 
     if "amount_due" in updates:
         new_amount_due = updates["amount_due"]
-
         if contribution.amount_paid > new_amount_due:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -310,43 +307,15 @@ def update_membership_contribution(
                 ),
             )
 
-    if "status" in updates:
-        new_status = updates["status"]
-
-        if new_status == "paid":
-            if contribution.amount_paid < contribution.amount_due:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=(
-                        "A contribution cannot be marked paid "
-                        "before the full amount is paid."
-                    ),
-                )
-
-        elif new_status == "partially_paid":
-            if contribution.amount_paid <= 0:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=(
-                        "A contribution cannot be marked partially paid "
-                        "when no payment has been recorded."
-                    ),
-                )
-
     for field, value in updates.items():
-        setattr(
-            contribution,
-            field,
-            value,
-        )
+        setattr(contribution, field, value)
 
-    # Status and payment totals are authoritative and must always
-    # be recalculated after contribution details change.
+    # Payment totals and contribution status are derived from
+    # the payment ledger and due date.
     recalculate_contribution(
         db,
         contribution,
     )
-
     db.flush()
 
     new_values = {
@@ -358,18 +327,19 @@ def update_membership_contribution(
         for field in updates
     }
 
-    # Also capture the recalculated status if status was not part
-    # of the original request but changed because of the update.
-    if "status" not in updates:
-        previous_status = previous_values.get(
-            "status",
-            None,
-        )
+    changes = {
+        field: {
+            "before": previous_values[field],
+            "after": new_values[field],
+        }
+        for field in updates
+    }
 
-        if previous_status is None:
-            previous_status = None
-
-        new_values["status"] = contribution.status
+    if contribution.status != previous_status:
+        changes["status"] = {
+            "before": previous_status,
+            "after": contribution.status,
+        }
 
     create_audit_log(
         db,
@@ -378,25 +348,10 @@ def update_membership_contribution(
         action="membership.contribution_updated",
         entity_type="membership_contribution",
         entity_id=contribution.id,
-        details={
-            "changes": {
-                field: {
-                    "before": previous_values.get(
-                        field,
-                        None,
-                    ),
-                    "after": new_values.get(
-                        field,
-                        None,
-                    ),
-                }
-                for field in new_values
-            }
-        },
+        details={"changes": changes},
         notes="Membership contribution updated.",
     )
 
     db.commit()
     db.refresh(contribution)
-
     return contribution

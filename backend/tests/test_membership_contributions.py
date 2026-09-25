@@ -359,7 +359,7 @@ def test_amount_due_cannot_be_lower_than_amount_paid(
     assert response.status_code == 400
 
 
-def test_cannot_mark_paid_before_full_amount(
+def test_contribution_status_cannot_be_manually_changed(
     client,
     db,
     test_data,
@@ -378,19 +378,15 @@ def test_cannot_mark_paid_before_full_amount(
     )
 
     assert create_response.status_code == 201
-
     contribution_id = create_response.json()["id"]
 
     response = client.patch(
         f"/membership-contributions/{contribution_id}",
         headers=headers,
-        json={
-            "status": "paid",
-        },
+        json={"status": "paid"},
     )
 
-    assert response.status_code == 400
-
+    assert response.status_code == 422
 
 def test_non_main_admin_cannot_create_contribution(
     client,
@@ -446,7 +442,7 @@ def test_business_user_cannot_access_another_business_contribution(
     assert response.status_code == 404
 
 
-def test_contribution_cannot_be_marked_partially_paid_without_payment(
+def test_contribution_status_cannot_be_manually_changed_to_partially_paid(
     client,
     db,
     test_data,
@@ -464,24 +460,15 @@ def test_contribution_cannot_be_marked_partially_paid_without_payment(
     )
 
     assert create_response.status_code == 201
-
     contribution_id = create_response.json()["id"]
 
     update_response = client.patch(
         f"/membership-contributions/{contribution_id}",
         headers=headers,
-        json={
-            "status": "partially_paid",
-        },
+        json={"status": "partially_paid"},
     )
 
-    assert update_response.status_code == 400
-    assert (
-        update_response.json()["detail"]
-        == "A contribution cannot be marked partially paid "
-        "when no payment has been recorded."
-    )
-
+    assert update_response.status_code == 422
 
 def test_paid_contribution_cannot_become_underpaid_when_amount_due_increases(
     client,
