@@ -40,17 +40,15 @@ class MembershipCreate(BaseModel):
     def validate_status(cls, value: str) -> str:
         value = value.lower().strip()
 
-        if value not in MEMBERSHIP_STATUSES:
+        if value != "active":
             raise ValueError(
-                "Membership status must be one of: "
-                "active, arrears, lapsed, cancelled"
+                "New memberships must start with active status"
             )
 
         return value
 
 
 class MembershipUpdate(BaseModel):
-
     model_config = ConfigDict(extra="forbid")
 
     membership_number: str | None = Field(
@@ -58,19 +56,16 @@ class MembershipUpdate(BaseModel):
         min_length=1,
         max_length=50,
     )
-
     plan_id: UUID | None = None
-
     start_date: date | None = None
-
     next_due_date: date | None = None
 
     @field_validator("membership_number")
-
     @classmethod
-
-    def validate_membership_number(cls, value: str | None) -> str | None:
-
+    def validate_membership_number(
+        cls,
+        value: str | None,
+    ) -> str | None:
         if value is None:
             return None
 

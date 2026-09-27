@@ -284,6 +284,147 @@ def test_staff_with_memberships_create_can_create_membership(
     assert response.json()["plan_id"] == str(plan.id)
 
 
+
+def test_membership_create_rejects_arrears_status(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+
+    member = Member(
+        business_id=business.id,
+        member_number=f"CREATE-ARREARS-M-{uuid4().hex[:8]}",
+        first_name="Create",
+        last_name="Arrears",
+        join_date=date(2026, 1, 1),
+        status="active",
+    )
+
+    plan = MembershipPlan(
+        business_id=business.id,
+        name=f"Create Arrears Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("200.00"),
+        is_active=True,
+    )
+
+    db.add_all([member, plan])
+    db.commit()
+
+    response = client.post(
+        "/memberships",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "member_id": str(member.id),
+            "plan_id": str(plan.id),
+            "membership_number": f"MEM-ARREARS-{uuid4().hex[:8]}",
+            "start_date": "2026-09-01",
+            "status": "arrears",
+            "next_due_date": "2026-10-01",
+        },
+    )
+
+    assert response.status_code == 422
+    assert any(
+        error["loc"][-1] == "status"
+        for error in response.json()["detail"]
+    )
+
+
+def test_membership_create_rejects_lapsed_status(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+
+    member = Member(
+        business_id=business.id,
+        member_number=f"CREATE-LAPSED-M-{uuid4().hex[:8]}",
+        first_name="Create",
+        last_name="Lapsed",
+        join_date=date(2026, 1, 1),
+        status="active",
+    )
+
+    plan = MembershipPlan(
+        business_id=business.id,
+        name=f"Create Lapsed Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("200.00"),
+        is_active=True,
+    )
+
+    db.add_all([member, plan])
+    db.commit()
+
+    response = client.post(
+        "/memberships",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "member_id": str(member.id),
+            "plan_id": str(plan.id),
+            "membership_number": f"MEM-LAPSED-{uuid4().hex[:8]}",
+            "start_date": "2026-09-01",
+            "status": "lapsed",
+            "next_due_date": "2026-10-01",
+        },
+    )
+
+    assert response.status_code == 422
+    assert any(
+        error["loc"][-1] == "status"
+        for error in response.json()["detail"]
+    )
+
+
+def test_membership_create_rejects_cancelled_status(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+
+    member = Member(
+        business_id=business.id,
+        member_number=f"CREATE-CANCELLED-M-{uuid4().hex[:8]}",
+        first_name="Create",
+        last_name="Cancelled",
+        join_date=date(2026, 1, 1),
+        status="active",
+    )
+
+    plan = MembershipPlan(
+        business_id=business.id,
+        name=f"Create Cancelled Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("200.00"),
+        is_active=True,
+    )
+
+    db.add_all([member, plan])
+    db.commit()
+
+    response = client.post(
+        "/memberships",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "member_id": str(member.id),
+            "plan_id": str(plan.id),
+            "membership_number": f"MEM-CANCELLED-{uuid4().hex[:8]}",
+            "start_date": "2026-09-01",
+            "status": "cancelled",
+            "next_due_date": "2026-10-01",
+        },
+    )
+
+    assert response.status_code == 422
+    assert any(
+        error["loc"][-1] == "status"
+        for error in response.json()["detail"]
+    )
+
 def test_staff_without_memberships_create_cannot_create_membership(
     client,
     db,

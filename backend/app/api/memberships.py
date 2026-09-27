@@ -186,7 +186,7 @@ def create_membership(
         plan_id=membership_data.plan_id,
         membership_number=membership_data.membership_number.strip(),
         start_date=membership_data.start_date,
-        status=membership_data.status,
+        status="active",
         next_due_date=next_due_date,
     )
 
