@@ -3,6 +3,16 @@ from decimal import Decimal
 from threading import Barrier, Thread
 from uuid import uuid4
 
+from fastapi import HTTPException
+from app.api.membership_payments import (
+    create_membership_payment,
+    update_membership_payment,
+)
+from app.schemas.membership_payment import (
+    MembershipPaymentCreate,
+    MembershipPaymentUpdate,
+)
+
 from sqlalchemy import func, select
 
 from tests.conftest import TestingSessionLocal
@@ -326,6 +336,121 @@ def test_updating_payment_cannot_use_duplicate_reference(
 
     db.refresh(second_payment)
     assert second_payment.reference == "PAY-REFERENCE-002"
+
+
+def test_concurrent_membership_payment_updates_with_duplicate_reference_return_conflict(
+    db,
+    test_data,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    first_payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("100.00"),
+        payment_method="cash",
+        reference="UPDATE-RACE-001",
+        payment_date=date(2026, 9, 15),
+    )
+
+    second_payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("100.00"),
+        payment_method="cash",
+        reference="UPDATE-RACE-002",
+        payment_date=date(2026, 9, 15),
+    )
+
+    db.add_all([first_payment, second_payment])
+    db.commit()
+    db.refresh(first_payment)
+    db.refresh(second_payment)
+
+    payment_ids = [
+        first_payment.id,
+        second_payment.id,
+    ]
+
+    barrier = Barrier(2)
+    results = []
+    errors = []
+
+    def worker(payment_id):
+        session = TestingSessionLocal()
+
+        try:
+            barrier.wait()
+
+            update_membership_payment(
+                db=session,
+                payment_id=payment_id,
+                payload=MembershipPaymentUpdate(
+                    reference="UPDATE-RACE-SHARED",
+                ),
+                current_user={
+                    "user_id": str(test_data["main_admin"].id),
+                    "business_id": str(test_data["business_a"].id),
+                    "role": "main_admin",
+                },
+            )
+
+            session.commit()
+            results.append(payment_id)
+
+        except Exception as exc:
+            session.rollback()
+            errors.append(exc)
+
+        finally:
+            session.close()
+
+    threads = [
+        Thread(
+            target=worker,
+            args=(payment_id,),
+        )
+        for payment_id in payment_ids
+    ]
+
+    for thread in threads:
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    assert len(results) == 1
+    assert len(errors) == 1
+
+    error = errors[0]
+
+    assert isinstance(error, HTTPException)
+    assert error.status_code == 409
+    assert error.detail == (
+        "A payment with this reference already exists."
+    )
+
+    verification_session = TestingSessionLocal()
+
+    try:
+        matching_payments = verification_session.scalars(
+            select(MembershipPayment).where(
+                MembershipPayment.business_id
+                == test_data["business_a"].id,
+                MembershipPayment.reference
+                == "UPDATE-RACE-SHARED",
+            )
+        ).all()
+
+        assert len(matching_payments) == 1
+
+    finally:
+        verification_session.close()
 
 
 def test_manager_can_create_membership_payment(
@@ -799,8 +924,6 @@ def test_concurrent_membership_payments_cannot_overpay_contribution(
     db,
     test_data,
 ):
-    from app.api.membership_payments import create_membership_payment
-    from app.schemas.membership_payment import MembershipPaymentCreate
 
     membership, contribution = create_membership_with_contribution(
         db,
@@ -969,3 +1092,67 @@ def test_concurrent_membership_payment_updates_cannot_overpay_contribution(
     )
 
     assert Decimal(str(total_paid or "0.00")) == Decimal("1000.00")
+def test_concurrent_membership_payments_with_duplicate_reference_return_conflict(
+    db,
+    test_data,
+):
+    membership, _ = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    barrier = Barrier(2)
+    results = []
+    errors = []
+
+    reference = "CONCURRENT-REFERENCE-REPRO"
+
+    def worker(worker_number):
+        session = TestingSessionLocal()
+
+        try:
+            payload = MembershipPaymentCreate(
+                membership_id=membership.id,
+                contribution_id=None,
+                amount=Decimal("100.00"),
+                payment_method="eft",
+                reference=reference,
+                payment_date=date.today(),
+                notes=f"Reference race worker {worker_number}",
+            )
+
+            barrier.wait()
+
+            result = create_membership_payment(
+                payload=payload,
+                db=session,
+                current_user={
+                    "user_id": str(test_data["main_admin"].id),
+                    "business_id": str(test_data["business_a"].id),
+                    "role": "main_admin",
+                },
+            )
+
+            results.append(result.id)
+
+        except Exception as exc:
+            session.rollback()
+            errors.append(exc)
+
+        finally:
+            session.close()
+
+    thread_a = Thread(target=worker, args=(1,))
+    thread_b = Thread(target=worker, args=(2,))
+
+    thread_a.start()
+    thread_b.start()
+
+    thread_a.join()
+    thread_b.join()
+
+    assert len(results) == 1
+    assert len(errors) == 1
+    assert isinstance(errors[0], HTTPException)
+    assert errors[0].status_code == 409
+    assert errors[0].detail == "A payment with this reference already exists."

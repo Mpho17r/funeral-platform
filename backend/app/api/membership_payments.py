@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -219,7 +220,21 @@ def create_membership_payment(
     )
 
     db.add(payment)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        constraint_name = getattr(
+            getattr(exc.orig, "diag", None),
+            "constraint_name",
+            None,
+        )
+        if constraint_name == "uq_membership_payments_business_reference":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A payment with this reference already exists.",
+            ) from exc
+        raise
 
     if contribution:
         recalculate_contribution(
@@ -446,7 +461,21 @@ def update_membership_payment(
         timezone.utc
     )
 
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        constraint_name = getattr(
+            getattr(exc.orig, "diag", None),
+            "constraint_name",
+            None,
+        )
+        if constraint_name == "uq_membership_payments_business_reference":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A payment with this reference already exists.",
+            ) from exc
+        raise
 
     if old_contribution:
         recalculate_contribution(
