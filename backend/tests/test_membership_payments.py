@@ -1,6 +1,11 @@
 from datetime import date
 from decimal import Decimal
+from threading import Barrier, Thread
 from uuid import uuid4
+
+from sqlalchemy import func, select
+
+from tests.conftest import TestingSessionLocal
 
 from app.models.audit_log import AuditLog
 from app.models.member import Member
@@ -582,3 +587,385 @@ def test_delete_nonexistent_membership_payment_returns_404(
     )
 
     assert response.status_code == 404, response.text
+
+def test_payment_completion_automatically_reinstates_lapsed_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    business = test_data["business_a"]
+    business.reinstatement_policy = "automatic"
+    business.lapse_after_days = 60
+
+    today = date.today()
+    membership.status = "lapsed"
+    membership.lapsed_at = today
+    contribution.due_date = date.fromordinal(today.toordinal() - 10)
+    contribution.status = "overdue"
+
+    db.commit()
+
+    headers = auth_headers(test_data["main_admin"])
+
+    response = client.post(
+        "/membership-payments",
+        headers=headers,
+        json={
+            "membership_id": str(membership.id),
+            "contribution_id": str(contribution.id),
+            "amount": "500.00",
+            "payment_method": "eft",
+            "reference": f"AUTO-{uuid4().hex[:8]}",
+            "payment_date": str(today),
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    db.refresh(membership)
+    db.refresh(contribution)
+
+    assert contribution.amount_paid == Decimal("500.00")
+    assert contribution.status == "paid"
+    assert membership.status == "active"
+    assert membership.lapsed_at is None
+
+
+def test_payment_completion_does_not_automatically_reinstate_manual_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    business = test_data["business_a"]
+    business.reinstatement_policy = "manual"
+    business.lapse_after_days = 60
+
+    today = date.today()
+    membership.status = "lapsed"
+    membership.lapsed_at = today
+    contribution.due_date = date.fromordinal(today.toordinal() - 10)
+    contribution.status = "overdue"
+
+    db.commit()
+
+    headers = auth_headers(test_data["main_admin"])
+
+    response = client.post(
+        "/membership-payments",
+        headers=headers,
+        json={
+            "membership_id": str(membership.id),
+            "contribution_id": str(contribution.id),
+            "amount": "500.00",
+            "payment_method": "eft",
+            "reference": f"MANUAL-{uuid4().hex[:8]}",
+            "payment_date": str(today),
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    db.refresh(membership)
+    db.refresh(contribution)
+
+    assert contribution.amount_paid == Decimal("500.00")
+    assert contribution.status == "paid"
+    assert membership.status == "lapsed"
+    assert membership.lapsed_at == today
+
+
+def test_payment_completion_does_not_reinstate_not_allowed_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    business = test_data["business_a"]
+    business.reinstatement_policy = "not_allowed"
+    business.lapse_after_days = 60
+
+    today = date.today()
+    membership.status = "lapsed"
+    membership.lapsed_at = today
+    contribution.due_date = date.fromordinal(today.toordinal() - 10)
+    contribution.status = "overdue"
+
+    db.commit()
+
+    headers = auth_headers(test_data["main_admin"])
+
+    response = client.post(
+        "/membership-payments",
+        headers=headers,
+        json={
+            "membership_id": str(membership.id),
+            "contribution_id": str(contribution.id),
+            "amount": "500.00",
+            "payment_method": "eft",
+            "reference": f"NOAUTO-{uuid4().hex[:8]}",
+            "payment_date": str(today),
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    db.refresh(membership)
+    db.refresh(contribution)
+
+    assert contribution.amount_paid == Decimal("500.00")
+    assert contribution.status == "paid"
+    assert membership.status == "lapsed"
+    assert membership.lapsed_at == today
+
+
+def test_deleting_final_membership_payment_recalculates_membership_status(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    business = test_data["business_a"]
+    business.lapse_after_days = 60
+
+    today = date.today()
+    contribution.due_date = date.fromordinal(today.toordinal() - 1)
+    contribution.status = "overdue"
+
+    db.commit()
+
+    headers = auth_headers(test_data["main_admin"])
+
+    create_response = client.post(
+        "/membership-payments",
+        headers=headers,
+        json={
+            "membership_id": str(membership.id),
+            "contribution_id": str(contribution.id),
+            "amount": "500.00",
+            "payment_method": "eft",
+            "reference": f"DELETE-{uuid4().hex[:8]}",
+            "payment_date": str(today),
+        },
+    )
+
+    assert create_response.status_code == 201, create_response.text
+
+    payment_id = create_response.json()["id"]
+
+    db.refresh(membership)
+    db.refresh(contribution)
+
+    assert contribution.status == "paid"
+    assert membership.status == "active"
+
+    delete_response = client.delete(
+        f"/membership-payments/{payment_id}",
+        headers=headers,
+    )
+
+    assert delete_response.status_code == 204, delete_response.text
+
+    db.refresh(membership)
+    db.refresh(contribution)
+
+    assert contribution.amount_paid == Decimal("0.00")
+    assert contribution.status == "overdue"
+    assert contribution.paid_at is None
+    assert membership.status == "arrears"
+
+def test_concurrent_membership_payments_cannot_overpay_contribution(
+    db,
+    test_data,
+):
+    from app.api.membership_payments import create_membership_payment
+    from app.schemas.membership_payment import MembershipPaymentCreate
+
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    barrier = Barrier(2)
+    results = []
+    errors = []
+
+    def worker(worker_number):
+        session = TestingSessionLocal()
+
+        try:
+            payload = MembershipPaymentCreate(
+                membership_id=membership.id,
+                contribution_id=contribution.id,
+                amount=Decimal("500.00"),
+                payment_method="eft",
+                reference=f"CONCURRENT-{worker_number}",
+                payment_date=date.today(),
+                notes="Concurrent payment regression test",
+            )
+
+            barrier.wait()
+
+            result = create_membership_payment(
+                payload=payload,
+                db=session,
+                current_user={
+                    "user_id": str(test_data["main_admin"].id),
+                    "business_id": str(test_data["business_a"].id),
+                    "role": "main_admin",
+                },
+            )
+
+            results.append(result.id)
+
+        except Exception as exc:
+            session.rollback()
+            errors.append(exc)
+
+        finally:
+            session.close()
+
+    thread_a = Thread(target=worker, args=(1,))
+    thread_b = Thread(target=worker, args=(2,))
+
+    thread_a.start()
+    thread_b.start()
+
+    thread_a.join()
+    thread_b.join()
+
+    assert len(results) == 1
+    assert len(errors) == 1
+
+    total_paid = db.scalar(
+        select(
+            func.coalesce(
+                func.sum(MembershipPayment.amount),
+                Decimal("0.00"),
+            )
+        ).where(
+            MembershipPayment.contribution_id == contribution.id,
+            MembershipPayment.business_id == test_data["business_a"].id,
+        )
+    )
+
+    assert Decimal(str(total_paid or "0.00")) == Decimal("500.00")
+
+
+def test_concurrent_membership_payment_updates_cannot_overpay_contribution(
+    db,
+    test_data,
+):
+    from app.api.membership_payments import update_membership_payment
+    from app.schemas.membership_payment import MembershipPaymentUpdate
+
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    contribution.amount_due = Decimal("1000.00")
+
+    payment_a = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("250.00"),
+        payment_method="eft",
+        reference="UPDATE-CONCURRENT-A",
+        payment_date=date.today(),
+    )
+
+    payment_b = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("250.00"),
+        payment_method="eft",
+        reference="UPDATE-CONCURRENT-B",
+        payment_date=date.today(),
+    )
+
+    db.add_all([payment_a, payment_b])
+    db.commit()
+
+    barrier = Barrier(2)
+    results = []
+    errors = []
+
+    def worker(payment_id):
+        session = TestingSessionLocal()
+
+        try:
+            payload = MembershipPaymentUpdate(
+                amount=Decimal("750.00"),
+            )
+
+            barrier.wait()
+
+            result = update_membership_payment(
+                payment_id=payment_id,
+                payload=payload,
+                db=session,
+                current_user={
+                    "user_id": str(test_data["main_admin"].id),
+                    "business_id": str(test_data["business_a"].id),
+                    "role": "main_admin",
+                },
+            )
+
+            results.append(result.id)
+
+        except Exception as exc:
+            session.rollback()
+            errors.append(exc)
+
+        finally:
+            session.close()
+
+    thread_a = Thread(target=worker, args=(payment_a.id,))
+    thread_b = Thread(target=worker, args=(payment_b.id,))
+
+    thread_a.start()
+    thread_b.start()
+
+    thread_a.join()
+    thread_b.join()
+
+    assert len(results) == 1
+    assert len(errors) == 1
+
+    total_paid = db.scalar(
+        select(
+            func.coalesce(
+                func.sum(MembershipPayment.amount),
+                Decimal("0.00"),
+            )
+        ).where(
+            MembershipPayment.contribution_id == contribution.id,
+            MembershipPayment.business_id == test_data["business_a"].id,
+        )
+    )
+
+    assert Decimal(str(total_paid or "0.00")) == Decimal("1000.00")

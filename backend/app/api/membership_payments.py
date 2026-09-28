@@ -153,6 +153,14 @@ def create_membership_payment(
             membership.id,
             business_id,
         )
+        contribution = db.scalar(
+            select(MembershipContribution)
+            .where(
+                MembershipContribution.id == contribution.id,
+                MembershipContribution.business_id == business_id,
+            )
+            .with_for_update()
+        )
 
         existing_paid = db.scalar(
             select(
@@ -360,6 +368,16 @@ def update_membership_payment(
                 MembershipContribution.business_id == business_id,
             )
         )
+
+        if old_contribution:
+            old_contribution = db.scalar(
+                select(MembershipContribution)
+                .where(
+                    MembershipContribution.id == old_contribution.id,
+                    MembershipContribution.business_id == business_id,
+                )
+                .with_for_update()
+            )
 
     new_amount = updates.get(
         "amount",
