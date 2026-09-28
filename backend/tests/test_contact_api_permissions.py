@@ -443,3 +443,274 @@ def test_staff_cannot_access_contacts_from_another_business(
     )
 
     assert response.status_code == 404
+
+# ============================================================
+# FUNCTIONAL / EDGE-CASE COVERAGE
+# ============================================================
+
+def test_staff_cannot_create_contact_for_another_business_case(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business_a = test_data["business_a"]
+    business_b = test_data["business_b"]
+    staff = test_data["staff"]
+
+    grant_permission(db, "staff", "contacts.manage")
+
+    case = create_case(db, business_b)
+    db.commit()
+
+    response = client.post(
+        f"/cases/{case.id}/contacts",
+        json={
+            "contact_type": "next_of_kin",
+            "first_name": "Blocked",
+            "last_name": "Contact",
+            "relationship": "spouse",
+            "phone": "0722222222",
+            "email": "blocked@example.com",
+        },
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Funeral case not found"
+
+
+def test_create_contact_persists_all_optional_fields(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    staff = test_data["staff"]
+
+    grant_permission(db, "staff", "contacts.manage")
+
+    case = create_case(db, business)
+    db.commit()
+
+    response = client.post(
+        f"/cases/{case.id}/contacts",
+        json={
+            "contact_type": "next_of_kin",
+            "first_name": "Full",
+            "last_name": "Contact",
+            "phone": "0712345678",
+            "email": "full@example.com",
+            "relationship": "spouse",
+            "organization": "Example Organisation",
+            "address": "123 Test Street, Johannesburg",
+            "notes": "Important family contact",
+        },
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 201, response.text
+
+    data = response.json()
+
+    assert data["contact_type"] == "next_of_kin"
+    assert data["first_name"] == "Full"
+    assert data["last_name"] == "Contact"
+    assert data["phone"] == "0712345678"
+    assert data["email"] == "full@example.com"
+    assert data["relationship"] == "spouse"
+    assert data["organization"] == "Example Organisation"
+    assert data["address"] == "123 Test Street, Johannesburg"
+    assert data["notes"] == "Important family contact"
+    assert data["business_id"] == str(business.id)
+    assert data["case_id"] == str(case.id)
+
+
+def test_staff_cannot_list_contacts_for_another_business_case(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business_a = test_data["business_a"]
+    business_b = test_data["business_b"]
+    staff = test_data["staff"]
+
+    grant_permission(db, "staff", "contacts.view")
+
+    case = create_case(db, business_b)
+    create_contact(db, business_b, case)
+    db.commit()
+
+    response = client.get(
+        f"/cases/{case.id}/contacts",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Funeral case not found"
+
+
+def test_list_contacts_for_missing_case_returns_404(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    staff = test_data["staff"]
+
+    grant_permission(db, "staff", "contacts.view")
+
+    missing_case_id = uuid.uuid4()
+
+    response = client.get(
+        f"/cases/{missing_case_id}/contacts",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Funeral case not found"
+
+
+def test_get_missing_contact_returns_404(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    grant_permission(db, "staff", "contacts.view")
+
+    missing_contact_id = uuid.uuid4()
+
+    response = client.get(
+        f"/cases/contacts/{missing_contact_id}",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Contact not found"
+
+
+def test_update_contact_updates_multiple_fields(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    staff = test_data["staff"]
+
+    grant_permission(db, "staff", "contacts.manage")
+
+    case = create_case(db, business)
+    contact = create_contact(db, business, case)
+    db.commit()
+
+    response = client.patch(
+        f"/cases/contacts/{contact.id}",
+        json={
+            "first_name": "Updated",
+            "last_name": "Person",
+            "phone": "0799999999",
+            "email": "updated@example.com",
+            "relationship": "child",
+            "organization": "Updated Organisation",
+            "address": "456 Updated Street",
+            "notes": "Updated notes",
+        },
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 200, response.text
+
+    data = response.json()
+
+    assert data["first_name"] == "Updated"
+    assert data["last_name"] == "Person"
+    assert data["phone"] == "0799999999"
+    assert data["email"] == "updated@example.com"
+    assert data["relationship"] == "child"
+    assert data["organization"] == "Updated Organisation"
+    assert data["address"] == "456 Updated Street"
+    assert data["notes"] == "Updated notes"
+
+
+def test_update_missing_contact_returns_404(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    grant_permission(db, "staff", "contacts.manage")
+
+    missing_contact_id = uuid.uuid4()
+
+    response = client.patch(
+        f"/cases/contacts/{missing_contact_id}",
+        json={
+            "first_name": "Updated",
+        },
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Contact not found"
+
+
+def test_delete_missing_contact_returns_404(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    grant_permission(db, "staff", "contacts.manage")
+
+    missing_contact_id = uuid.uuid4()
+
+    response = client.delete(
+        f"/cases/contacts/{missing_contact_id}",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Contact not found"
+
+
+def test_deleted_contact_cannot_be_retrieved(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    staff = test_data["staff"]
+
+    grant_permission(db, "staff", "contacts.manage")
+    grant_permission(db, "staff", "contacts.view")
+
+    case = create_case(db, business)
+    contact = create_contact(db, business, case)
+    db.commit()
+
+    delete_response = client.delete(
+        f"/cases/contacts/{contact.id}",
+        headers=auth_headers(staff),
+    )
+
+    assert delete_response.status_code == 204
+
+    get_response = client.get(
+        f"/cases/contacts/{contact.id}",
+        headers=auth_headers(staff),
+    )
+
+    assert get_response.status_code == 404
+    assert get_response.json()["detail"] == "Contact not found"
