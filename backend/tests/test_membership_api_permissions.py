@@ -972,3 +972,504 @@ def test_other_business_cannot_access_membership(
     )
 
     assert response.status_code == 404
+
+
+def test_membership_create_rejects_duplicate_membership_number(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    existing = create_membership(
+        db,
+        test_data["business_a"],
+    )
+
+    member = Member(
+        business_id=test_data["business_a"].id,
+        member_number=f"TEST-M-{uuid4().hex[:8]}",
+        first_name="Duplicate",
+        last_name="Number",
+        join_date=date(2026, 1, 1),
+        status="active",
+    )
+    plan = MembershipPlan(
+        business_id=test_data["business_a"].id,
+        name=f"Duplicate Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("200.00"),
+        is_active=True,
+    )
+    db.add_all([member, plan])
+    db.commit()
+
+    response = client.post(
+        "/memberships",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "member_id": str(member.id),
+            "plan_id": str(plan.id),
+            "membership_number": existing.membership_number,
+            "start_date": "2026-10-01",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Membership number already exists"
+
+
+def test_membership_create_rejects_foreign_business_member(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    foreign_membership = create_membership(
+        db,
+        test_data["business_b"],
+    )
+
+    plan = MembershipPlan(
+        business_id=test_data["business_a"].id,
+        name=f"Local Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("200.00"),
+        is_active=True,
+    )
+    db.add(plan)
+    db.commit()
+
+    response = client.post(
+        "/memberships",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "member_id": str(foreign_membership.member_id),
+            "plan_id": str(plan.id),
+            "membership_number": f"FOREIGN-MEMBER-{uuid4().hex[:8]}",
+            "start_date": "2026-10-01",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Member not found"
+
+
+def test_membership_create_rejects_foreign_business_plan(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    local_membership = create_membership(
+        db,
+        test_data["business_a"],
+    )
+    foreign_plan = (
+        db.query(MembershipPlan)
+        .filter(
+            MembershipPlan.business_id == test_data["business_b"].id,
+        )
+        .first()
+    )
+
+    if foreign_plan is None:
+        foreign_plan = MembershipPlan(
+            business_id=test_data["business_b"].id,
+            name=f"Foreign Plan {uuid4().hex[:8]}",
+            monthly_contribution=Decimal("200.00"),
+            is_active=True,
+        )
+        db.add(foreign_plan)
+        db.commit()
+
+    response = client.post(
+        "/memberships",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "member_id": str(local_membership.member_id),
+            "plan_id": str(foreign_plan.id),
+            "membership_number": f"FOREIGN-PLAN-{uuid4().hex[:8]}",
+            "start_date": "2026-10-01",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Membership plan not found"
+
+
+def test_membership_create_rejects_inactive_plan(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    local_membership = create_membership(
+        db,
+        test_data["business_a"],
+    )
+
+    inactive_plan = MembershipPlan(
+        business_id=test_data["business_a"].id,
+        name=f"Inactive Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("200.00"),
+        is_active=False,
+    )
+    db.add(inactive_plan)
+    db.commit()
+
+    response = client.post(
+        "/memberships",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "member_id": str(local_membership.member_id),
+            "plan_id": str(inactive_plan.id),
+            "membership_number": f"INACTIVE-PLAN-{uuid4().hex[:8]}",
+            "start_date": "2026-10-01",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Cannot create a membership using an inactive plan"
+    )
+
+
+def test_membership_create_rejects_existing_active_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    existing = create_membership(
+        db,
+        test_data["business_a"],
+        status="active",
+    )
+
+    plan = MembershipPlan(
+        business_id=test_data["business_a"].id,
+        name=f"Second Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("250.00"),
+        is_active=True,
+    )
+    db.add(plan)
+    db.commit()
+
+    response = client.post(
+        "/memberships",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "member_id": str(existing.member_id),
+            "plan_id": str(plan.id),
+            "membership_number": f"SECOND-MS-{uuid4().hex[:8]}",
+            "start_date": "2026-10-01",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Member already has an active membership"
+    )
+
+
+def test_membership_create_calculates_next_due_date_when_omitted(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+    )
+
+    plan = MembershipPlan(
+        business_id=test_data["business_a"].id,
+        name=f"Date Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("200.00"),
+        is_active=True,
+    )
+    db.add(plan)
+    db.commit()
+
+    response = client.post(
+        "/memberships",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "member_id": str(membership.member_id),
+            "plan_id": str(plan.id),
+            "membership_number": f"DATE-MS-{uuid4().hex[:8]}",
+            "start_date": "2026-01-31",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Member already has an active membership"
+    )
+
+
+def test_membership_create_calculates_next_due_date_for_new_member(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    member = Member(
+        business_id=test_data["business_a"].id,
+        member_number=f"TEST-M-{uuid4().hex[:8]}",
+        first_name="Due",
+        last_name="Date",
+        join_date=date(2026, 1, 1),
+        status="active",
+    )
+    plan = MembershipPlan(
+        business_id=test_data["business_a"].id,
+        name=f"Date Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("200.00"),
+        is_active=True,
+    )
+    db.add_all([member, plan])
+    db.commit()
+
+    response = client.post(
+        "/memberships",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "member_id": str(member.id),
+            "plan_id": str(plan.id),
+            "membership_number": f"DATE-MS-{uuid4().hex[:8]}",
+            "start_date": "2026-01-31",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["next_due_date"] == "2026-02-28"
+
+
+def test_membership_patch_rejects_duplicate_membership_number(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    first = create_membership(
+        db,
+        test_data["business_a"],
+    )
+    second = create_membership(
+        db,
+        test_data["business_a"],
+    )
+    db.commit()
+
+    response = client.patch(
+        f"/memberships/{second.id}",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "membership_number": first.membership_number,
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Membership number already exists"
+    )
+
+
+def test_membership_patch_rejects_foreign_business_plan(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+    )
+
+    foreign_plan = MembershipPlan(
+        business_id=test_data["business_b"].id,
+        name=f"Foreign Patch Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("200.00"),
+        is_active=True,
+    )
+    db.add(foreign_plan)
+    db.commit()
+
+    response = client.patch(
+        f"/memberships/{membership.id}",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "plan_id": str(foreign_plan.id),
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Membership plan not found"
+
+
+def test_membership_patch_rejects_inactive_plan(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership = create_membership(
+        db,
+        test_data["business_a"],
+    )
+
+    inactive_plan = MembershipPlan(
+        business_id=test_data["business_a"].id,
+        name=f"Inactive Patch Plan {uuid4().hex[:8]}",
+        monthly_contribution=Decimal("200.00"),
+        is_active=False,
+    )
+    db.add(inactive_plan)
+    db.commit()
+
+    response = client.patch(
+        f"/memberships/{membership.id}",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "plan_id": str(inactive_plan.id),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Cannot assign an inactive membership plan"
+    )
+
+
+def test_reinstate_rejects_non_manual_reinstatement_policy(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    business.reinstatement_policy = "automatic"
+
+    membership = create_lapsed_membership(
+        db,
+        business,
+    )
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/reinstate",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Manual reinstatement is not enabled for this business"
+    )
+
+
+def test_reinstate_rejects_unpaid_contributions(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    business.reinstatement_policy = "manual"
+
+    membership = create_lapsed_membership(
+        db,
+        business,
+    )
+
+    unpaid = (
+        db.query(MembershipContribution)
+        .filter(
+            MembershipContribution.membership_id == membership.id,
+            MembershipContribution.contribution_period == date(2026, 9, 1),
+        )
+        .one()
+    )
+    unpaid.amount_paid = Decimal("0.00")
+    unpaid.status = "due"
+    unpaid.paid_at = None
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/reinstate",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Membership must have no unpaid contributions before reinstatement"
+    )
+
+
+def test_reinstate_clears_lifecycle_dates(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    business.reinstatement_policy = "manual"
+
+    membership = create_lapsed_membership(
+        db,
+        business,
+    )
+    membership.arrears_since = date(2026, 8, 1)
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/reinstate",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert data["status"] == "active"
+    assert data["lapsed_at"] is None
+    assert data["arrears_since"] is None
+
+
+def test_reinstatement_creates_membership_audit_log(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    business.reinstatement_policy = "manual"
+
+    membership = create_lapsed_membership(
+        db,
+        business,
+    )
+    db.commit()
+
+    response = client.post(
+        f"/memberships/{membership.id}/reinstate",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 200, response.text
+
+    audit_log = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.business_id == business.id,
+            AuditLog.user_id == test_data["main_admin"].id,
+            AuditLog.action == "membership.reinstated",
+            AuditLog.entity_type == "membership",
+            AuditLog.entity_id == membership.id,
+        )
+        .one()
+    )
+
+    assert audit_log.details == {
+        "previous_status": "lapsed",
+        "new_status": "active",
+    }
+    assert audit_log.notes == "Membership manually reinstated."
