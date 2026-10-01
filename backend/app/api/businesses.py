@@ -10,6 +10,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -129,7 +130,26 @@ def create_business(
     )
 
     db.add(business)
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+
+        constraint_name = getattr(
+            getattr(exc.orig, "diag", None),
+            "constraint_name",
+            None,
+        )
+
+        if constraint_name == "ix_businesses_slug":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A business with this slug already exists.",
+            ) from exc
+
+        raise
+
     db.refresh(business)
 
     return business
