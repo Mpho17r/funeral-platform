@@ -13,6 +13,7 @@ from app.models.membership_payment import MembershipPayment
 from app.models.permission import Permission
 from app.models.role_permission import RolePermission
 from app.models.user_permission import UserPermission
+from app.models.staff_presence import StaffPresence
 
 __all__ = [
     "Business",

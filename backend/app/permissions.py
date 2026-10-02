@@ -1,5 +1,4 @@
-"""
-FuneralOS permission catalogue.
+"""FuneralOS permission catalogue.
 
 Roles remain:
 
@@ -81,6 +80,10 @@ PERMISSIONS = {
     # Employees
     "employees.view": "View employees",
     "employees.manage": "Manage employees",
+
+    # Staff presence
+    "presence.view": "View staff presence",
+    "presence.manage": "Manage staff presence",
 
     # Reports
     "reports.view": "View reports",
