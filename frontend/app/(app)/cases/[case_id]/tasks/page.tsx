@@ -37,11 +37,21 @@ type CaseTask = {
   completed_at: string | null;
 };
 
+type User = {
+  id: string;
+  business_id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+};
+
 type TaskForm = {
   title: string;
   description: string;
   status: "pending" | "in_progress" | "completed";
   due_date: string;
+  assigned_to: string;
 };
 
 /* ============================================================
@@ -134,6 +144,7 @@ const emptyForm: TaskForm = {
   description: "",
   status: "pending",
   due_date: "",
+  assigned_to: "",
 };
 
 /* ============================================================
@@ -147,6 +158,7 @@ export default function TasksPage() {
   const caseId = String(params.case_id || "");
 
   const [tasks, setTasks] = useState<CaseTask[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -190,6 +202,7 @@ export default function TasksPage() {
     }
 
     loadTasks();
+    loadUsers();
   }, [caseId, router]);
 
   /* ==========================================================
@@ -220,6 +233,29 @@ export default function TasksPage() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  /* ==========================================================
+     LOAD USERS
+  ========================================================== */
+
+  async function loadUsers() {
+    try {
+      const response = await api.get<User[]>("/users");
+      setUsers(
+        response.data.filter(
+          (user) =>
+            user.is_active &&
+            (user.role === "manager" || user.role === "staff")
+        )
+      );
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        router.push("/login");
+        return;
+      }
+      setUsers([]);
     }
   }
 
@@ -258,6 +294,7 @@ export default function TasksPage() {
       due_date: task.due_date
         ? task.due_date.slice(0, 10)
         : "",
+      assigned_to: task.assigned_to || "",
     });
 
     setFormError("");
@@ -299,6 +336,7 @@ export default function TasksPage() {
           form.description.trim() || null,
         status: form.status,
         due_date: form.due_date || null,
+        assigned_to: form.assigned_to || null,
       };
 
       if (editingTask) {
@@ -622,7 +660,10 @@ export default function TasksPage() {
                           label="Assigned To"
                           value={
                             task.assigned_to
-                              ? task.assigned_to
+                              ? users.find(
+                                  (user) =>
+                                    user.id === task.assigned_to
+                                )?.full_name || task.assigned_to
                               : "Unassigned"
                           }
                         />
@@ -815,18 +856,33 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              <div className="rounded-lg bg-slate-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  Assignment
-                </p>
-
-                <p className="mt-1 text-sm text-slate-600">
-                  This task will initially be unassigned.
-                  User assignment can be added once the
-                  staff-user selector is connected.
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Assigned To
+                </label>
+                <select
+                  value={form.assigned_to}
+                  onChange={(event) =>
+                    updateForm(
+                      "assigned_to",
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                >
+                  <option value="">
+                    Unassigned
+                  </option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.full_name} ({user.role})
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs text-slate-400">
+                  Assign this task to an active manager or staff member.
                 </p>
               </div>
-
               <div className="flex justify-end gap-3 border-t pt-5">
                 <button
                   type="button"

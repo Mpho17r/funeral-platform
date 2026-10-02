@@ -1017,6 +1017,40 @@ export default function CaseDetailsPage() {
                 className="text-slate-400"
               />
             </button>
+
+            {/* DOCUMENTS */}
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  `/cases/${caseId}/documents`
+                )
+              }
+              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-slate-50"
+            >
+              <div className="flex items-center gap-3">
+                <FileText
+                  size={20}
+                  className="text-slate-500"
+                />
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Documents
+                  </p>
+
+                  <p className="text-xs text-slate-500">
+                    Manage case documents
+                  </p>
+                </div>
+              </div>
+
+              <ChevronRight
+                size={18}
+                className="text-slate-400"
+              />
+            </button>
           </div>
         </div>
       </section>
