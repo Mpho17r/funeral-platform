@@ -33,14 +33,16 @@ def create_membership_with_contribution(db, business):
     db.add(plan)
     db.flush()
 
+    today = date.today()
+
     membership = Membership(
         business_id=business.id,
         member_id=member.id,
         plan_id=plan.id,
         membership_number=f"POL-{uuid4().hex[:8]}",
-        start_date=date(2026, 9, 1),
+        start_date=today,
         status="active",
-        next_due_date=date(2026, 10, 1),
+        next_due_date=today,
     )
     db.add(membership)
     db.flush()
@@ -48,10 +50,10 @@ def create_membership_with_contribution(db, business):
     contribution = MembershipContribution(
         business_id=business.id,
         membership_id=membership.id,
-        contribution_period=date(2026, 10, 1),
+        contribution_period=today,
         amount_due=Decimal("500.00"),
         amount_paid=Decimal("0.00"),
-        due_date=date(2026, 10, 1),
+        due_date=today,
         status="due",
     )
     db.add(contribution)
