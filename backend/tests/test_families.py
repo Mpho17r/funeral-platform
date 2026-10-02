@@ -352,3 +352,51 @@ def test_families_returns_empty_list_when_no_family_contacts_exist(
 
     assert response.status_code == 200, response.text
     assert response.json() == []
+
+
+def test_families_return_members_in_oldest_first_order(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    manager = test_data["manager"]
+    case = create_case(db, business, "FAMILY-008")
+
+    older = create_contact(
+        db,
+        business,
+        case,
+        first_name="Older",
+        last_name="Member",
+    )
+    newer = create_contact(
+        db,
+        business,
+        case,
+        first_name="Newer",
+        last_name="Member",
+    )
+
+    older.created_at = datetime(
+        2026, 9, 20, 10, 0, tzinfo=timezone.utc
+    )
+    newer.created_at = datetime(
+        2026, 9, 21, 10, 0, tzinfo=timezone.utc
+    )
+    db.commit()
+
+    response = client.get(
+        "/families",
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert len(data) == 1
+    assert [member["full_name"] for member in data[0]["members"]] == [
+        "Older Member",
+        "Newer Member",
+    ]

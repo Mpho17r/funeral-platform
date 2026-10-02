@@ -1156,3 +1156,230 @@ def test_concurrent_membership_payments_with_duplicate_reference_return_conflict
     assert isinstance(errors[0], HTTPException)
     assert errors[0].status_code == 409
     assert errors[0].detail == "A payment with this reference already exists."
+
+
+def test_membership_payment_list_is_ordered_by_payment_date_desc_then_created_at_desc(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    older = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("100.00"),
+        payment_method="cash",
+        reference="ORDER-OLDER",
+        payment_date=date(2026, 9, 10),
+    )
+    newer = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("100.00"),
+        payment_method="cash",
+        reference="ORDER-NEWER",
+        payment_date=date(2026, 9, 15),
+    )
+    same_date_later_created = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("100.00"),
+        payment_method="cash",
+        reference="ORDER-SAME-DATE",
+        payment_date=date(2026, 9, 15),
+    )
+
+    db.add(older)
+    db.flush()
+    db.add(newer)
+    db.flush()
+    db.add(same_date_later_created)
+    db.commit()
+
+    response = client.get(
+        "/membership-payments",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 200, response.text
+
+    references = [
+        item["reference"]
+        for item in response.json()
+        if item["reference"] in {
+            "ORDER-OLDER",
+            "ORDER-NEWER",
+            "ORDER-SAME-DATE",
+        }
+    ]
+
+    assert references == [
+        "ORDER-SAME-DATE",
+        "ORDER-NEWER",
+        "ORDER-OLDER",
+    ]
+
+
+def test_membership_payment_list_can_filter_by_contribution(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, contribution = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    second_contribution = MembershipContribution(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_period=date(2026, 11, 1),
+        amount_due=Decimal("500.00"),
+        amount_paid=Decimal("0.00"),
+        due_date=date(2026, 11, 1),
+        status="due",
+    )
+    db.add(second_contribution)
+    db.commit()
+    db.refresh(second_contribution)
+
+    first_payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=contribution.id,
+        amount=Decimal("100.00"),
+        payment_method="cash",
+        reference="FILTER-CONTRIBUTION-1",
+        payment_date=date(2026, 9, 10),
+    )
+    second_payment = MembershipPayment(
+        business_id=test_data["business_a"].id,
+        membership_id=membership.id,
+        contribution_id=second_contribution.id,
+        amount=Decimal("100.00"),
+        payment_method="cash",
+        reference="FILTER-CONTRIBUTION-2",
+        payment_date=date(2026, 9, 11),
+    )
+
+    db.add_all([first_payment, second_payment])
+    db.commit()
+
+    response = client.get(
+        "/membership-payments",
+        params={"contribution_id": str(contribution.id)},
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 200, response.text
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["reference"] == "FILTER-CONTRIBUTION-1"
+    assert data[0]["contribution_id"] == str(contribution.id)
+
+
+def test_get_nonexistent_membership_payment_returns_404(
+    client,
+    test_data,
+    auth_headers,
+):
+    response = client.get(
+        f"/membership-payments/{uuid4()}",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Membership payment not found."
+
+
+def test_membership_payment_can_be_created_without_contribution(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, _ = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    response = client.post(
+        "/membership-payments",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "membership_id": str(membership.id),
+            "amount": "150.00",
+            "payment_method": "cash",
+            "reference": "NO-CONTRIBUTION-001",
+            "payment_date": "2026-09-20",
+            "notes": "Unallocated membership payment",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    data = response.json()
+
+    assert data["membership_id"] == str(membership.id)
+    assert data["contribution_id"] is None
+    assert Decimal(data["amount"]) == Decimal("150.00")
+    assert data["reference"] == "NO-CONTRIBUTION-001"
+
+
+def test_membership_payment_rejects_invalid_payment_method(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, _ = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    response = client.post(
+        "/membership-payments",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "membership_id": str(membership.id),
+            "amount": "100.00",
+            "payment_method": "bitcoin",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_membership_payment_rejects_non_positive_amount(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    membership, _ = create_membership_with_contribution(
+        db,
+        test_data,
+    )
+
+    response = client.post(
+        "/membership-payments",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "membership_id": str(membership.id),
+            "amount": "0.00",
+            "payment_method": "cash",
+        },
+    )
+
+    assert response.status_code == 422

@@ -56,7 +56,15 @@ class MembershipUpdate(BaseModel):
         min_length=1,
         max_length=50,
     )
-    plan_id: UUID | None = None
+    plan_id: UUID | None = Field(default=None)
+
+    @field_validator("plan_id")
+    @classmethod
+    def validate_plan_id(cls, value: UUID | None) -> UUID:
+        if value is None:
+            raise ValueError("plan_id cannot be null")
+        return value
+
     start_date: date | None = None
     next_due_date: date | None = None
 

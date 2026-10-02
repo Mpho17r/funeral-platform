@@ -388,6 +388,23 @@ def test_contribution_status_cannot_be_manually_changed(
 
     assert response.status_code == 422
 
+def test_update_contribution_rejects_unknown_fields(
+    client,
+    test_data,
+    auth_headers,
+):
+    response = client.patch(
+        "/membership-contributions/00000000-0000-0000-0000-000000000000",
+        json={
+            "amount_due": "250.00",
+            "unsupported_field": "not allowed",
+        },
+        headers=auth_headers(test_data["manager"]),
+    )
+
+    assert response.status_code == 422
+
+
 def test_non_main_admin_cannot_create_contribution(
     client,
     db,

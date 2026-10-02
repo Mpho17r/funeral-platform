@@ -877,6 +877,36 @@ def test_get_cross_tenant_case_returns_404(
     assert response.json()["detail"] == "Funeral case not found"
 
 
+def test_get_cross_tenant_case_summary_returns_404(
+    client,
+    test_data,
+    auth_headers,
+):
+    business_b_manager = test_data["other_business_manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": "SUMMARY-TENANT-001",
+            "deceased_full_name": "Other Business Summary Funeral",
+        },
+        headers=auth_headers(business_b_manager),
+    )
+    assert create_response.status_code == 201
+
+    case_id = create_response.json()["id"]
+
+    manager = test_data["manager"]
+
+    response = client.get(
+        f"/cases/{case_id}/summary",
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Funeral case not found"
+
+
 def test_case_update_changes_ordinary_fields(
     client,
     test_data,
@@ -1294,6 +1324,18 @@ def test_case_summary_returns_correct_aggregates(
     assert data["services"]["total"] == 2
     assert data["services"]["pending"] == 1
     assert data["services"]["confirmed"] == 1
+    assert data["tasks"]["total"] == 2
+    assert data["tasks"]["pending"] == 1
+    assert data["tasks"]["completed"] == 1
+    assert data["payments"]["total"] == 2
+    assert Decimal(data["payments"]["amount_paid"]) == Decimal("1500.00")
+    assert data["financial"] is not None
+    assert Decimal(data["financial"]["total"]) == Decimal("4950.00")
+    assert Decimal(data["financial"]["amount_paid"]) == Decimal("1500.00")
+    assert Decimal(data["financial"]["balance"]) == Decimal("3450.00")
+    assert Decimal(data["financial"]["credit"]) == Decimal("0.00")
+    assert data["financial"]["status"] == "partial"
+    assert data["services"]["confirmed"] == 1
 
     assert data["tasks"]["total"] == 2
     assert data["tasks"]["pending"] == 1
@@ -1354,3 +1396,37 @@ def test_case_summary_cross_tenant_case_returns_404(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Funeral case not found"
+
+
+# ============================================================
+# COVERAGE DATE SELECTION
+# ============================================================
+
+def test_case_coverage_date_prefers_date_of_death():
+    from app.api.cases import get_case_coverage_date
+
+    result = get_case_coverage_date(
+        date(2026, 9, 20),
+        date(2026, 9, 10),
+    )
+
+    assert result == date(2026, 9, 10)
+
+
+def test_case_coverage_date_falls_back_to_funeral_date():
+    from app.api.cases import get_case_coverage_date
+
+    result = get_case_coverage_date(
+        date(2026, 9, 20),
+        None,
+    )
+
+    assert result == date(2026, 9, 20)
+
+
+def test_case_coverage_date_falls_back_to_today():
+    from app.api.cases import get_case_coverage_date
+
+    result = get_case_coverage_date(None, None)
+
+    assert result == date.today()

@@ -130,6 +130,41 @@ def test_create_member_rejects_invalid_status(
     assert response.status_code == 422
 
 
+def test_create_member_normalizes_status_case_and_whitespace(
+    client,
+    test_data,
+    auth_headers,
+):
+    payload = member_payload("STATUS-NORMALIZE")
+    payload["status"] = "  ARREARS  "
+
+    response = client.post(
+        "/members",
+        json=payload,
+        headers=auth_headers(test_data["manager"]),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["status"] == "arrears"
+
+
+def test_create_member_rejects_invalid_email(
+    client,
+    test_data,
+    auth_headers,
+):
+    payload = member_payload("INVALID-EMAIL")
+    payload["email"] = "not-an-email"
+
+    response = client.post(
+        "/members",
+        json=payload,
+        headers=auth_headers(test_data["manager"]),
+    )
+
+    assert response.status_code == 422
+
+
 def test_list_members_is_tenant_isolated_and_ordered_newest_first(
     client,
     db,

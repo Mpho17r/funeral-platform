@@ -876,3 +876,49 @@ def test_missing_payment_cannot_be_deleted(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Payment not found"
+
+def test_create_payment_for_missing_case_returns_404(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    response = client.post(
+        f"/cases/{uuid4()}/payments",
+        json={
+            "amount": "100.00",
+            "payment_method": "cash",
+            "reference": "MISSING-CASE-001",
+        },
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Funeral case not found"
+
+
+def test_update_payment_with_invalid_method_is_rejected(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    case = create_case(db, test_data["business_a"])
+    create_financial(db, test_data["business_a"], case)
+    payment = create_payment(
+        db,
+        test_data["business_a"],
+        case,
+        reference="INVALID-UPDATE-METHOD-001",
+    )
+    db.commit()
+
+    response = client.patch(
+        f"/cases/payments/{payment.id}",
+        json={
+            "payment_method": "bitcoin",
+        },
+        headers=auth_headers(test_data["main_admin"]),
+    )
+
+    assert response.status_code == 422

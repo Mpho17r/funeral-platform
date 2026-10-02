@@ -985,3 +985,33 @@ def test_list_documents_returns_newest_first(
     assert len(data) == 2
     assert data[0]["id"] == str(newer_document.id)
     assert data[1]["id"] == str(older_document.id)
+
+
+def test_delete_document_removes_physical_file(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    case = create_case(db, test_data["business_a"], "DOC-027")
+    document = create_document(
+        db,
+        test_data["business_a"],
+        case,
+        test_data["staff"],
+    )
+    db.commit()
+
+    file_path = Path(document.file_path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_bytes(b"test document")
+
+    assert file_path.exists()
+
+    response = client.delete(
+        f"/cases/documents/{document.id}",
+        headers=auth_headers(test_data["staff"]),
+    )
+
+    assert response.status_code == 204
+    assert not file_path.exists()

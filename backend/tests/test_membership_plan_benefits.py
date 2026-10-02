@@ -480,3 +480,156 @@ def test_staff_can_view_benefits_but_cannot_modify_them(
     )
 
     assert delete_response.status_code == 403
+
+
+def test_benefit_list_is_ordered_by_created_at_ascending(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    plan = create_plan(db, test_data["business_a"])
+
+    first = create_benefit(
+        client,
+        plan,
+        auth_headers(test_data["main_admin"]),
+        name="First Benefit",
+    )
+    assert first.status_code == 201
+
+    second = create_benefit(
+        client,
+        plan,
+        auth_headers(test_data["main_admin"]),
+        name="Second Benefit",
+    )
+    assert second.status_code == 201
+
+    first_data = first.json()
+    second_data = second.json()
+
+    response = client.get(
+        "/membership-plan-benefits",
+        headers=auth_headers(test_data["manager"]),
+    )
+
+    assert response.status_code == 200, response.text
+    benefits = response.json()
+
+    assert [item["id"] for item in benefits] == [
+        first_data["id"],
+        second_data["id"],
+    ]
+
+
+def test_get_nonexistent_benefit_returns_404(
+    client,
+    test_data,
+    auth_headers,
+):
+    response = client.get(
+        f"/membership-plan-benefits/{uuid.uuid4()}",
+        headers=auth_headers(test_data["manager"]),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Membership plan benefit not found"
+
+
+def test_update_to_quantity_requires_quantity_limit(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    plan = create_plan(db, test_data["business_a"])
+
+    create_response = create_benefit(
+        client,
+        plan,
+        auth_headers(test_data["main_admin"]),
+    )
+    assert create_response.status_code == 201
+
+    benefit_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/membership-plan-benefits/{benefit_id}",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "benefit_type": "quantity",
+            "monetary_limit": None,
+            "quantity_limit": None,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Quantity benefits require a quantity limit"
+    )
+
+
+def test_update_to_monetary_requires_monetary_limit(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    plan = create_plan(db, test_data["business_a"])
+
+    create_response = create_benefit(
+        client,
+        plan,
+        auth_headers(test_data["main_admin"]),
+        benefit_type="quantity",
+        monetary_limit=None,
+        quantity_limit=2,
+    )
+    assert create_response.status_code == 201
+
+    benefit_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/membership-plan-benefits/{benefit_id}",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "benefit_type": "monetary",
+            "quantity_limit": None,
+            "monetary_limit": None,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Monetary benefits require a monetary limit"
+    )
+
+
+def test_benefit_name_is_trimmed_on_create_and_update(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    plan = create_plan(db, test_data["business_a"])
+
+    create_response = create_benefit(
+        client,
+        plan,
+        auth_headers(test_data["main_admin"]),
+        name="  Funeral Cover  ",
+    )
+    assert create_response.status_code == 201
+
+    benefit_id = create_response.json()["id"]
+    assert create_response.json()["name"] == "Funeral Cover"
+
+    update_response = client.patch(
+        f"/membership-plan-benefits/{benefit_id}",
+        headers=auth_headers(test_data["main_admin"]),
+        json={"name": "  Enhanced Cover  "},
+    )
+
+    assert update_response.status_code == 200, update_response.text
+    assert update_response.json()["name"] == "Enhanced Cover"

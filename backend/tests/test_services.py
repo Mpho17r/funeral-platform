@@ -662,3 +662,104 @@ def test_total_price_recalculates_when_service_is_updated(
     data = response.json()
 
     assert Decimal(data["total_price"]) == Decimal("1250.00")
+
+def test_create_service_for_missing_case_returns_404(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    missing_case_id = uuid.uuid4()
+    headers = auth_headers(test_data["staff"])
+
+    response = client.post(
+        f"/cases/{missing_case_id}/services",
+        headers=headers,
+        json={
+            "service_type": "transport",
+            "service_name": "Hearse Transport",
+            "quantity": 1,
+            "unit_price": "1500.00",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Funeral case not found"
+
+def test_get_missing_service_returns_404(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    missing_service_id = uuid.uuid4()
+    headers = auth_headers(test_data["staff"])
+
+    response = client.get(
+        f"/cases/services/{missing_service_id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Service not found"
+
+def test_update_missing_service_returns_404(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    missing_service_id = uuid.uuid4()
+    headers = auth_headers(test_data["staff"])
+
+    response = client.patch(
+        f"/cases/services/{missing_service_id}",
+        headers=headers,
+        json={
+            "service_name": "Updated Service",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Service not found"
+
+def test_delete_missing_service_returns_404(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    missing_service_id = uuid.uuid4()
+    headers = auth_headers(test_data["staff"])
+
+    response = client.delete(
+        f"/cases/services/{missing_service_id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Service not found"
+
+def test_update_service_with_invalid_quantity_returns_422(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    case = create_case(db, test_data["business_a"])
+    service = create_service(
+        db,
+        test_data["business_a"],
+        case,
+    )
+    headers = auth_headers(test_data["staff"])
+
+    response = client.patch(
+        f"/cases/services/{service.id}",
+        headers=headers,
+        json={
+            "quantity": 0,
+        },
+    )
+
+    assert response.status_code == 422

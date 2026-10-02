@@ -603,3 +603,31 @@ def test_delete_other_business_user_returns_404(
     )
 
     assert response.status_code == 404
+
+
+def test_create_user_ignores_injected_business_id(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    email = f"injected-business-{uuid4().hex[:8]}@example.com"
+
+    response = client.post(
+        "/users",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "full_name": "Injected Business User",
+            "email": email,
+            "password": "NewPassword123!",
+            "role": "staff",
+            "business_id": str(test_data["business_b"].id),
+        },
+    )
+
+    assert response.status_code == 201
+
+    created = db.query(User).filter(User.email == email).first()
+
+    assert created is not None
+    assert created.business_id == test_data["business_a"].id

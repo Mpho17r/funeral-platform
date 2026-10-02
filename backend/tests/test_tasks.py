@@ -602,3 +602,22 @@ def test_update_task_with_invalid_status_returns_422(
     )
 
     assert response.status_code == 422
+
+def test_create_task_for_missing_case_returns_404(
+    client,
+    test_data,
+    auth_headers,
+):
+    missing_case_id = "00000000-0000-0000-0000-000000000000"
+    headers = auth_headers(test_data["manager"])
+
+    response = client.post(
+        f"/cases/{missing_case_id}/tasks",
+        headers=headers,
+        json={
+            "title": "Task for missing case",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Funeral case not found"

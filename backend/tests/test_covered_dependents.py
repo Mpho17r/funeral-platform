@@ -168,6 +168,90 @@ def test_business_user_can_list_and_get_covered_dependents(
     assert get_response.json()["id"] == dependent_id
 
 
+def test_list_covered_dependents_can_filter_by_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    main_admin = test_data["main_admin"]
+
+    first_data, first_membership = create_dependent(
+        client,
+        db,
+        business,
+        main_admin,
+        auth_headers,
+    )
+
+    member = create_member(db, business, prefix="FILTER")
+    _, second_membership = create_plan_and_membership(
+        db,
+        business,
+        member,
+        prefix="FILTER",
+    )
+
+    second_response = client.post(
+        "/covered-dependents",
+        json={
+            "membership_id": str(second_membership.id),
+            "first_name": "Thabo",
+            "last_name": "Mokoena",
+            "relationship": "spouse",
+            "date_of_birth": "1992-03-15",
+            "status": "active",
+            "cover_start_date": "2026-01-01",
+        },
+        headers=auth_headers(main_admin),
+    )
+
+    assert second_response.status_code == 201, second_response.text
+    second_data = second_response.json()
+
+    response = client.get(
+        f"/covered-dependents?membership_id={first_membership.id}",
+        headers=auth_headers(main_admin),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["id"] == first_data["id"]
+    assert data[0]["membership_id"] == str(first_membership.id)
+    assert data[0]["id"] != second_data["id"]
+
+
+def test_list_covered_dependents_with_other_business_membership_returns_empty(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business_a = test_data["business_a"]
+    business_b = test_data["business_b"]
+    main_admin_a = test_data["main_admin"]
+    manager_a = test_data["manager"]
+    manager_b = test_data["other_business_manager"]
+
+    _, membership_b = create_dependent(
+        client,
+        db,
+        business_b,
+        manager_b,
+        auth_headers,
+    )
+
+    response = client.get(
+        f"/covered-dependents?membership_id={membership_b.id}",
+        headers=auth_headers(manager_a),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
 def test_main_admin_can_update_and_audit_covered_dependent(
     client,
     db,
