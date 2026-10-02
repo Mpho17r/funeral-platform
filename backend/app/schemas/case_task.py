@@ -129,3 +129,20 @@ class CaseTaskResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None
+
+class WorkspaceTaskResponse(BaseModel):
+    
+    id: UUID
+    business_id: UUID
+    case_id: UUID
+    case_number: str
+    deceased_full_name: str
+    title: str
+    description: str | None
+    status: str
+    due_date: date | None
+    assigned_to: UUID | None
+    assigned_to_name: str | None
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None

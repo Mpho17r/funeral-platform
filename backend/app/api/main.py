@@ -10,6 +10,7 @@ from app.api.financials import router as financials_router
 from app.api.payments import router as payments_router
 from app.api.services import router as services_router
 from app.api.tasks import router as tasks_router
+from app.api.task_workspace import router as task_workspace_router
 from app.api.users import router as users_router
 from app.api.members import router as members_router
 from app.api.membership_plans import router as membership_plans_router
@@ -30,6 +31,7 @@ api_router.include_router(financials_router)
 api_router.include_router(payments_router)
 api_router.include_router(services_router)
 api_router.include_router(tasks_router)
+api_router.include_router(task_workspace_router)
 api_router.include_router(users_router)
 api_router.include_router(members_router)
 

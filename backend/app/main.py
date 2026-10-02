@@ -11,6 +11,7 @@ from app.api.auth import router as auth_router
 from app.api.users import router as users_router
 from app.api.cases import router as cases_router
 from app.api.tasks import router as tasks_router
+from app.api.task_workspace import router as task_workspace_router
 from app.api.documents import router as documents_router
 from app.api.services import router as services_router
 from app.api.contacts import router as contacts_router
@@ -84,6 +85,9 @@ app.include_router(
 
 app.include_router(
     tasks_router
+)
+app.include_router(
+    task_workspace_router
 )
 
 app.include_router(

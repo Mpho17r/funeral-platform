@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Palette, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Palette, ShieldCheck, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
@@ -67,6 +67,28 @@ export default function SettingsPage() {
                 <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
                   Manage your business logo, colours, watermark and
                   appearance across FuneralOS.
+                </p>
+              </button>
+
+              {/* TEAM & USERS */}
+              <button
+                type="button"
+                onClick={() => router.push("/settings/team")}
+                className="group rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    <Users size={22} />
+                  </div>
+                  <span className="text-sm text-slate-400 transition group-hover:text-slate-700 dark:text-slate-500 dark:group-hover:text-slate-200">
+                    Manage →
+                  </span>
+                </div>
+                <h3 className="mt-5 text-lg font-semibold text-slate-900 dark:text-white">
+                  Team & Users
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  Manage staff accounts, roles and access to your funeral business.
                 </p>
               </button>
 
