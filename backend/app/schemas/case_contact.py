@@ -103,3 +103,23 @@ class CaseContactResponse(BaseModel):
 
     created_at: datetime
     updated_at: datetime
+
+
+class WorkspaceContactResponse(BaseModel):
+
+    id: UUID
+    business_id: UUID
+    case_id: UUID
+    case_number: str
+    deceased_full_name: str
+    contact_type: str
+    first_name: str
+    last_name: str
+    phone: str | None
+    email: str | None
+    relationship: str | None
+    organization: str | None
+    address: str | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime

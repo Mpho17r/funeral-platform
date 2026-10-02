@@ -15,6 +15,7 @@ from app.api.task_workspace import router as task_workspace_router
 from app.api.documents import router as documents_router
 from app.api.services import router as services_router
 from app.api.contacts import router as contacts_router
+from app.api.contact_workspace import router as contact_workspace_router
 from app.api.financials import router as financials_router
 from app.api.payments import router as payments_router
 from app.api.families import router as families_router
@@ -100,6 +101,9 @@ app.include_router(
 
 app.include_router(
     contacts_router
+)
+app.include_router(
+    contact_workspace_router
 )
 
 app.include_router(
