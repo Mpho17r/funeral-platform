@@ -90,10 +90,18 @@ class BusinessResponse(BaseModel):
 
     reinstatement_policy: str
 
-    # staff attendance policy
+        # ========================================================
+    # STAFF ATTENDANCE POLICY
+    # ========================================================
+
     tea_break_minutes: int = 15
     lunch_break_minutes: int = 60
     idle_timeout_minutes: int = 15
+
+    break_expiry_behavior: str = "notify_and_keep_active"
+    break_warning_enabled: bool = True
+    break_warning_minutes: int = 2
+    break_expiry_notification_enabled: bool = True
 
     # ========================================================
     # STATUS

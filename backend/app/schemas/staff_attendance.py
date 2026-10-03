@@ -60,5 +60,7 @@ class StaffBreakStartRequest(BaseModel):
 class StaffAttendanceMeResponse(BaseModel):
     attendance: StaffAttendanceSessionResponse | None
     current_break: StaffBreakSessionResponse | None
+    break_warning_active: bool = False
+    break_expires_at: datetime | None = None
     presence: str
     last_seen_at: datetime | None

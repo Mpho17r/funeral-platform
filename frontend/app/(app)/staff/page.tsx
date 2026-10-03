@@ -62,6 +62,8 @@ type BreakSession = {
 type AttendanceMe = {
   attendance: AttendanceSession | null;
   current_break: BreakSession | null;
+  break_warning_active: boolean;
+  break_expires_at: string | null;
   presence: PresenceStatus;
   last_seen_at: string | null;
 };
@@ -122,6 +124,32 @@ function formatDateTime(value: string | null) {
   });
 }
 
+function formatRemainingBreakTime(
+  expiryValue: string | null,
+  now: number
+) {
+  if (!expiryValue) {
+    return "—";
+  }
+
+  const expiry = new Date(expiryValue).getTime();
+
+  if (Number.isNaN(expiry)) {
+    return "—";
+  }
+
+  const seconds = Math.max(
+    0,
+    Math.ceil((expiry - now) / 1000)
+  );
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+
 function formatElapsed(value: string | null) {
   if (!value) {
     return "—";
@@ -162,6 +190,7 @@ export default function StaffWorkspacePage() {
   const [error, setError] = useState("");
 
   const mountedRef = useRef(true);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
 
   const loadWorkspace = useCallback(
     async (showRefreshState = false) => {
@@ -337,6 +366,20 @@ export default function StaffWorkspacePage() {
     };
   }, [attendance?.attendance, loadWorkspace]);
 
+  useEffect(() => {
+    if (!attendance?.current_break) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [attendance?.current_break]);
+
   const isCheckedIn = Boolean(attendance?.attendance);
   const currentBreak = attendance?.current_break ?? null;
   const currentPresence = attendance?.presence ?? "offline";
@@ -357,6 +400,12 @@ export default function StaffWorkspacePage() {
   ).length;
 
   const breakCount = currentBreak ? 1 : 0;
+  const breakExpiresAt = attendance?.break_expires_at ?? null;
+  const breakWarningActive =
+    attendance?.break_warning_active ?? false;
+  const remainingBreakTime = breakExpiresAt
+    ? formatRemainingBreakTime(breakExpiresAt, currentTime)
+    : "—";
 
   return (
     <main className="space-y-6 p-6">
@@ -455,7 +504,104 @@ export default function StaffWorkspacePage() {
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
+            {currentBreak && breakExpiresAt && (
+              <div
+                className={`relative flex h-28 w-28 shrink-0 items-center justify-center rounded-full ${
+                  breakWarningActive
+                    ? "bg-amber-50 dark:bg-amber-950/20"
+                    : "bg-purple-50 dark:bg-purple-950/20"
+                }`}
+              >
+                {(() => {
+                  const startedAt = new Date(
+                    currentBreak.started_at
+                  ).getTime();
+                  const expiresAt = new Date(
+                    breakExpiresAt
+                  ).getTime();
+
+                  const totalSeconds = Math.max(
+                    1,
+                    Math.ceil(
+                      (expiresAt - startedAt) / 1000
+                    )
+                  );
+
+                  const remainingSeconds = Math.max(
+                    0,
+                    Math.ceil(
+                      (expiresAt - currentTime) / 1000
+                    )
+                  );
+
+                  const progress = Math.min(
+                    1,
+                    remainingSeconds / totalSeconds
+                  );
+
+                  const radius = 46;
+                  const circumference = 2 * Math.PI * radius;
+                  const dashOffset =
+                    circumference * (1 - progress);
+
+                  return (
+                    <>
+                      <svg
+                        className="absolute inset-0 h-28 w-28 -rotate-90"
+                        viewBox="0 0 112 112"
+                        aria-hidden="true"
+                      >
+                        <circle
+                          cx="56"
+                          cy="56"
+                          r={radius}
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="7"
+                          className="text-slate-200 dark:text-slate-800"
+                        />
+
+                        <circle
+                          cx="56"
+                          cy="56"
+                          r={radius}
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="7"
+                          strokeLinecap="round"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={dashOffset}
+                          className={
+                            breakWarningActive
+                              ? "text-amber-500"
+                              : "text-purple-600"
+                          }
+                        />
+                      </svg>
+
+                      <div className="relative text-center">
+                        <p
+                          className={`text-2xl font-bold tabular-nums ${
+                            breakWarningActive
+                              ? "text-amber-700 dark:text-amber-300"
+                              : "text-purple-700 dark:text-purple-300"
+                          }`}
+                        >
+                          {remainingBreakTime}
+                        </p>
+
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          remaining
+                        </p>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
             {!isCheckedIn ? (
               <button
                 type="button"
@@ -550,6 +696,7 @@ export default function StaffWorkspacePage() {
                 </button>
               </>
             )}
+            </div>
           </div>
         </div>
       </section>

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -39,6 +39,80 @@ def get_active_attendance_session(
         )
         .first()
     )
+
+
+def apply_break_expiry_policy(
+    db: Session,
+    *,
+    business: Business,
+    break_session: StaffBreakSession | None,
+) -> StaffBreakSession | None:
+    if break_session is None:
+        return None
+
+    if break_session.ended_at is not None:
+        return break_session
+
+    if break_session.break_type == "tea":
+        duration_minutes = business.tea_break_minutes
+    elif break_session.break_type == "lunch":
+        duration_minutes = business.lunch_break_minutes
+    else:
+        return break_session
+
+    now = datetime.now(timezone.utc)
+
+    expiry_at = (
+        break_session.started_at
+        + timedelta(minutes=duration_minutes)
+    )
+
+    if now < expiry_at:
+        return break_session
+
+    if business.break_expiry_behavior == "auto_return":
+        break_session.ended_at = expiry_at
+        db.flush()
+
+    return break_session
+
+
+def get_break_state(
+    *,
+    business: Business,
+    break_session: StaffBreakSession | None,
+) -> tuple[datetime | None, bool]:
+    if break_session is None or break_session.ended_at is not None:
+        return None, False
+
+    if break_session.break_type == "tea":
+        duration_minutes = business.tea_break_minutes
+    elif break_session.break_type == "lunch":
+        duration_minutes = business.lunch_break_minutes
+    else:
+        return None, False
+
+    expiry_at = (
+        break_session.started_at
+        + timedelta(minutes=duration_minutes)
+    )
+
+    if not business.break_warning_enabled:
+        return expiry_at, False
+
+    warning_minutes = business.break_warning_minutes
+
+    if warning_minutes <= 0:
+        return expiry_at, False
+
+    warning_at = (
+        expiry_at
+        - timedelta(minutes=warning_minutes)
+    )
+
+    now = datetime.now(timezone.utc)
+
+    return expiry_at, warning_at <= now < expiry_at
 
 
 def refresh_attendance_presence(
@@ -233,6 +307,18 @@ def start_break(
     business_id = current_user["business_id"]
     user_id = current_user["user_id"]
 
+    business = (
+        db.query(Business)
+        .filter(Business.id == business_id)
+        .first()
+    )
+
+    if business is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Business not found",
+        )
+
     attendance_session = get_active_attendance_session(
         db,
         business_id=business_id,
@@ -254,6 +340,15 @@ def start_break(
         )
         .first()
     )
+
+    existing_break = apply_break_expiry_policy(
+        db,
+        business=business,
+        break_session=existing_break,
+    )
+
+    if existing_break is not None and existing_break.ended_at is not None:
+        existing_break = None
 
     if existing_break is not None:
         raise HTTPException(
@@ -385,6 +480,15 @@ def get_my_attendance(
             .first()
         )
 
+    current_break = apply_break_expiry_policy(
+        db,
+        business=business,
+        break_session=current_break,
+    )
+
+    if current_break is not None and current_break.ended_at is not None:
+        current_break = None
+
     presence = (
         db.query(StaffPresence)
         .filter(
@@ -402,11 +506,18 @@ def get_my_attendance(
         current_break=current_break,
     )
 
+    break_expires_at, break_warning_active = get_break_state(
+        business=business,
+        break_session=current_break,
+    )
+
     db.commit()
 
     return StaffAttendanceMeResponse(
         attendance=attendance_session,
         current_break=current_break,
+        break_warning_active=break_warning_active,
+        break_expires_at=break_expires_at,
         presence=presence.status if presence else "offline",
         last_seen_at=presence.last_seen_at if presence else None,
     )
@@ -422,6 +533,18 @@ def heartbeat(
 ):
     business_id = current_user["business_id"]
     user_id = current_user["user_id"]
+
+    business = (
+        db.query(Business)
+        .filter(Business.id == business_id)
+        .first()
+    )
+
+    if business is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Business not found",
+        )
 
     attendance_session = get_active_attendance_session(
         db,
@@ -456,8 +579,6 @@ def heartbeat(
     presence.status = "online"
     presence.last_seen_at = now
 
-    db.commit()
-
     current_break = (
         db.query(StaffBreakSession)
         .filter(
@@ -470,9 +591,27 @@ def heartbeat(
         .first()
     )
 
+    current_break = apply_break_expiry_policy(
+        db,
+        business=business,
+        break_session=current_break,
+    )
+
+    if current_break is not None and current_break.ended_at is not None:
+        current_break = None
+
+    break_expires_at, break_warning_active = get_break_state(
+        business=business,
+        break_session=current_break,
+    )
+
+    db.commit()
+
     return StaffAttendanceMeResponse(
         attendance=attendance_session,
         current_break=current_break,
+        break_warning_active=break_warning_active,
+        break_expires_at=break_expires_at,
         presence=presence.status,
         last_seen_at=presence.last_seen_at,
     )

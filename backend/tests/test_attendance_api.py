@@ -812,3 +812,373 @@ def test_attendance_me_does_not_mark_staff_away_during_break(
     db.refresh(presence)
 
     assert presence.status == "online"
+
+def test_expired_tea_break_auto_returns_to_normal_attendance(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    business = db.get(Business, staff.business_id)
+    business.tea_break_minutes = 15
+    business.break_expiry_behavior = "auto_return"
+
+    check_in = client.post(
+        "/attendance/check-in",
+        headers=auth_headers(staff),
+    )
+    assert check_in.status_code == 201
+
+    start_break = client.post(
+        "/attendance/breaks/start",
+        json={"break_type": "tea"},
+        headers=auth_headers(staff),
+    )
+    assert start_break.status_code == 201
+
+    break_session = db.get(
+        StaffBreakSession,
+        start_break.json()["id"],
+    )
+    assert break_session is not None
+
+    break_session.started_at = (
+        datetime.now(timezone.utc)
+        - timedelta(minutes=16)
+    )
+    db.commit()
+
+    response = client.get(
+        "/attendance/me",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["current_break"] is None
+    assert data["attendance"] is not None
+    assert data["attendance"]["status"] == "active"
+
+    db.refresh(break_session)
+
+    assert break_session.ended_at is not None
+
+
+def test_expired_break_stays_active_with_keep_active_policy(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    business = db.get(Business, staff.business_id)
+    business.tea_break_minutes = 15
+    business.break_expiry_behavior = "keep_active"
+
+    check_in = client.post(
+        "/attendance/check-in",
+        headers=auth_headers(staff),
+    )
+    assert check_in.status_code == 201
+
+    start_break = client.post(
+        "/attendance/breaks/start",
+        json={"break_type": "tea"},
+        headers=auth_headers(staff),
+    )
+    assert start_break.status_code == 201
+
+    break_session = db.get(
+        StaffBreakSession,
+        start_break.json()["id"],
+    )
+    assert break_session is not None
+
+    break_session.started_at = (
+        datetime.now(timezone.utc)
+        - timedelta(minutes=16)
+    )
+    db.commit()
+
+    response = client.get(
+        "/attendance/me",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["current_break"] is not None
+    assert data["current_break"]["break_type"] == "tea"
+    assert data["current_break"]["ended_at"] is None
+
+    db.refresh(break_session)
+
+    assert break_session.ended_at is None
+
+
+def test_expired_break_stays_active_with_notify_and_keep_active_policy(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    business = db.get(Business, staff.business_id)
+    business.tea_break_minutes = 15
+    business.break_expiry_behavior = "notify_and_keep_active"
+
+    check_in = client.post(
+        "/attendance/check-in",
+        headers=auth_headers(staff),
+    )
+    assert check_in.status_code == 201
+
+    start_break = client.post(
+        "/attendance/breaks/start",
+        json={"break_type": "tea"},
+        headers=auth_headers(staff),
+    )
+    assert start_break.status_code == 201
+
+    break_session = db.get(
+        StaffBreakSession,
+        start_break.json()["id"],
+    )
+    assert break_session is not None
+
+    break_session.started_at = (
+        datetime.now(timezone.utc)
+        - timedelta(minutes=16)
+    )
+    db.commit()
+
+    response = client.get(
+        "/attendance/me",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["current_break"] is not None
+    assert data["current_break"]["break_type"] == "tea"
+    assert data["current_break"]["ended_at"] is None
+
+    db.refresh(break_session)
+
+    assert break_session.ended_at is None
+
+
+def test_break_warning_window_is_configurable(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    business = db.get(Business, staff.business_id)
+    business.tea_break_minutes = 15
+    business.break_warning_enabled = True
+    business.break_warning_minutes = 5
+
+    check_in = client.post(
+        "/attendance/check-in",
+        headers=auth_headers(staff),
+    )
+    assert check_in.status_code == 201
+
+    start_break = client.post(
+        "/attendance/breaks/start",
+        json={"break_type": "tea"},
+        headers=auth_headers(staff),
+    )
+    assert start_break.status_code == 201
+
+    break_session = db.get(
+        StaffBreakSession,
+        start_break.json()["id"],
+    )
+    assert break_session is not None
+
+    break_session.started_at = (
+        datetime.now(timezone.utc)
+        - timedelta(minutes=11)
+    )
+    db.commit()
+
+    response = client.get(
+        "/attendance/me",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["current_break"] is not None
+    assert data["current_break"]["break_type"] == "tea"
+
+
+def test_expired_auto_return_break_allows_starting_new_break(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    business = db.get(Business, staff.business_id)
+    business.tea_break_minutes = 15
+    business.break_expiry_behavior = "auto_return"
+
+    check_in = client.post(
+        "/attendance/check-in",
+        headers=auth_headers(staff),
+    )
+    assert check_in.status_code == 201
+
+    first_break = client.post(
+        "/attendance/breaks/start",
+        json={"break_type": "tea"},
+        headers=auth_headers(staff),
+    )
+    assert first_break.status_code == 201
+
+    first_break_session = db.get(
+        StaffBreakSession,
+        first_break.json()["id"],
+    )
+    assert first_break_session is not None
+
+    first_break_session.started_at = (
+        datetime.now(timezone.utc)
+        - timedelta(minutes=16)
+    )
+    db.commit()
+
+    second_break = client.post(
+        "/attendance/breaks/start",
+        json={"break_type": "lunch"},
+        headers=auth_headers(staff),
+    )
+
+    assert second_break.status_code == 201
+    assert second_break.json()["break_type"] == "lunch"
+
+    db.refresh(first_break_session)
+
+    assert first_break_session.ended_at is not None
+
+
+def test_break_warning_becomes_active_inside_warning_window(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    business = db.get(Business, staff.business_id)
+    business.tea_break_minutes = 15
+    business.break_warning_enabled = True
+    business.break_warning_minutes = 5
+
+    check_in = client.post(
+        "/attendance/check-in",
+        headers=auth_headers(staff),
+    )
+    assert check_in.status_code == 201
+
+    start_break = client.post(
+        "/attendance/breaks/start",
+        json={"break_type": "tea"},
+        headers=auth_headers(staff),
+    )
+    assert start_break.status_code == 201
+
+    break_session = db.get(
+        StaffBreakSession,
+        start_break.json()["id"],
+    )
+    assert break_session is not None
+
+    break_session.started_at = (
+        datetime.now(timezone.utc)
+        - timedelta(minutes=11)
+    )
+    db.commit()
+
+    response = client.get(
+        "/attendance/me",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["current_break"] is not None
+    assert data["break_warning_active"] is True
+    assert data["break_expires_at"] is not None
+
+
+def test_break_warning_is_inactive_before_warning_window(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    business = db.get(Business, staff.business_id)
+    business.tea_break_minutes = 15
+    business.break_warning_enabled = True
+    business.break_warning_minutes = 5
+
+    check_in = client.post(
+        "/attendance/check-in",
+        headers=auth_headers(staff),
+    )
+    assert check_in.status_code == 201
+
+    start_break = client.post(
+        "/attendance/breaks/start",
+        json={"break_type": "tea"},
+        headers=auth_headers(staff),
+    )
+    assert start_break.status_code == 201
+
+    break_session = db.get(
+        StaffBreakSession,
+        start_break.json()["id"],
+    )
+    assert break_session is not None
+
+    break_session.started_at = (
+        datetime.now(timezone.utc)
+        - timedelta(minutes=5)
+    )
+    db.commit()
+
+    response = client.get(
+        "/attendance/me",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["current_break"] is not None
+    assert data["break_warning_active"] is False
+    assert data["break_expires_at"] is not None

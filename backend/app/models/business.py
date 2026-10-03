@@ -102,7 +102,7 @@ class Business(Base):
     # manual
     # not_allowed
 
-    # ========================================================
+        # ========================================================
     # STAFF ATTENDANCE POLICY
     # ========================================================
 
@@ -121,6 +121,30 @@ class Business(Base):
     idle_timeout_minutes: Mapped[int] = mapped_column(
         Integer,
         default=15,
+        nullable=False,
+    )
+
+    break_expiry_behavior: Mapped[str] = mapped_column(
+        String(30),
+        default="notify_and_keep_active",
+        nullable=False,
+    )
+
+    break_warning_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+
+    break_warning_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=2,
+        nullable=False,
+    )
+
+    break_expiry_notification_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
         nullable=False,
     )
 

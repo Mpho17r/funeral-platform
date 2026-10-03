@@ -286,6 +286,13 @@ def update_business_cover_policy(
     return business
 
 
+BREAK_EXPIRY_BEHAVIORS = {
+    "auto_return",
+    "keep_active",
+    "notify_and_keep_active",
+}
+
+
 class BusinessAttendancePolicyUpdate(BaseModel):
     tea_break_minutes: int = Field(
         ge=0,
@@ -299,6 +306,44 @@ class BusinessAttendancePolicyUpdate(BaseModel):
         ge=1,
         le=480,
     )
+    break_expiry_behavior: str = "notify_and_keep_active"
+    break_warning_enabled: bool = True
+    break_warning_minutes: int = Field(
+        default=2,
+        ge=0,
+        le=120,
+    )
+    break_expiry_notification_enabled: bool = True
+
+    @model_validator(mode="after")
+    def validate_break_expiry_behavior(self):
+        if self.break_expiry_behavior not in BREAK_EXPIRY_BEHAVIORS:
+            raise ValueError(
+                "break_expiry_behavior must be one of: "
+                "auto_return, keep_active, "
+                "notify_and_keep_active"
+            )
+
+        if self.break_warning_enabled:
+            if (
+                self.break_warning_minutes >= self.tea_break_minutes
+                and self.tea_break_minutes > 0
+            ):
+                raise ValueError(
+                    "break_warning_minutes must be less than "
+                    "tea_break_minutes"
+                )
+
+            if (
+                self.break_warning_minutes >= self.lunch_break_minutes
+                and self.lunch_break_minutes > 0
+            ):
+                raise ValueError(
+                    "break_warning_minutes must be less than "
+                    "lunch_break_minutes"
+                )
+
+        return self
 
 
 @router.patch(
@@ -331,11 +376,23 @@ def update_business_attendance_policy(
         "tea_break_minutes": business.tea_break_minutes,
         "lunch_break_minutes": business.lunch_break_minutes,
         "idle_timeout_minutes": business.idle_timeout_minutes,
+        "break_expiry_behavior": business.break_expiry_behavior,
+        "break_warning_enabled": business.break_warning_enabled,
+        "break_warning_minutes": business.break_warning_minutes,
+        "break_expiry_notification_enabled": (
+            business.break_expiry_notification_enabled
+        ),
     }
 
     business.tea_break_minutes = policy.tea_break_minutes
     business.lunch_break_minutes = policy.lunch_break_minutes
     business.idle_timeout_minutes = policy.idle_timeout_minutes
+    business.break_expiry_behavior = policy.break_expiry_behavior
+    business.break_warning_enabled = policy.break_warning_enabled
+    business.break_warning_minutes = policy.break_warning_minutes
+    business.break_expiry_notification_enabled = (
+        policy.break_expiry_notification_enabled
+    )
 
     create_audit_log(
         db,
@@ -350,6 +407,18 @@ def update_business_attendance_policy(
                 "tea_break_minutes": business.tea_break_minutes,
                 "lunch_break_minutes": business.lunch_break_minutes,
                 "idle_timeout_minutes": business.idle_timeout_minutes,
+                "break_expiry_behavior": (
+                    business.break_expiry_behavior
+                ),
+                "break_warning_enabled": (
+                    business.break_warning_enabled
+                ),
+                "break_warning_minutes": (
+                    business.break_warning_minutes
+                ),
+                "break_expiry_notification_enabled": (
+                    business.break_expiry_notification_enabled
+                ),
             },
         },
         notes="Staff attendance policy updated.",
@@ -511,3 +580,4 @@ def get_business_watermark(
     return FileResponse(
         file_path,
     )
+    
