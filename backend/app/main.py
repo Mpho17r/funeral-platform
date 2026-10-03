@@ -22,6 +22,7 @@ from app.api.payments import router as payments_router
 from app.api.families import router as families_router
 from app.api.dashboard import router as dashboard_router
 from app.api.presence import router as presence_router
+from app.api.attendance import router as attendance_router
 
 from app.api.membership_plans import router as membership_plans_router
 from app.api.membership_plan_benefits import (
@@ -130,6 +131,10 @@ app.include_router(
 
 app.include_router(
     presence_router
+)
+
+app.include_router(
+    attendance_router
 )
 
 # Membership plans

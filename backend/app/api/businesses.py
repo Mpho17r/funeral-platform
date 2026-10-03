@@ -286,6 +286,81 @@ def update_business_cover_policy(
     return business
 
 
+class BusinessAttendancePolicyUpdate(BaseModel):
+    tea_break_minutes: int = Field(
+        ge=0,
+        le=480,
+    )
+    lunch_break_minutes: int = Field(
+        ge=0,
+        le=480,
+    )
+    idle_timeout_minutes: int = Field(
+        ge=1,
+        le=480,
+    )
+
+
+@router.patch(
+    "/{business_id}/attendance-policy",
+    response_model=BusinessResponse,
+)
+def update_business_attendance_policy(
+    business_id: UUID,
+    policy: BusinessAttendancePolicyUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    require_permission("settings.manage")(
+        current_user,
+        db,
+    )
+
+    business = get_business_or_404(
+        business_id,
+        db,
+    )
+
+    if current_user["business_id"] != business.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this business",
+        )
+
+    previous_policy = {
+        "tea_break_minutes": business.tea_break_minutes,
+        "lunch_break_minutes": business.lunch_break_minutes,
+        "idle_timeout_minutes": business.idle_timeout_minutes,
+    }
+
+    business.tea_break_minutes = policy.tea_break_minutes
+    business.lunch_break_minutes = policy.lunch_break_minutes
+    business.idle_timeout_minutes = policy.idle_timeout_minutes
+
+    create_audit_log(
+        db,
+        business_id=business.id,
+        user_id=current_user["user_id"],
+        action="business.attendance_policy_updated",
+        entity_type="business",
+        entity_id=business.id,
+        details={
+            "previous": previous_policy,
+            "new": {
+                "tea_break_minutes": business.tea_break_minutes,
+                "lunch_break_minutes": business.lunch_break_minutes,
+                "idle_timeout_minutes": business.idle_timeout_minutes,
+            },
+        },
+        notes="Staff attendance policy updated.",
+    )
+
+    db.commit()
+    db.refresh(business)
+
+    return business
+
+
 @router.post(
     "/{business_id}/branding/logo",
     response_model=BusinessResponse,

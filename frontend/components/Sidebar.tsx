@@ -75,6 +75,11 @@ export default function Sidebar({
       icon: <HeartHandshake size={18} />,
       path: "/services",
     },
+    {
+      label: "Staff Workspace",
+      icon: <Users size={18} />,
+      path: "/staff",
+    },
   ];
 
   const membership = [

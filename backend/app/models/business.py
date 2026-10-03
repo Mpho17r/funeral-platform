@@ -103,6 +103,29 @@ class Business(Base):
     # not_allowed
 
     # ========================================================
+    # STAFF ATTENDANCE POLICY
+    # ========================================================
+
+    tea_break_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=15,
+        nullable=False,
+    )
+
+    lunch_break_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=60,
+        nullable=False,
+    )
+
+    idle_timeout_minutes: Mapped[int] = mapped_column(
+        Integer,
+        default=15,
+        nullable=False,
+    )
+
+
+    # ========================================================
     # BUSINESS CONTACT DETAILS
     # ========================================================
 

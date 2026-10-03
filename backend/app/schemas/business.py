@@ -90,6 +90,11 @@ class BusinessResponse(BaseModel):
 
     reinstatement_policy: str
 
+    # staff attendance policy
+    tea_break_minutes: int = 15
+    lunch_break_minutes: int = 60
+    idle_timeout_minutes: int = 15
+
     # ========================================================
     # STATUS
     # ========================================================

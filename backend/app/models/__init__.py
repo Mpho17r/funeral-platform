@@ -29,3 +29,7 @@ from app.models.audit_log import AuditLog
 
 from app.models.covered_dependent import CoveredDependent
 from app.models.membership_plan_benefit import MembershipPlanBenefit
+
+from app.models.staff_attendance_session import StaffAttendanceSession
+
+from app.models.staff_break_session import StaffBreakSession
