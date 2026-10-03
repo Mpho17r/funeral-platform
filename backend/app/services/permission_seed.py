@@ -52,6 +52,10 @@ DEFAULT_ROLE_PERMISSIONS = {
         "reports.view",
         "settings.view",
         "branding.view",
+        "groups.view",
+        "groups.create",
+        "groups.manage",
+        "groups.delete",
     },
     "staff": {
         "dashboard.view",
@@ -77,6 +81,10 @@ DEFAULT_ROLE_PERMISSIONS = {
         "reports.view",
         "settings.view",
         "branding.view",
+        "groups.view",
+        "groups.create",
+        "groups.manage",
+        "groups.delete",
     },
 }
 

@@ -33,3 +33,5 @@ from app.models.membership_plan_benefit import MembershipPlanBenefit
 from app.models.staff_attendance_session import StaffAttendanceSession
 
 from app.models.staff_break_session import StaffBreakSession
+
+from app.models.group import Group, GroupMember

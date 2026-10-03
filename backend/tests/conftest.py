@@ -112,6 +112,10 @@ def db():
             # Audit
             "audit_logs",
 
+            # User groups
+            "group_members",
+            "groups",
+
             # Core application tables
             "users",
             "businesses",

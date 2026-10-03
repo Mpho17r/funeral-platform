@@ -95,6 +95,12 @@ PERMISSIONS = {
     # Branding
     "branding.view": "View business branding",
     "branding.manage": "Manage business branding",
+
+    # User groups
+    "groups.view": "View user groups",
+    "groups.create": "Create user groups",
+    "groups.manage": "Manage group members and group administrators",
+    "groups.delete": "Delete user groups",
 }
 
 
