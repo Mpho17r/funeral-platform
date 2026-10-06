@@ -281,6 +281,29 @@ def delete_group(
     return None
 
 
+@router.get(
+    "/{group_id}/members",
+    response_model=list[GroupMemberResponse],
+)
+def list_group_members(
+    group_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("groups.view")),
+):
+    group = get_business_group(
+        group_id,
+        db,
+        current_user,
+    )
+
+    return (
+        db.query(GroupMember)
+        .filter(GroupMember.group_id == group.id)
+        .order_by(GroupMember.joined_at)
+        .all()
+    )
+
+
 @router.post(
     "/{group_id}/members",
     response_model=GroupMemberResponse,

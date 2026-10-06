@@ -626,3 +626,515 @@ def test_group_admin_can_delete_group(
     assert db.query(GroupMember).filter(
         GroupMember.group_id == group_id
     ).count() == 0
+
+
+# ============================================================
+# LIST GROUP MEMBERS
+# ============================================================
+
+def test_user_can_list_group_members(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    manager = test_data["manager"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Operations Team",
+        description="Operations",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.flush()
+
+    db.add_all([
+        GroupMember(
+            group_id=group.id,
+            user_id=staff.id,
+            is_admin=True,
+        ),
+        GroupMember(
+            group_id=group.id,
+            user_id=manager.id,
+            is_admin=False,
+        ),
+    ])
+    db.commit()
+
+    response = client.get(
+        f"/groups/{group.id}/members",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 200, response.text
+
+    members = response.json()
+
+    assert len(members) == 2
+    assert members[0]["user_id"] == str(staff.id)
+    assert members[0]["is_admin"] is True
+    assert members[1]["user_id"] == str(manager.id)
+    assert members[1]["is_admin"] is False
+
+
+def test_cannot_list_group_members_from_another_business(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    other_manager = test_data["other_business_manager"]
+    other_business = test_data["business_b"]
+
+    group = Group(
+        business_id=other_business.id,
+        name="Other Business Group",
+        description="Other business",
+        created_by=other_manager.id,
+    )
+    db.add(group)
+    db.flush()
+
+    db.add(
+        GroupMember(
+            group_id=group.id,
+            user_id=other_manager.id,
+            is_admin=True,
+        )
+    )
+    db.commit()
+
+    response = client.get(
+        f"/groups/{group.id}/members",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Group not found"
+
+
+# ============================================================
+# SECURITY / EDGE CASES
+# ============================================================
+
+def test_staff_cannot_delete_group(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Operations Team",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.flush()
+
+    db.add(
+        GroupMember(
+            group_id=group.id,
+            user_id=staff.id,
+            is_admin=False,
+        )
+    )
+    db.commit()
+
+    response = client.delete(
+        f"/groups/{group.id}",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Group administrator access required"
+
+
+def test_staff_cannot_manage_group_members(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    manager = test_data["manager"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Operations Team",
+        created_by=manager.id,
+    )
+    db.add(group)
+    db.flush()
+
+    db.add(
+        GroupMember(
+            group_id=group.id,
+            user_id=manager.id,
+            is_admin=True,
+        )
+    )
+    db.commit()
+
+    response = client.post(
+        f"/groups/{group.id}/members",
+        json={
+            "user_id": str(staff.id),
+            "is_admin": False,
+        },
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Group administrator access required"
+
+
+def test_other_business_cannot_update_group(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    other_business_manager = test_data["other_business_manager"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Private Operations Team",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.commit()
+
+    response = client.patch(
+        f"/groups/{group.id}",
+        json={
+            "name": "Unauthorized Change",
+        },
+        headers=auth_headers(other_business_manager),
+    )
+
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Group not found"
+
+
+def test_other_business_cannot_delete_group(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    other_business_manager = test_data["other_business_manager"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Private Operations Team",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.commit()
+
+    response = client.delete(
+        f"/groups/{group.id}",
+        headers=auth_headers(other_business_manager),
+    )
+
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Group not found"
+
+
+def test_inactive_user_cannot_be_added_to_group(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    manager = test_data["manager"]
+    business = test_data["business_a"]
+
+    manager.is_active = False
+    db.flush()
+
+    group = Group(
+        business_id=business.id,
+        name="Operations Team",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.flush()
+
+    db.add(
+        GroupMember(
+            group_id=group.id,
+            user_id=staff.id,
+            is_admin=True,
+        )
+    )
+    db.commit()
+
+    response = client.post(
+        f"/groups/{group.id}/members",
+        json={
+            "user_id": str(manager.id),
+            "is_admin": False,
+        },
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == (
+        "Inactive users cannot be added to groups"
+    )
+
+
+def test_main_admin_can_manage_group_without_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    main_admin = test_data["main_admin"]
+    staff = test_data["staff"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Operations Team",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.commit()
+
+    response = client.patch(
+        f"/groups/{group.id}",
+        json={
+            "name": "Main Admin Managed Team",
+        },
+        headers=auth_headers(main_admin),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "Main Admin Managed Team"
+
+
+# ============================================================
+# SECURITY / EDGE CASES
+# ============================================================
+
+def test_staff_cannot_delete_group(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Operations Team",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.flush()
+
+    db.add(
+        GroupMember(
+            group_id=group.id,
+            user_id=staff.id,
+            is_admin=False,
+        )
+    )
+    db.commit()
+
+    response = client.delete(
+        f"/groups/{group.id}",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Group administrator access required"
+
+
+def test_staff_cannot_manage_group_members(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    manager = test_data["manager"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Operations Team",
+        created_by=manager.id,
+    )
+    db.add(group)
+    db.flush()
+
+    db.add(
+        GroupMember(
+            group_id=group.id,
+            user_id=manager.id,
+            is_admin=True,
+        )
+    )
+    db.commit()
+
+    response = client.post(
+        f"/groups/{group.id}/members",
+        json={
+            "user_id": str(staff.id),
+            "is_admin": False,
+        },
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Group administrator access required"
+
+
+def test_other_business_cannot_update_group(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    other_business_manager = test_data["other_business_manager"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Private Operations Team",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.commit()
+
+    response = client.patch(
+        f"/groups/{group.id}",
+        json={
+            "name": "Unauthorized Change",
+        },
+        headers=auth_headers(other_business_manager),
+    )
+
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Group not found"
+
+
+def test_other_business_cannot_delete_group(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    other_business_manager = test_data["other_business_manager"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Private Operations Team",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.commit()
+
+    response = client.delete(
+        f"/groups/{group.id}",
+        headers=auth_headers(other_business_manager),
+    )
+
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Group not found"
+
+
+def test_inactive_user_cannot_be_added_to_group(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+    manager = test_data["manager"]
+    business = test_data["business_a"]
+
+    manager.is_active = False
+    db.flush()
+
+    group = Group(
+        business_id=business.id,
+        name="Operations Team",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.flush()
+
+    db.add(
+        GroupMember(
+            group_id=group.id,
+            user_id=staff.id,
+            is_admin=True,
+        )
+    )
+    db.commit()
+
+    response = client.post(
+        f"/groups/{group.id}/members",
+        json={
+            "user_id": str(manager.id),
+            "is_admin": False,
+        },
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == (
+        "Inactive users cannot be added to groups"
+    )
+
+
+def test_main_admin_can_manage_group_without_membership(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    main_admin = test_data["main_admin"]
+    staff = test_data["staff"]
+    business = test_data["business_a"]
+
+    group = Group(
+        business_id=business.id,
+        name="Operations Team",
+        created_by=staff.id,
+    )
+    db.add(group)
+    db.commit()
+
+    response = client.patch(
+        f"/groups/{group.id}",
+        json={
+            "name": "Main Admin Managed Team",
+        },
+        headers=auth_headers(main_admin),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "Main Admin Managed Team"

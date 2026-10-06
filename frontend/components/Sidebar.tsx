@@ -15,6 +15,7 @@ import {
   FolderOpen,
   ShieldCheck,
   Receipt,
+  UsersRound,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -75,11 +76,6 @@ export default function Sidebar({
       icon: <HeartHandshake size={18} />,
       path: "/services",
     },
-    {
-      label: "Staff Workspace",
-      icon: <Users size={18} />,
-      path: "/staff",
-    },
   ];
 
   const membership = [
@@ -125,6 +121,19 @@ export default function Sidebar({
       label: "Tasks",
       icon: <ClipboardList size={18} />,
       path: "/tasks",
+    },
+  ];
+
+  const workspace = [
+    {
+      label: "Groups",
+      icon: <UsersRound size={18} />,
+      path: "/groups",
+    },
+    {
+      label: "Staff Workspace",
+      icon: <Users size={18} />,
+      path: "/staff",
     },
   ];
 
@@ -369,6 +378,19 @@ export default function Sidebar({
         </SectionTitle>
 
         {records.map((item) => (
+          <NavItem
+            key={item.path}
+            label={item.label}
+            icon={item.icon}
+            path={item.path}
+          />
+        ))}
+
+        <SectionTitle>
+          Workspace
+        </SectionTitle>
+
+        {workspace.map((item) => (
           <NavItem
             key={item.path}
             label={item.label}
