@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.roles import require_permission
+from app.services.audit_service import build_audit_changes, create_audit_log
 from app.models.case_contact import CaseContact
 from app.models.funeral_case import FuneralCase
 from app.schemas.case_contact import (
@@ -129,6 +130,22 @@ def create_case_contact(
     )
 
     db.add(new_contact)
+    db.flush()
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=current_user["user_id"],
+        action="case.contact_created",
+        entity_type="case_contact",
+        entity_id=new_contact.id,
+        details={
+            "case_id": str(case_id),
+            "contact_type": new_contact.contact_type,
+        },
+        notes="Case contact was created.",
+    )
+
     db.commit()
     db.refresh(new_contact)
 
@@ -193,11 +210,37 @@ def update_case_contact(
 
     update_data = contact_update.model_dump(exclude_unset=True)
 
+    old_values = {
+        field: getattr(contact, field)
+        for field in update_data
+    }
+
     for field, value in update_data.items():
         setattr(contact, field, value)
 
+    new_values = {
+        field: getattr(contact, field)
+        for field in update_data
+    }
+
+    changes = build_audit_changes(old_values, new_values)
+
     contact.updated_at = datetime.now(timezone.utc)
 
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=current_user["user_id"],
+            action="case.contact_updated",
+            entity_type="case_contact",
+            entity_id=contact.id,
+            details={
+                "case_id": str(contact.case_id),
+                "changes": changes,
+            },
+            notes="Case contact was updated.",
+        )
     db.commit()
     db.refresh(contact)
 
@@ -229,6 +272,20 @@ def delete_case_contact(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Contact not found",
         )
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=current_user["user_id"],
+        action="case.contact_deleted",
+        entity_type="case_contact",
+        entity_id=contact.id,
+        details={
+            "case_id": str(contact.case_id),
+            "contact_type": contact.contact_type,
+        },
+        notes="Case contact was deleted.",
+    )
 
     db.delete(contact)
     db.commit()

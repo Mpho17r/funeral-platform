@@ -935,3 +935,290 @@ def test_delete_other_business_contact_returns_404(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Contact not found"
+
+
+# ============================================================
+# C4 — CONTACT AUDIT TRAIL
+# ============================================================
+
+from app.models.audit_log import AuditLog
+
+
+def test_create_contact_creates_audit_event(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    manager = test_data["manager"]
+    case = create_case(db, business)
+    db.commit()
+
+    response = client.post(
+        f"/cases/{case.id}/contacts",
+        json={
+            "contact_type": "next_of_kin",
+            "first_name": "Audit",
+            "last_name": "Contact",
+            "phone": "0711111111",
+            "email": "audit@example.com",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 201, response.text
+    contact_id = response.json()["id"]
+
+    audit = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.entity_type == "case_contact",
+            AuditLog.entity_id == contact_id,
+            AuditLog.action == "case.contact_created",
+        )
+        .one()
+    )
+
+    assert audit.business_id == business.id
+    assert audit.user_id == manager.id
+    assert audit.details["case_id"] == str(case.id)
+    assert audit.details["contact_type"] == "next_of_kin"
+
+
+def test_update_contact_creates_exact_audit_changes(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    manager = test_data["manager"]
+    case = create_case(db, business)
+    contact = create_contact(db, business, case)
+    db.commit()
+
+    response = client.patch(
+        f"/cases/contacts/{contact.id}",
+        json={
+            "relationship": "sibling",
+            "organization": "Updated Organization",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 200, response.text
+
+    audit = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.entity_type == "case_contact",
+            AuditLog.entity_id == contact.id,
+            AuditLog.action == "case.contact_updated",
+        )
+        .one()
+    )
+
+    changes = audit.details["changes"]
+
+    assert set(changes) == {"relationship", "organization"}
+    assert changes["relationship"] == {
+        "old": "spouse",
+        "new": "sibling",
+    }
+    assert changes["organization"] == {
+        "old": None,
+        "new": "Updated Organization",
+    }
+
+
+def test_update_contact_redacts_sensitive_audit_values(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    manager = test_data["manager"]
+    case = create_case(db, business)
+    contact = create_contact(db, business, case)
+    db.commit()
+
+    response = client.patch(
+        f"/cases/contacts/{contact.id}",
+        json={
+            "first_name": "Private",
+            "last_name": "Person",
+            "phone": "0799999999",
+            "email": "private@example.com",
+            "address": "Private Address",
+            "notes": "Private notes",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 200, response.text
+
+    audit = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.entity_type == "case_contact",
+            AuditLog.entity_id == contact.id,
+            AuditLog.action == "case.contact_updated",
+        )
+        .one()
+    )
+
+    changes = audit.details["changes"]
+
+    for field in {
+        "first_name",
+        "last_name",
+        "phone",
+        "email",
+        "address",
+        "notes",
+    }:
+        assert changes[field] == {
+            "changed": True,
+            "old": "[redacted]",
+            "new": "[redacted]",
+        }
+
+
+def test_update_contact_without_changes_creates_no_audit(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    manager = test_data["manager"]
+    case = create_case(db, business)
+    contact = create_contact(db, business, case)
+    db.commit()
+
+    response = client.patch(
+        f"/cases/contacts/{contact.id}",
+        json={
+            "first_name": contact.first_name,
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 200, response.text
+
+    audits = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.entity_type == "case_contact",
+            AuditLog.entity_id == contact.id,
+            AuditLog.action == "case.contact_updated",
+        )
+        .all()
+    )
+
+    assert audits == []
+
+
+def test_delete_contact_creates_audit_before_deletion(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    business = test_data["business_a"]
+    manager = test_data["manager"]
+    case = create_case(db, business)
+    contact = create_contact(db, business, case)
+    contact_id = contact.id
+    db.commit()
+
+    response = client.delete(
+        f"/cases/contacts/{contact_id}",
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 204
+
+    assert (
+        db.query(CaseContact)
+        .filter(CaseContact.id == contact_id)
+        .first()
+        is None
+    )
+
+    audit = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.entity_type == "case_contact",
+            AuditLog.entity_id == contact_id,
+            AuditLog.action == "case.contact_deleted",
+        )
+        .one()
+    )
+
+    assert audit.business_id == business.id
+    assert audit.user_id == manager.id
+    assert audit.details["case_id"] == str(case.id)
+    assert audit.details["contact_type"] == "next_of_kin"
+
+
+def test_contact_audit_failure_rolls_back_contact_create(
+    client,
+    db,
+    test_data,
+    auth_headers,
+    monkeypatch,
+):
+    from app.api import contacts as contacts_api
+
+    business = test_data["business_a"]
+    manager = test_data["manager"]
+    case = create_case(db, business)
+    db.commit()
+
+    def fail_audit(*args, **kwargs):
+        raise RuntimeError("audit failure")
+
+    monkeypatch.setattr(contacts_api, "create_audit_log", fail_audit)
+
+    try:
+        client.post(
+            f"/cases/{case.id}/contacts",
+            json={
+                "contact_type": "next_of_kin",
+                "first_name": "Rollback",
+                "last_name": "Test",
+            },
+            headers=auth_headers(manager),
+        )
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("Expected audit failure")
+
+    db.rollback()
+    db.expire_all()
+
+    assert (
+        db.query(CaseContact)
+        .filter(
+            CaseContact.business_id == business.id,
+            CaseContact.case_id == case.id,
+            CaseContact.first_name == "Rollback",
+        )
+        .first()
+        is None
+    )
+
+    assert (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.entity_type == "case_contact",
+            AuditLog.action == "case.contact_created",
+        )
+        .filter(AuditLog.business_id == business.id)
+        .count()
+        == 0
+    )

@@ -14,6 +14,11 @@ SENSITIVE_AUDIT_FIELDS = {
     "date_of_death",
     "next_of_kin_name",
     "next_of_kin_phone",
+    "first_name",
+    "last_name",
+    "phone",
+    "email",
+    "address",
     "notes",
 }
 
