@@ -207,35 +207,10 @@ def test_staff_without_cases_edit_cannot_update_case(
 
 
 # ---------------------------------------------------------------------------
-# DELETE
+# PERMANENT DELETE
 # ---------------------------------------------------------------------------
 
-def test_staff_without_cases_delete_cannot_delete_case(
-    client,
-    test_data,
-    auth_headers,
-):
-    staff = test_data["staff"]
-
-    create_response = client.post(
-        "/cases",
-        json=create_case_payload("DELETE-001"),
-        headers=auth_headers(staff),
-    )
-    assert create_response.status_code == 201, create_response.text
-
-    case_id = create_response.json()["id"]
-
-    response = client.delete(
-        f"/cases/{case_id}",
-        headers=auth_headers(staff),
-    )
-
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Permission required: cases.delete"
-
-
-def test_manager_with_cases_delete_can_delete_case(
+def test_permanent_delete_route_is_not_available(
     client,
     test_data,
     auth_headers,
@@ -244,11 +219,11 @@ def test_manager_with_cases_delete_can_delete_case(
 
     create_response = client.post(
         "/cases",
-        json=create_case_payload("DELETE-002"),
+        json=create_case_payload("DELETE-ROUTE-002"),
         headers=auth_headers(manager),
     )
-    assert create_response.status_code == 201, create_response.text
 
+    assert create_response.status_code == 201, create_response.text
     case_id = create_response.json()["id"]
 
     response = client.delete(
@@ -256,7 +231,14 @@ def test_manager_with_cases_delete_can_delete_case(
         headers=auth_headers(manager),
     )
 
-    assert response.status_code == 204
+    assert response.status_code == 405
+
+    get_response = client.get(
+        f"/cases/{case_id}",
+        headers=auth_headers(manager),
+    )
+
+    assert get_response.status_code == 200
 
 
 # ---------------------------------------------------------------------------
@@ -338,9 +320,3 @@ def test_main_admin_can_manage_cases_without_explicit_permissions(
         headers=auth_headers(admin),
     )
     assert update_response.status_code == 200
-
-    delete_response = client.delete(
-        f"/cases/{case_id}",
-        headers=auth_headers(admin),
-    )
-    assert delete_response.status_code == 204

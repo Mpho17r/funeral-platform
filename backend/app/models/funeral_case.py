@@ -91,6 +91,26 @@ class FuneralCase(Base):
         default="open",
     )
 
+    # Record state is intentionally separate from operational case status.
+    # A case can be closed/cancelled while still active, or archived for
+    # historical storage without changing its operational status.
+    is_archived: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+        index=True,
+    )
+
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    archived_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     notes: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,

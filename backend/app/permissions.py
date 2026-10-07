@@ -18,7 +18,9 @@ PERMISSIONS = {
     "cases.view": "View funeral cases",
     "cases.create": "Create funeral cases",
     "cases.edit": "Edit funeral cases",
-    "cases.delete": "Delete funeral cases",
+    "cases.archive": "Archive funeral cases",
+    "cases.restore": "Restore archived funeral cases",
+    "cases.delete": "Permanently delete funeral cases",
 
     # Families
     "families.view": "View families",

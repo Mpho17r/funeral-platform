@@ -54,6 +54,7 @@ from app.services.audit_service import (
     create_audit_log,
 )
 from app.services.case_lifecycle import transition_case_status
+from app.services.case_archival import archive_case, restore_case
 
 
 router = APIRouter(
@@ -227,7 +228,8 @@ def list_cases(
     cases = (
         db.query(FuneralCase)
         .filter(
-            FuneralCase.business_id == current_user["business_id"]
+            FuneralCase.business_id == current_user["business_id"],
+            FuneralCase.is_archived.is_(False),
         )
         .order_by(FuneralCase.created_at.desc())
         .all()
@@ -716,6 +718,94 @@ def update_case(
 
 
 # ============================================================
+# ARCHIVE CASE
+# ============================================================
+
+@router.post(
+    "/{case_id}/archive",
+    response_model=FuneralCaseResponse,
+)
+def archive_case_endpoint(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("cases.archive")),
+):
+    business_id = current_user["business_id"]
+    user_id = current_user["user_id"]
+
+    case = (
+        db.query(FuneralCase)
+        .filter(
+            FuneralCase.id == case_id,
+            FuneralCase.business_id == business_id,
+        )
+        .first()
+    )
+
+    if not case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Funeral case not found",
+        )
+
+    archive_case(
+        db,
+        case=case,
+        business_id=business_id,
+        user_id=user_id,
+    )
+
+    db.commit()
+    db.refresh(case)
+
+    return case
+
+
+# ============================================================
+# RESTORE CASE
+# ============================================================
+
+@router.post(
+    "/{case_id}/restore",
+    response_model=FuneralCaseResponse,
+)
+def restore_case_endpoint(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("cases.restore")),
+):
+    business_id = current_user["business_id"]
+    user_id = current_user["user_id"]
+
+    case = (
+        db.query(FuneralCase)
+        .filter(
+            FuneralCase.id == case_id,
+            FuneralCase.business_id == business_id,
+        )
+        .first()
+    )
+
+    if not case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Funeral case not found",
+        )
+
+    restore_case(
+        db,
+        case=case,
+        business_id=business_id,
+        user_id=user_id,
+    )
+
+    db.commit()
+    db.refresh(case)
+
+    return case
+
+
+# ============================================================
 # CASE LIFECYCLE
 # ============================================================
 
@@ -765,36 +855,3 @@ def transition_case_lifecycle(
 
 
 # ============================================================
-# DELETE CASE
-# ============================================================
-
-@router.delete(
-    "/{case_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def delete_case(
-    case_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_permission("cases.delete")),
-):
-    business_id = current_user["business_id"]
-
-    case = (
-        db.query(FuneralCase)
-        .filter(
-            FuneralCase.id == case_id,
-            FuneralCase.business_id == business_id,
-        )
-        .first()
-    )
-
-    if not case:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Funeral case not found",
-        )
-
-    db.delete(case)
-    db.commit()
-
-    return None

@@ -128,6 +128,12 @@ class FuneralCaseResponse(BaseModel):
 
     status: str
 
+    is_archived: bool
+
+    archived_at: datetime | None = None
+
+    archived_by: UUID | None = None
+
     notes: str | None = None
 
     created_at: datetime

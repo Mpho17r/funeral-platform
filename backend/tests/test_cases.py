@@ -1051,7 +1051,7 @@ def test_case_update_cross_tenant_case_returns_404(
     assert response.json()["detail"] == "Funeral case not found"
 
 
-def test_case_can_be_deleted(
+def test_case_permanent_delete_route_is_not_available(
     client,
     test_data,
     auth_headers,
@@ -1061,13 +1061,13 @@ def test_case_can_be_deleted(
     create_response = client.post(
         "/cases",
         json={
-            "case_number": "DELETE-001",
-            "deceased_full_name": "Delete Funeral",
+            "case_number": "DELETE-ROUTE-001",
+            "deceased_full_name": "Delete Route Test",
         },
         headers=auth_headers(manager),
     )
-    assert create_response.status_code == 201
 
+    assert create_response.status_code == 201
     case_id = create_response.json()["id"]
 
     delete_response = client.delete(
@@ -1075,87 +1075,15 @@ def test_case_can_be_deleted(
         headers=auth_headers(manager),
     )
 
-    assert delete_response.status_code == 204
-    assert delete_response.content == b""
-
-
-def test_deleted_case_cannot_be_retrieved(
-    client,
-    test_data,
-    auth_headers,
-):
-    manager = test_data["manager"]
-
-    create_response = client.post(
-        "/cases",
-        json={
-            "case_number": "DELETE-GET-001",
-            "deceased_full_name": "Deleted Funeral",
-        },
-        headers=auth_headers(manager),
-    )
-    assert create_response.status_code == 201
-
-    case_id = create_response.json()["id"]
-
-    delete_response = client.delete(
-        f"/cases/{case_id}",
-        headers=auth_headers(manager),
-    )
-    assert delete_response.status_code == 204
+    assert delete_response.status_code == 405
 
     get_response = client.get(
         f"/cases/{case_id}",
         headers=auth_headers(manager),
     )
 
-    assert get_response.status_code == 404
-    assert get_response.json()["detail"] == "Funeral case not found"
-
-
-def test_delete_missing_case_returns_404(
-    client,
-    test_data,
-    auth_headers,
-):
-    manager = test_data["manager"]
-
-    response = client.delete(
-        f"/cases/{uuid.uuid4()}",
-        headers=auth_headers(manager),
-    )
-
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Funeral case not found"
-
-
-def test_staff_cannot_delete_case(
-    client,
-    test_data,
-    auth_headers,
-):
-    manager = test_data["manager"]
-    staff = test_data["staff"]
-
-    create_response = client.post(
-        "/cases",
-        json={
-            "case_number": "DELETE-PERM-001",
-            "deceased_full_name": "Permission Funeral",
-        },
-        headers=auth_headers(manager),
-    )
-    assert create_response.status_code == 201
-
-    case_id = create_response.json()["id"]
-
-    response = client.delete(
-        f"/cases/{case_id}",
-        headers=auth_headers(staff),
-    )
-
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Permission required: cases.delete"
+    assert get_response.status_code == 200
+    assert get_response.json()["id"] == case_id
 
 
 def test_case_summary_returns_correct_aggregates(

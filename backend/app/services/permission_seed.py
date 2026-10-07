@@ -11,7 +11,8 @@ DEFAULT_ROLE_PERMISSIONS = {
         "cases.view",
         "cases.create",
         "cases.edit",
-        "cases.delete",
+        "cases.archive",
+        "cases.restore",
         "families.view",
         "families.manage",
         "contacts.view",
@@ -142,8 +143,11 @@ def sync_role_permissions(db: Session) -> int:
     Main Admin is intentionally excluded because Main Admin currently
     has tenant-level authority through has_permission().
 
-    Existing role permissions are preserved unless they are no longer
-    part of the default role catalogue.
+    Role permissions are synchronized exactly to the default role
+    catalogue. Missing assignments are created and stale assignments
+    are removed.
+
+    User-specific permission overrides are not affected.
     """
 
     permissions = {
@@ -155,8 +159,10 @@ def sync_role_permissions(db: Session) -> int:
 
     created = 0
 
-    for role, permission_keys in DEFAULT_ROLE_PERMISSIONS.items():
-        for permission_key in permission_keys:
+    for role, default_permission_keys in DEFAULT_ROLE_PERMISSIONS.items():
+        default_permission_keys = set(default_permission_keys)
+
+        for permission_key in default_permission_keys:
             permission = permissions.get(permission_key)
 
             if permission is None:
@@ -179,10 +185,30 @@ def sync_role_permissions(db: Session) -> int:
                 )
                 created += 1
 
+        existing_role_permissions = (
+            db.query(RolePermission)
+            .join(
+                Permission,
+                RolePermission.permission_id == Permission.id,
+            )
+            .filter(RolePermission.role == role)
+            .all()
+        )
+
+        for role_permission in existing_role_permissions:
+            permission = db.get(
+                Permission,
+                role_permission.permission_id,
+            )
+
+            if permission is None:
+                continue
+
+            if permission.key not in default_permission_keys:
+                db.delete(role_permission)
+
     db.commit()
-
     return created
-
 
 def sync_permission_system(db: Session) -> dict[str, int]:
     """
