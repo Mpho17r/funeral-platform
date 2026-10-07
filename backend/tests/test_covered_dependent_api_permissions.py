@@ -185,13 +185,13 @@ def test_staff_with_view_permission_can_get_dependent(
     assert response.json()["id"] == data["id"]
 
 
-def test_staff_with_manage_permission_can_create_dependent(
+def test_staff_with_edit_permission_can_create_dependent(
     client,
     db,
     test_data,
     auth_headers,
 ):
-    grant_permission(db, "staff", "memberships.manage")
+    grant_permission(db, "staff", "memberships.edit")
 
     business = test_data["business_a"]
     member = create_member(db, business)
@@ -208,13 +208,13 @@ def test_staff_with_manage_permission_can_create_dependent(
     assert response.json()["membership_id"] == str(membership.id)
 
 
-def test_staff_without_manage_permission_cannot_create_dependent(
+def test_staff_without_edit_permission_cannot_create_dependent(
     client,
     db,
     test_data,
     auth_headers,
 ):
-    revoke_permission(db, "staff", "memberships.manage")
+    revoke_permission(db, "staff", "memberships.edit")
 
     business = test_data["business_a"]
     member = create_member(db, business)
@@ -228,17 +228,17 @@ def test_staff_without_manage_permission_cannot_create_dependent(
 
     assert response.status_code == 403
     assert response.json()["detail"] == (
-        "Permission required: memberships.manage"
+        "Permission required: memberships.edit"
     )
 
 
-def test_staff_with_manage_permission_can_update_dependent(
+def test_staff_with_edit_permission_can_update_dependent(
     client,
     db,
     test_data,
     auth_headers,
 ):
-    grant_permission(db, "staff", "memberships.manage")
+    grant_permission(db, "staff", "memberships.edit")
 
     business = test_data["business_a"]
     data, _ = create_dependent(
@@ -263,13 +263,13 @@ def test_staff_with_manage_permission_can_update_dependent(
     assert response.json()["status"] == "removed"
 
 
-def test_staff_without_manage_permission_cannot_update_dependent(
+def test_staff_without_edit_permission_cannot_update_dependent(
     client,
     db,
     test_data,
     auth_headers,
 ):
-    revoke_permission(db, "staff", "memberships.manage")
+    revoke_permission(db, "staff", "memberships.edit")
 
     business = test_data["business_a"]
     data, _ = create_dependent(
@@ -288,17 +288,17 @@ def test_staff_without_manage_permission_cannot_update_dependent(
 
     assert response.status_code == 403
     assert response.json()["detail"] == (
-        "Permission required: memberships.manage"
+        "Permission required: memberships.edit"
     )
 
 
-def test_staff_with_manage_permission_can_delete_dependent(
+def test_staff_with_edit_permission_can_delete_dependent(
     client,
     db,
     test_data,
     auth_headers,
 ):
-    grant_permission(db, "staff", "memberships.manage")
+    grant_permission(db, "staff", "memberships.edit")
 
     business = test_data["business_a"]
     data, _ = create_dependent(
@@ -317,13 +317,13 @@ def test_staff_with_manage_permission_can_delete_dependent(
     assert response.status_code == 204
 
 
-def test_staff_without_manage_permission_cannot_delete_dependent(
+def test_staff_without_edit_permission_cannot_delete_dependent(
     client,
     db,
     test_data,
     auth_headers,
 ):
-    revoke_permission(db, "staff", "memberships.manage")
+    revoke_permission(db, "staff", "memberships.edit")
 
     business = test_data["business_a"]
     data, _ = create_dependent(
@@ -341,7 +341,7 @@ def test_staff_without_manage_permission_cannot_delete_dependent(
 
     assert response.status_code == 403
     assert response.json()["detail"] == (
-        "Permission required: memberships.manage"
+        "Permission required: memberships.edit"
     )
 
 

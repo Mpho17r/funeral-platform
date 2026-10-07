@@ -101,7 +101,7 @@ def serialize_value(value):
     "",
     response_model=CoveredDependentResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission("memberships.manage"))],
+    dependencies=[Depends(require_permission("memberships.edit"))],
 )
 def create_covered_dependent(
     payload: CoveredDependentCreate,
@@ -238,7 +238,7 @@ def get_covered_dependent_by_id(
 @router.patch(
     "/{dependent_id}",
     response_model=CoveredDependentResponse,
-    dependencies=[Depends(require_permission("memberships.manage"))],
+    dependencies=[Depends(require_permission("memberships.edit"))],
 )
 def update_covered_dependent(
     dependent_id: UUID,
@@ -341,7 +341,7 @@ def update_covered_dependent(
 @router.delete(
     "/{dependent_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_permission("memberships.manage"))],
+    dependencies=[Depends(require_permission("memberships.edit"))],
 )
 def delete_covered_dependent(
     dependent_id: UUID,
