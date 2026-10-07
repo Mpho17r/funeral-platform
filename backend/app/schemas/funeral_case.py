@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 ALLOWED_CASE_STATUSES = {
@@ -53,25 +53,13 @@ class FuneralCaseCreate(BaseModel):
         max_length=255,
     )
 
-    status: str = "open"
 
     notes: str | None = None
 
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, value: str) -> str:
-        value = value.strip().lower()
-
-        if value not in ALLOWED_CASE_STATUSES:
-            raise ValueError(
-                f"Invalid case status. Allowed values: "
-                f"{', '.join(sorted(ALLOWED_CASE_STATUSES))}"
-            )
-
-        return value
-
 
 class FuneralCaseUpdate(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
     case_number: str | None = Field(
         default=None,
         min_length=1,
@@ -109,28 +97,8 @@ class FuneralCaseUpdate(BaseModel):
         max_length=255,
     )
 
-    status: str | None = None
 
     notes: str | None = None
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(
-        cls,
-        value: str | None,
-    ) -> str | None:
-        if value is None:
-            return None
-
-        value = value.strip().lower()
-
-        if value not in ALLOWED_CASE_STATUSES:
-            raise ValueError(
-                f"Invalid case status. Allowed values: "
-                f"{', '.join(sorted(ALLOWED_CASE_STATUSES))}"
-            )
-
-        return value
 
 
 class FuneralCaseResponse(BaseModel):

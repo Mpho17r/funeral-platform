@@ -33,6 +33,10 @@ from app.schemas.funeral_case import (
     FuneralCaseUpdate,
     FuneralCaseResponse,
 )
+from app.schemas.case_lifecycle import (
+    CaseLifecycleTransition,
+    CaseLifecycleResponse,
+)
 
 from app.schemas.case_summary import (
     CaseSummaryResponse,
@@ -45,6 +49,7 @@ from app.schemas.case_summary import (
 )
 
 from app.services.membership_status import is_membership_covered
+from app.services.case_lifecycle import transition_case_status
 
 
 router = APIRouter(
@@ -289,6 +294,7 @@ def create_case(
 
     case = FuneralCase(
         business_id=business_id,
+        status="open",
         **data.model_dump(),
     )
 
@@ -559,6 +565,24 @@ def update_case(
         exclude_unset=True
     )
 
+    if "status" in updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Case status must be changed through the "
+                "case lifecycle endpoint."
+            ),
+        )
+
+    if "status" in updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Case status must be changed through the "
+                "case lifecycle endpoint."
+            ),
+        )
+
     # --------------------------------------------------------
     # PREVENT DUPLICATE CASE NUMBERS
     # --------------------------------------------------------
@@ -636,6 +660,55 @@ def update_case(
     db.refresh(case)
 
     return case
+
+
+# ============================================================
+# CASE LIFECYCLE
+# ============================================================
+
+@router.post(
+    "/{case_id}/lifecycle",
+    response_model=CaseLifecycleResponse,
+)
+def transition_case_lifecycle(
+    case_id: UUID,
+    data: CaseLifecycleTransition,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("cases.edit")),
+):
+    business_id = current_user["business_id"]
+    user_id = current_user["user_id"]
+
+    case = (
+        db.query(FuneralCase)
+        .filter(
+            FuneralCase.id == case_id,
+            FuneralCase.business_id == business_id,
+        )
+        .first()
+    )
+
+    if not case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Funeral case not found",
+        )
+
+    transition_case_status(
+        db,
+        case=case,
+        business_id=business_id,
+        user_id=user_id,
+        new_status=data.status,
+    )
+
+    db.commit()
+    db.refresh(case)
+
+    return CaseLifecycleResponse(
+        id=str(case.id),
+        status=case.status,
+    )
 
 
 # ============================================================

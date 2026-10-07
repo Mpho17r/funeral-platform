@@ -907,7 +907,7 @@ def test_get_cross_tenant_case_summary_returns_404(
     assert response.json()["detail"] == "Funeral case not found"
 
 
-def test_case_update_changes_ordinary_fields(
+def test_case_update_changes_ordinary_fields_but_not_status(
     client,
     test_data,
     auth_headers,
@@ -922,11 +922,12 @@ def test_case_update_changes_ordinary_fields(
         },
         headers=auth_headers(manager),
     )
+
     assert create_response.status_code == 201
-
     case_id = create_response.json()["id"]
+    assert create_response.json()["status"] == "open"
 
-    response = client.patch(
+    status_attempt = client.patch(
         f"/cases/{case_id}",
         json={
             "deceased_full_name": "Updated Name",
@@ -935,9 +936,23 @@ def test_case_update_changes_ordinary_fields(
         headers=auth_headers(manager),
     )
 
-    assert response.status_code == 200
-    assert response.json()["deceased_full_name"] == "Updated Name"
-    assert response.json()["status"] == "completed"
+    assert status_attempt.status_code == 422
+    assert any(
+        error["loc"][-1] == "status"
+        for error in status_attempt.json()["detail"]
+    )
+
+    ordinary_update = client.patch(
+        f"/cases/{case_id}",
+        json={
+            "deceased_full_name": "Updated Name",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert ordinary_update.status_code == 200
+    assert ordinary_update.json()["deceased_full_name"] == "Updated Name"
+    assert ordinary_update.json()["status"] == "open"
 
 
 def test_case_update_duplicate_case_number_returns_409(
@@ -1401,6 +1416,614 @@ def test_case_summary_cross_tenant_case_returns_404(
 # ============================================================
 # COVERAGE DATE SELECTION
 # ============================================================
+
+# ============================================================
+# CASE LIFECYCLE TESTS
+# ============================================================
+
+def test_case_lifecycle_open_to_confirmed(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Lifecycle Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+    assert create_response.json()["status"] == "open"
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "confirmed"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "confirmed"
+
+
+def test_case_lifecycle_full_happy_path(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Full Lifecycle Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+    assert create_response.json()["status"] == "open"
+
+    transitions = [
+        "confirmed",
+        "in_progress",
+        "completed",
+        "closed",
+    ]
+
+    for target_status in transitions:
+        response = client.post(
+            f"/cases/{case_id}/lifecycle",
+            json={"status": target_status},
+            headers=auth_headers(manager),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == target_status
+
+
+def test_case_lifecycle_allowed_cancellation_from_open(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Cancellation Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "cancelled"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"
+
+
+def test_case_lifecycle_allowed_cancellation_from_confirmed(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Cancellation Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    confirm_response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "confirmed"},
+        headers=auth_headers(manager),
+    )
+
+    assert confirm_response.status_code == 200
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "cancelled"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"
+
+
+def test_case_lifecycle_allowed_cancellation_from_in_progress(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Cancellation Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    for target_status in ("confirmed", "in_progress"):
+        response = client.post(
+            f"/cases/{case_id}/lifecycle",
+            json={"status": target_status},
+            headers=auth_headers(manager),
+        )
+        assert response.status_code == 200
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "cancelled"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"
+
+
+def test_case_lifecycle_rejects_skipping_statuses(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Invalid Transition Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "completed"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 409
+    assert "Invalid case status transition" in response.json()["detail"]
+
+
+def test_case_lifecycle_rejects_backward_transition(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Backward Transition Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    for target_status in ("confirmed", "in_progress"):
+        response = client.post(
+            f"/cases/{case_id}/lifecycle",
+            json={"status": target_status},
+            headers=auth_headers(manager),
+        )
+        assert response.status_code == 200
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "confirmed"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 409
+    assert "Invalid case status transition" in response.json()["detail"]
+
+
+def test_case_lifecycle_rejects_same_status(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Same Status Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "open"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 409
+    assert "already in status" in response.json()["detail"]
+
+
+def test_case_lifecycle_rejects_closed_case_reopening(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Closed Case Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    for target_status in (
+        "confirmed",
+        "in_progress",
+        "completed",
+        "closed",
+    ):
+        response = client.post(
+            f"/cases/{case_id}/lifecycle",
+            json={"status": target_status},
+            headers=auth_headers(manager),
+        )
+        assert response.status_code == 200
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "open"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 409
+
+
+def test_case_lifecycle_rejects_cancelled_case_reopening(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Cancelled Case Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    cancel_response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "cancelled"},
+        headers=auth_headers(manager),
+    )
+
+    assert cancel_response.status_code == 200
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "open"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 409
+
+
+def test_case_lifecycle_rejects_invalid_status(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Invalid Status Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "something_invalid"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 400
+    assert "Invalid case status" in response.json()["detail"]
+
+
+def test_case_lifecycle_normalizes_status(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Normalization Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "  CONFIRMED  "},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "confirmed"
+
+
+def test_case_lifecycle_missing_case_returns_404(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+
+    response = client.post(
+        f"/cases/{uuid.uuid4()}/lifecycle",
+        json={"status": "confirmed"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Funeral case not found"
+
+
+def test_case_lifecycle_cross_tenant_case_returns_404(
+    client,
+    test_data,
+    auth_headers,
+):
+    manager_a = test_data["manager"]
+    manager_b = test_data["other_business_manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Other Tenant Case",
+        },
+        headers=auth_headers(manager_b),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "confirmed"},
+        headers=auth_headers(manager_a),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Funeral case not found"
+
+
+def test_case_lifecycle_requires_cases_edit_permission(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    manager = test_data["manager"]
+    staff = test_data["staff"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Permission Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = create_response.json()["id"]
+
+    from app.models.permission import Permission
+    from app.models.user_permission import UserPermission
+
+    permission = (
+        db.query(Permission)
+        .filter(Permission.key == "cases.edit")
+        .one()
+    )
+
+    deny = UserPermission(
+        user_id=staff.id,
+        permission_id=permission.id,
+        effect="deny",
+    )
+    db.add(deny)
+    db.commit()
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "confirmed"},
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Permission required: cases.edit"
+    )
+
+
+def test_case_lifecycle_success_creates_audit_log(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    from app.models.audit_log import AuditLog
+
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Audit Lifecycle Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = uuid.UUID(create_response.json()["id"])
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "confirmed"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 200
+
+    audit = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.business_id == test_data["business_a"].id,
+            AuditLog.user_id == manager.id,
+            AuditLog.action == "case.status_changed",
+            AuditLog.entity_type == "case",
+            AuditLog.entity_id == case_id,
+        )
+        .one()
+    )
+
+    assert audit.details == {
+        "old_status": "open",
+        "new_status": "confirmed",
+    }
+    assert audit.notes == (
+        "Case status changed from open to confirmed."
+    )
+
+
+def test_case_lifecycle_failed_transition_creates_no_audit(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    from app.models.audit_log import AuditLog
+
+    manager = test_data["manager"]
+
+    create_response = client.post(
+        "/cases",
+        json={
+            "case_number": f"LC-{uuid.uuid4().hex[:8].upper()}",
+            "deceased_full_name": "Failed Audit Test",
+        },
+        headers=auth_headers(manager),
+    )
+
+    assert create_response.status_code == 201
+    case_id = uuid.UUID(create_response.json()["id"])
+
+    before_count = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.business_id == test_data["business_a"].id,
+            AuditLog.entity_type == "case",
+            AuditLog.entity_id == case_id,
+            AuditLog.action == "case.status_changed",
+        )
+        .count()
+    )
+
+    response = client.post(
+        f"/cases/{case_id}/lifecycle",
+        json={"status": "completed"},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 409
+
+    after_count = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.business_id == test_data["business_a"].id,
+            AuditLog.entity_type == "case",
+            AuditLog.entity_id == case_id,
+            AuditLog.action == "case.status_changed",
+        )
+        .count()
+    )
+
+    assert after_count == before_count
+
 
 def test_case_coverage_date_prefers_date_of_death():
     from app.api.cases import get_case_coverage_date
