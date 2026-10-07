@@ -49,6 +49,10 @@ from app.schemas.case_summary import (
 )
 
 from app.services.membership_status import is_membership_covered
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+)
 from app.services.case_lifecycle import transition_case_status
 
 
@@ -299,6 +303,24 @@ def create_case(
     )
 
     db.add(case)
+
+    # Flush so the generated case ID is available to the audit record.
+    # The case and audit entry are committed together.
+    db.flush()
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=current_user["user_id"],
+        action="case.created",
+        entity_type="case",
+        entity_id=case.id,
+        details={
+            "case_number": case.case_number,
+        },
+        notes=f"Case {case.case_number} was created.",
+    )
+
     db.commit()
     db.refresh(case)
 
@@ -565,6 +587,13 @@ def update_case(
         exclude_unset=True
     )
 
+    # Capture original values before applying changes so the audit
+    # record can describe exactly what changed.
+    original_values = {
+        field: getattr(case, field)
+        for field in updates
+    }
+
     if "status" in updates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -655,6 +684,30 @@ def update_case(
 
     for field, value in updates.items():
         setattr(case, field, value)
+
+    changed_values = {
+        field: getattr(case, field)
+        for field in updates
+    }
+
+    changes = build_audit_changes(
+        original_values,
+        changed_values,
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=current_user["user_id"],
+            action="case.updated",
+            entity_type="case",
+            entity_id=case.id,
+            details={
+                "changes": changes,
+            },
+            notes=f"Case {case.case_number} was updated.",
+        )
 
     db.commit()
     db.refresh(case)
