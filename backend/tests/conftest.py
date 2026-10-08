@@ -100,6 +100,10 @@ def db():
             "members",
             "membership_plans",
 
+            # Resources
+            "resource_bookings",
+            "resources",
+
             # Funeral case system
             "case_payments",
             "case_financials",

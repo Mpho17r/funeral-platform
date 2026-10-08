@@ -98,6 +98,14 @@ PERMISSIONS = {
     "branding.view": "View business branding",
     "branding.manage": "Manage business branding",
 
+    # Resources (vehicles, venues, equipment)
+    "resources.view": "View vehicles, venues and equipment",
+    "resources.manage": "Manage vehicles, venues and equipment",
+
+    # Resource bookings
+    "resource_bookings.view": "View resource bookings and availability",
+    "resource_bookings.manage": "Create, change and cancel resource bookings",
+
     # User groups
     "groups.view": "View user groups",
     "groups.create": "Create user groups",
