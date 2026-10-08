@@ -37,3 +37,5 @@ from app.models.staff_break_session import StaffBreakSession
 from app.models.group import Group, GroupMember
 
 from app.models.resource import Resource, ResourceBooking
+from app.models.membership_beneficiary import MembershipBeneficiary
+from app.models.membership_claim import MembershipClaim

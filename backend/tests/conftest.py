@@ -91,6 +91,10 @@ def db():
             "role_permissions",
             "permissions",
 
+            # Claims and beneficiaries
+            "membership_claims",
+            "membership_beneficiaries",
+
             # Membership system
             "membership_payments",
             "membership_contributions",

@@ -25,6 +25,7 @@ from app.api.presence import router as presence_router
 from app.api.attendance import router as attendance_router
 from app.api.groups import router as groups_router
 from app.api.resources import router as resources_router
+from app.api.claims import router as claims_router
 
 from app.api.membership_plans import router as membership_plans_router
 from app.api.membership_plan_benefits import (
@@ -147,6 +148,11 @@ app.include_router(
 # Resources (vehicles, venues, equipment) and bookings
 app.include_router(
     resources_router
+)
+
+# Beneficiaries and claims
+app.include_router(
+    claims_router
 )
 
 # Membership plans

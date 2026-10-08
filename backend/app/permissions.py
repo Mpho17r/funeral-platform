@@ -106,6 +106,19 @@ PERMISSIONS = {
     "resource_bookings.view": "View resource bookings and availability",
     "resource_bookings.manage": "Create, change and cancel resource bookings",
 
+    # Beneficiaries
+    "beneficiaries.view": "View membership beneficiaries",
+    "beneficiaries.manage": "Manage membership beneficiaries",
+
+    # Claims
+    "claims.view": "View membership claims",
+    "claims.create": "Submit, edit and cancel membership claims",
+    "claims.review": "Review, approve and reject membership claims",
+    "claims.pay": "Mark approved membership claims as paid",
+    "claims.override": (
+        "Approve claims despite failed coverage or above plan limits"
+    ),
+
     # User groups
     "groups.view": "View user groups",
     "groups.create": "Create user groups",
