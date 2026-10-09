@@ -106,6 +106,19 @@ PERMISSIONS = {
     "resource_bookings.view": "View resource bookings and availability",
     "resource_bookings.manage": "Create, change and cancel resource bookings",
 
+    # Quotes, invoices and receipts
+    "financial_documents.view": "View quotes and invoices",
+    "financial_documents.manage": (
+        "Create and edit draft quotes and invoices, record quote "
+        "decisions and convert quotes into invoices"
+    ),
+    "financial_documents.issue": (
+        "Issue quotes and invoices, which makes them permanent"
+    ),
+    "financial_documents.void": "Void issued quotes and invoices",
+    "receipts.view": "View payment receipts",
+    "receipts.issue": "Issue receipts for recorded payments",
+
     # Beneficiaries
     "beneficiaries.view": "View membership beneficiaries",
     "beneficiaries.manage": "Manage membership beneficiaries",

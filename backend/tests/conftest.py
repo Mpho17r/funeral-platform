@@ -91,6 +91,11 @@ def db():
             "role_permissions",
             "permissions",
 
+            # Quotes, invoices and receipts
+            "payment_receipts",
+            "financial_document_lines",
+            "financial_documents",
+
             # Claims and beneficiaries
             "membership_claims",
             "membership_beneficiaries",

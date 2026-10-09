@@ -39,3 +39,8 @@ from app.models.group import Group, GroupMember
 from app.models.resource import Resource, ResourceBooking
 from app.models.membership_beneficiary import MembershipBeneficiary
 from app.models.membership_claim import MembershipClaim
+from app.models.financial_document import (
+    FinancialDocument,
+    FinancialDocumentLine,
+    PaymentReceipt,
+)

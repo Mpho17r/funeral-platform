@@ -10,6 +10,7 @@ from app.database import get_db
 from app.dependencies.roles import require_permission
 from app.models.case_financial import CaseFinancial
 from app.models.case_payment import CasePayment
+from app.models.financial_document import PaymentReceipt
 from app.models.funeral_case import FuneralCase
 from app.schemas.case_payment import (
     CasePaymentCreate,
@@ -147,6 +148,25 @@ def recalculate_financials(
     financial.status = financial_status
 
     return financial
+
+
+def ensure_no_receipt(db: Session, payment: CasePayment) -> None:
+    """A receipted payment is part of the permanent financial record."""
+
+    receipt = (
+        db.query(PaymentReceipt.receipt_number)
+        .filter(PaymentReceipt.payment_id == payment.id)
+        .first()
+    )
+
+    if receipt is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Receipt {receipt[0]} has been issued for this "
+                f"payment, so it can no longer be changed or deleted"
+            ),
+        )
 
 
 def is_duplicate_payment_reference(exc: IntegrityError) -> bool:
@@ -394,6 +414,8 @@ def update_payment(
             detail="Payment not found",
         )
 
+    ensure_no_receipt(db, payment)
+
     # --------------------------------------------------------
     # Apply updates
     # --------------------------------------------------------
@@ -481,6 +503,8 @@ def delete_payment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Payment not found",
         )
+
+    ensure_no_receipt(db, payment)
 
     # Save case ID before deletion
     case_id = payment.case_id
