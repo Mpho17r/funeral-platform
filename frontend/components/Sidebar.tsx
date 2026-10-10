@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   Receipt,
   UsersRound,
+  UserCheck,
+  ClipboardCheck,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -93,6 +95,16 @@ export default function Sidebar({
       label: "Covered Dependents",
       icon: <Users size={18} />,
       path: "/covered-dependents",
+    },
+    {
+      label: "Beneficiaries",
+      icon: <UserCheck size={18} />,
+      path: "/beneficiaries",
+    },
+    {
+      label: "Claims",
+      icon: <ClipboardCheck size={18} />,
+      path: "/claims",
     },
     {
       label: "Contributions",
