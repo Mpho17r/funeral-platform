@@ -15,6 +15,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+    snapshot_fields,
+)
 from app.models.case_document import CaseDocument
 from app.models.funeral_case import FuneralCase
 from app.schemas.case_document import (
@@ -44,6 +49,14 @@ ALLOWED_MIME_TYPES = {
 }
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+# Fields whose changes are recorded in the audit trail. File names and
+# contents are deliberately never copied into the audit history, since
+# they often contain the name of the deceased.
+AUDITED_DOCUMENT_FIELDS = (
+    "document_type",
+    "description",
+)
 
 
 # ============================================================
@@ -227,6 +240,24 @@ def upload_document(
 
     try:
         db.add(document)
+        db.flush()
+
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=user_id,
+            action="case.document_uploaded",
+            entity_type="case_document",
+            entity_id=document.id,
+            details={
+                "case_id": str(case_id),
+                "document_type": document.document_type,
+                "mime_type": document.mime_type,
+                "file_size": document.file_size,
+            },
+            notes="Case document was uploaded.",
+        )
+
         db.commit()
         db.refresh(document)
 
@@ -418,8 +449,33 @@ def update_document(
         exclude_unset=True
     )
 
+    old_values = snapshot_fields(
+        document,
+        AUDITED_DOCUMENT_FIELDS,
+    )
+
     for field, value in update_data.items():
         setattr(document, field, value)
+
+    changes = build_audit_changes(
+        old_values,
+        snapshot_fields(document, AUDITED_DOCUMENT_FIELDS),
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=get_user_id(current_user),
+            action="case.document_updated",
+            entity_type="case_document",
+            entity_id=document.id,
+            details={
+                "case_id": str(document.case_id),
+                "changes": changes,
+            },
+            notes="Case document was updated.",
+        )
 
     db.commit()
     db.refresh(document)
@@ -475,8 +531,22 @@ def delete_document(
         )
 
     # --------------------------------------------------------
-    # Delete database record
+    # Audit, then delete database record
     # --------------------------------------------------------
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=get_user_id(current_user),
+        action="case.document_deleted",
+        entity_type="case_document",
+        entity_id=document.id,
+        details={
+            "case_id": str(document.case_id),
+            "document_type": document.document_type,
+        },
+        notes="Case document was deleted.",
+    )
 
     db.delete(document)
     db.commit()

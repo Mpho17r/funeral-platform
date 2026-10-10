@@ -21,6 +21,7 @@ SENSITIVE_AUDIT_FIELDS = {
     "address",
     "notes",
     "description",
+    "title",
 }
 
 

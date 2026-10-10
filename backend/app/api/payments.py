@@ -8,6 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+    snapshot_fields,
+)
 from app.models.case_financial import CaseFinancial
 from app.models.case_payment import CasePayment
 from app.models.financial_document import PaymentReceipt
@@ -23,6 +28,32 @@ router = APIRouter(
     prefix="/cases",
     tags=["Case Payments"],
 )
+
+
+# Fields whose changes are recorded in the audit trail.
+AUDITED_PAYMENT_FIELDS = (
+    "amount",
+    "payment_method",
+    "reference",
+    "payment_date",
+    "notes",
+)
+
+
+def financial_effect(financial) -> dict | None:
+    """
+    Describe the case balance after a payment change, so the audit
+    trail shows what each payment did to the amount owed.
+    """
+    if financial is None:
+        return None
+
+    return {
+        "status": financial.status,
+        "amount_paid": str(financial.amount_paid),
+        "balance": str(financial.balance),
+        "credit": str(financial.credit),
+    }
 
 
 # ============================================================
@@ -275,10 +306,27 @@ def create_payment(
     # Recalculate financials
     # --------------------------------------------------------
 
-    recalculate_financials(
+    financial = recalculate_financials(
         db=db,
         case_id=case_id,
         business_id=business_id,
+    )
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="case.payment_created",
+        entity_type="case_payment",
+        entity_id=payment.id,
+        details={
+            "case_id": str(case_id),
+            "amount": str(payment.amount),
+            "payment_method": payment.payment_method,
+            "reference": payment.reference,
+            "financial_after": financial_effect(financial),
+        },
+        notes="Case payment was recorded.",
     )
 
     # --------------------------------------------------------
@@ -424,6 +472,11 @@ def update_payment(
         exclude_unset=True
     )
 
+    old_values = snapshot_fields(
+        payment,
+        AUDITED_PAYMENT_FIELDS,
+    )
+
     for field, value in updates.items():
         setattr(payment, field, value)
 
@@ -452,11 +505,36 @@ def update_payment(
     # Recalculate financials
     # --------------------------------------------------------
 
-    recalculate_financials(
+    financial = recalculate_financials(
         db=db,
         case_id=payment.case_id,
         business_id=business_id,
     )
+
+    # --------------------------------------------------------
+    # Audit
+    # --------------------------------------------------------
+
+    changes = build_audit_changes(
+        old_values,
+        snapshot_fields(payment, AUDITED_PAYMENT_FIELDS),
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="case.payment_updated",
+            entity_type="case_payment",
+            entity_id=payment.id,
+            details={
+                "case_id": str(payment.case_id),
+                "changes": changes,
+                "financial_after": financial_effect(financial),
+            },
+            notes="Case payment was updated.",
+        )
 
     # --------------------------------------------------------
     # Commit
@@ -506,8 +584,15 @@ def delete_payment(
 
     ensure_no_receipt(db, payment)
 
-    # Save case ID before deletion
+    # Save details before deletion
     case_id = payment.case_id
+    payment_id_value = payment.id
+    deleted_details = {
+        "case_id": str(case_id),
+        "amount": str(payment.amount),
+        "payment_method": payment.payment_method,
+        "reference": payment.reference,
+    }
 
     # --------------------------------------------------------
     # Delete payment
@@ -521,10 +606,24 @@ def delete_payment(
     # Recalculate financials
     # --------------------------------------------------------
 
-    recalculate_financials(
+    financial = recalculate_financials(
         db=db,
         case_id=case_id,
         business_id=business_id,
+    )
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="case.payment_deleted",
+        entity_type="case_payment",
+        entity_id=payment_id_value,
+        details={
+            **deleted_details,
+            "financial_after": financial_effect(financial),
+        },
+        notes="Case payment was deleted.",
     )
 
     # --------------------------------------------------------
