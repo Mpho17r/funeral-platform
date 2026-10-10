@@ -7,7 +7,9 @@ import {
   Calculator,
   CheckCircle2,
   CreditCard,
+  FileText,
   Loader2,
+  Lock,
   Pencil,
   Plus,
   Receipt,
@@ -53,6 +55,14 @@ type Payment = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type PaymentReceipt = {
+  id: string;
+  payment_id: string;
+  receipt_number: string;
+  amount: string;
+  issued_at: string;
 };
 
 type FinancialForm = {
@@ -155,6 +165,13 @@ export default function FinancialPage() {
   const [deletingPayment, setDeletingPayment] =
     useState<string | null>(null);
 
+  // Receipts by payment id. A receipted payment is permanent.
+  const [receipts, setReceipts] =
+    useState<Record<string, PaymentReceipt>>({});
+
+  const [issuingReceipt, setIssuingReceipt] =
+    useState<string | null>(null);
+
   const [pageError, setPageError] =
     useState("");
 
@@ -205,6 +222,7 @@ export default function FinancialPage() {
     }
 
     loadFinancialData();
+    loadReceipts();
   }, [caseId, router]);
 
   async function loadFinancialData() {
@@ -531,6 +549,31 @@ export default function FinancialPage() {
   }
 
   /* ==========================================================
+     LOAD RECEIPTS
+  ========================================================== */
+
+  async function loadReceipts() {
+    try {
+      const response = await api.get<PaymentReceipt[]>(
+        `/cases/${caseId}/receipts`
+      );
+
+      setReceipts(
+        Object.fromEntries(
+          response.data.map((receipt) => [
+            receipt.payment_id,
+            receipt,
+          ])
+        )
+      );
+    } catch {
+      // Viewing receipts has its own permission. Without it the
+      // payments simply show no receipt state.
+      setReceipts({});
+    }
+  }
+
+  /* ==========================================================
      LOAD PAYMENTS
   ========================================================== */
 
@@ -784,6 +827,51 @@ export default function FinancialPage() {
   }
 
   /* ==========================================================
+     ISSUE RECEIPT
+  ========================================================== */
+
+  async function handleIssueReceipt(paymentId: string) {
+    const confirmed = window.confirm(
+      "Issue a receipt for this payment? Once issued, the payment can no longer be edited or deleted."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIssuingReceipt(paymentId);
+    setPaymentError("");
+
+    try {
+      await api.post(
+        `/cases/payments/${paymentId}/receipt`
+      );
+
+      await loadReceipts();
+    } catch (err) {
+      const status = (
+        err as { response?: { status?: number } }
+      ).response?.status;
+
+      if (status === 401) {
+        router.push("/login");
+        return;
+      }
+
+      setPaymentError(
+        status === 403
+          ? "You do not have permission to issue receipts."
+          : getApiErrorMessage(
+              err,
+              "Unable to issue the receipt."
+            )
+      );
+    } finally {
+      setIssuingReceipt(null);
+    }
+  }
+
+  /* ==========================================================
      LOADING
   ========================================================== */
 
@@ -846,6 +934,18 @@ export default function FinancialPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() =>
+                  router.push(
+                    `/cases/${caseId}/financial/documents`
+                  )
+                }
+                className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <FileText size={16} />
+                Quotes &amp; Invoices
+              </button>
+
               {financial && (
                 <button
                   onClick={
@@ -1184,15 +1284,62 @@ export default function FinancialPage() {
                         </td>
 
                         <td className="px-4 py-4">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex items-center justify-end gap-2">
+                            {receipts[payment.id] ? (
+                              <span
+                                className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"
+                                title="A receipt has been issued, so this payment can no longer be changed"
+                              >
+                                <Lock size={12} />
+                                {
+                                  receipts[payment.id]
+                                    .receipt_number
+                                }
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  handleIssueReceipt(
+                                    payment.id
+                                  )
+                                }
+                                disabled={
+                                  issuingReceipt ===
+                                  payment.id
+                                }
+                                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                                title="Issue a receipt for this payment"
+                              >
+                                {issuingReceipt ===
+                                payment.id ? (
+                                  <Loader2
+                                    size={13}
+                                    className="animate-spin"
+                                  />
+                                ) : (
+                                  <Receipt
+                                    size={13}
+                                  />
+                                )}
+                                Issue receipt
+                              </button>
+                            )}
+
                             <button
                               onClick={() =>
                                 openEditPayment(
                                   payment
                                 )
                               }
-                              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-                              title="Edit payment"
+                              disabled={
+                                !!receipts[payment.id]
+                              }
+                              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                              title={
+                                receipts[payment.id]
+                                  ? "Receipted payments cannot be changed"
+                                  : "Edit payment"
+                              }
                             >
                               <Pencil
                                 size={16}
@@ -1207,10 +1354,15 @@ export default function FinancialPage() {
                               }
                               disabled={
                                 deletingPayment ===
-                                payment.id
+                                  payment.id ||
+                                !!receipts[payment.id]
                               }
-                              className="rounded-lg p-2 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
-                              title="Delete payment"
+                              className="rounded-lg p-2 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                              title={
+                                receipts[payment.id]
+                                  ? "Receipted payments cannot be deleted"
+                                  : "Delete payment"
+                              }
                             >
                               {deletingPayment ===
                               payment.id ? (

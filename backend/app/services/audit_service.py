@@ -20,6 +20,8 @@ SENSITIVE_AUDIT_FIELDS = {
     "email",
     "address",
     "notes",
+    "description",
+    "title",
 }
 
 
@@ -43,6 +45,16 @@ def _serialize_audit_value(value):
         return str(value)
 
     return value
+
+
+def snapshot_fields(instance, fields) -> dict:
+    """
+    Capture the current values of the given attributes.
+
+    Call once before and once after a change, then pass both
+    snapshots to build_audit_changes.
+    """
+    return {field: getattr(instance, field) for field in fields}
 
 
 def build_audit_changes(

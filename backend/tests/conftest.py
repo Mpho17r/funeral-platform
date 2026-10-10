@@ -91,6 +91,15 @@ def db():
             "role_permissions",
             "permissions",
 
+            # Quotes, invoices and receipts
+            "payment_receipts",
+            "financial_document_lines",
+            "financial_documents",
+
+            # Claims and beneficiaries
+            "membership_claims",
+            "membership_beneficiaries",
+
             # Membership system
             "membership_payments",
             "membership_contributions",
@@ -99,6 +108,10 @@ def db():
             "membership_plan_benefits",
             "members",
             "membership_plans",
+
+            # Resources
+            "resource_bookings",
+            "resources",
 
             # Funeral case system
             "case_payments",

@@ -98,6 +98,40 @@ PERMISSIONS = {
     "branding.view": "View business branding",
     "branding.manage": "Manage business branding",
 
+    # Resources (vehicles, venues, equipment)
+    "resources.view": "View vehicles, venues and equipment",
+    "resources.manage": "Manage vehicles, venues and equipment",
+
+    # Resource bookings
+    "resource_bookings.view": "View resource bookings and availability",
+    "resource_bookings.manage": "Create, change and cancel resource bookings",
+
+    # Quotes, invoices and receipts
+    "financial_documents.view": "View quotes and invoices",
+    "financial_documents.manage": (
+        "Create and edit draft quotes and invoices, record quote "
+        "decisions and convert quotes into invoices"
+    ),
+    "financial_documents.issue": (
+        "Issue quotes and invoices, which makes them permanent"
+    ),
+    "financial_documents.void": "Void issued quotes and invoices",
+    "receipts.view": "View payment receipts",
+    "receipts.issue": "Issue receipts for recorded payments",
+
+    # Beneficiaries
+    "beneficiaries.view": "View membership beneficiaries",
+    "beneficiaries.manage": "Manage membership beneficiaries",
+
+    # Claims
+    "claims.view": "View membership claims",
+    "claims.create": "Submit, edit and cancel membership claims",
+    "claims.review": "Review, approve and reject membership claims",
+    "claims.pay": "Mark approved membership claims as paid",
+    "claims.override": (
+        "Approve claims despite failed coverage or above plan limits"
+    ),
+
     # User groups
     "groups.view": "View user groups",
     "groups.create": "Create user groups",

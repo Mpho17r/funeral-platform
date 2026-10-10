@@ -6,6 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+    snapshot_fields,
+)
 
 from app.models.case_service import CaseService
 from app.models.funeral_case import FuneralCase
@@ -20,6 +25,21 @@ from app.schemas.case_service import (
 router = APIRouter(
     prefix="/cases",
     tags=["Case Services"],
+)
+
+
+# Fields whose changes are recorded in the audit trail.
+AUDITED_SERVICE_FIELDS = (
+    "service_type",
+    "service_name",
+    "description",
+    "status",
+    "quantity",
+    "unit_price",
+    "total_price",
+    "scheduled_date",
+    "provider",
+    "notes",
 )
 
 
@@ -136,6 +156,25 @@ def create_service(
     )
 
     db.add(service)
+    db.flush()
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="case.service_created",
+        entity_type="case_service",
+        entity_id=service.id,
+        details={
+            "case_id": str(case_id),
+            "service_type": service.service_type,
+            "quantity": service.quantity,
+            "unit_price": str(service.unit_price),
+            "total_price": str(service.total_price),
+        },
+        notes="Case service was created.",
+    )
+
     db.commit()
     db.refresh(service)
 
@@ -265,6 +304,11 @@ def update_service(
         exclude_unset=True
     )
 
+    old_values = snapshot_fields(
+        service,
+        AUDITED_SERVICE_FIELDS,
+    )
+
     for field, value in updates.items():
         setattr(service, field, value)
 
@@ -279,6 +323,30 @@ def update_service(
         quantity=quantity,
         unit_price=Decimal(str(unit_price)),
     )
+
+    # --------------------------------------------------------
+    # Audit
+    # --------------------------------------------------------
+
+    changes = build_audit_changes(
+        old_values,
+        snapshot_fields(service, AUDITED_SERVICE_FIELDS),
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="case.service_updated",
+            entity_type="case_service",
+            entity_id=service.id,
+            details={
+                "case_id": str(service.case_id),
+                "changes": changes,
+            },
+            notes="Case service was updated.",
+        )
 
     # --------------------------------------------------------
     # Commit
@@ -326,8 +394,23 @@ def delete_service(
         )
 
     # --------------------------------------------------------
-    # Delete
+    # Audit, then delete
     # --------------------------------------------------------
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="case.service_deleted",
+        entity_type="case_service",
+        entity_id=service.id,
+        details={
+            "case_id": str(service.case_id),
+            "service_type": service.service_type,
+            "total_price": str(service.total_price),
+        },
+        notes="Case service was deleted.",
+    )
 
     db.delete(service)
     db.commit()

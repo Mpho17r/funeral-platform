@@ -24,6 +24,11 @@ from app.api.dashboard import router as dashboard_router
 from app.api.presence import router as presence_router
 from app.api.attendance import router as attendance_router
 from app.api.groups import router as groups_router
+from app.api.resources import router as resources_router
+from app.api.claims import router as claims_router
+from app.api.financial_documents import (
+    router as financial_documents_router,
+)
 
 from app.api.membership_plans import router as membership_plans_router
 from app.api.membership_plan_benefits import (
@@ -141,6 +146,21 @@ app.include_router(
 # Groups
 app.include_router(
     groups_router
+)
+
+# Resources (vehicles, venues, equipment) and bookings
+app.include_router(
+    resources_router
+)
+
+# Beneficiaries and claims
+app.include_router(
+    claims_router
+)
+
+# Quotes, invoices and receipts
+app.include_router(
+    financial_documents_router
 )
 
 # Membership plans
