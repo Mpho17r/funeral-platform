@@ -18,6 +18,8 @@ import {
   UsersRound,
   UserCheck,
   ClipboardCheck,
+  Truck,
+  CalendarClock,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -77,6 +79,16 @@ export default function Sidebar({
       label: "Services",
       icon: <HeartHandshake size={18} />,
       path: "/services",
+    },
+    {
+      label: "Resources",
+      icon: <Truck size={18} />,
+      path: "/resources",
+    },
+    {
+      label: "Schedule",
+      icon: <CalendarClock size={18} />,
+      path: "/resource-bookings",
     },
   ];
 
