@@ -57,6 +57,31 @@ const emptyForm: ContactForm = {
   notes: "",
 };
 
+function getApiErrorDetails(error: unknown): {
+  status?: number;
+  detail?: string;
+} {
+  if (error === null || typeof error !== "object") return {};
+
+  const record = error as Record<string, unknown>;
+  const response = record.response;
+  if (response === null || typeof response !== "object") return {};
+
+  const responseRecord = response as Record<string, unknown>;
+  const data = responseRecord.data;
+  const detail =
+    data !== null && typeof data === "object"
+      ? (data as Record<string, unknown>).detail
+      : undefined;
+
+  return {
+    status: typeof responseRecord.status === "number"
+      ? responseRecord.status
+      : undefined,
+    detail: typeof detail === "string" ? detail : undefined,
+  };
+}
+
 export default function ContactsPage() {
   const router = useRouter();
   const params = useParams();
@@ -79,43 +104,74 @@ export default function ContactsPage() {
     null
   );
 
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-
-    if (!caseId) {
-      return;
-    }
-
-    loadContacts();
-  }, [caseId, router]);
-
   async function loadContacts() {
     try {
       setLoading(true);
       setError("");
-
       const response = await api.get<Contact[]>(
         `/cases/${caseId}/contacts`
       );
-
       setContacts(response.data);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorDetails(err).status === 401) {
         router.push("/login");
         return;
       }
-
       setError(
-        err.response?.data?.detail ||
+        getApiErrorDetails(err).detail ||
           "Unable to load case contacts."
       );
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push("/login");
+      return;
+    }
+    if (!caseId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function fetchContacts() {
+      try {
+        setLoading(true);
+        setError("");
+        const response = await api.get<Contact[]>(
+          `/cases/${caseId}/contacts`
+        );
+        if (!cancelled) {
+          setContacts(response.data);
+        }
+      } catch (err: unknown) {
+        if (getApiErrorDetails(err).status === 401) {
+          router.push("/login");
+          return;
+        }
+        if (!cancelled) {
+          setError(
+            getApiErrorDetails(err).detail ||
+              "Unable to load case contacts."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void fetchContacts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [caseId, router]);
+
 
   function openAddForm() {
     setEditingContact(null);
@@ -201,14 +257,14 @@ export default function ContactsPage() {
       setForm(emptyForm);
 
       await loadContacts();
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorDetails(err).status === 401) {
         router.push("/login");
         return;
       }
 
       setFormError(
-        err.response?.data?.detail ||
+        getApiErrorDetails(err).detail ||
           "Unable to save contact."
       );
     } finally {
@@ -233,14 +289,14 @@ export default function ContactsPage() {
       );
 
       await loadContacts();
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorDetails(err).status === 401) {
         router.push("/login");
         return;
       }
 
       setError(
-        err.response?.data?.detail ||
+        getApiErrorDetails(err).detail ||
           "Unable to delete contact."
       );
     } finally {
@@ -250,8 +306,8 @@ export default function ContactsPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="text-sm text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-[var(--fos-surface-muted)]">
+        <div className="text-sm text-[var(--fos-text-muted)]">
           Loading contacts...
         </div>
       </main>
@@ -259,14 +315,14 @@ export default function ContactsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
+    <main className="min-h-screen bg-[var(--fos-surface-muted)]">
+      <header className="border-b bg-[var(--fos-surface)]">
         <div className="mx-auto max-w-7xl px-6 py-5 md:px-8">
           <button
             onClick={() =>
               router.push(`/cases/${caseId}`)
             }
-            className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+            className="mb-5 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-muted)] hover:text-[var(--fos-text)]"
           >
             <ArrowLeft size={17} />
             Back to Case
@@ -274,11 +330,11 @@ export default function ContactsPage() {
 
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">
+              <h1 className="text-2xl font-bold text-[var(--fos-text)]">
                 Case Contacts
               </h1>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                 Manage family members, next of kin,
                 suppliers and other case contacts.
               </p>
@@ -304,16 +360,16 @@ export default function ContactsPage() {
         )}
 
         {contacts.length === 0 ? (
-          <div className="rounded-2xl border bg-white p-12 text-center shadow-sm">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+          <div className="rounded-2xl border bg-[var(--fos-surface)] p-12 text-center shadow-sm">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--fos-surface-muted)] text-[var(--fos-text-muted)]">
               <UserRound size={25} />
             </div>
 
-            <h2 className="mt-4 text-lg font-semibold text-slate-900">
+            <h2 className="mt-4 text-lg font-semibold text-[var(--fos-text)]">
               No contacts yet
             </h2>
 
-            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+            <p className="mx-auto mt-2 max-w-md text-sm text-[var(--fos-text-muted)]">
               Add the family members, next of kin,
               suppliers or other people connected to
               this funeral case.
@@ -351,16 +407,16 @@ export default function ContactsPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 flex items-center justify-between border-b bg-white px-6 py-5">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-2xl">
+            <div className="sticky top-0 flex items-center justify-between border-b bg-[var(--fos-surface)] px-6 py-5">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">
+                <h2 className="text-lg font-bold text-[var(--fos-text)]">
                   {editingContact
                     ? "Edit Contact"
                     : "Add Contact"}
                 </h2>
 
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
                   {editingContact
                     ? "Update contact information."
                     : "Add a person or organisation connected to this case."}
@@ -372,7 +428,7 @@ export default function ContactsPage() {
                 onClick={() =>
                   setShowForm(false)
                 }
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text-secondary)]"
               >
                 <X size={20} />
               </button>
@@ -389,13 +445,13 @@ export default function ContactsPage() {
               )}
 
               <div>
-                <h3 className="mb-4 font-semibold text-slate-900">
+                <h3 className="mb-4 font-semibold text-[var(--fos-text)]">
                   Contact Information
                 </h3>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                    <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                       Contact Type
                     </label>
 
@@ -407,7 +463,7 @@ export default function ContactsPage() {
                           event.target.value
                         )
                       }
-                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                      className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
                     >
                       <option value="family">
                         Family
@@ -498,7 +554,7 @@ export default function ContactsPage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                   Address
                 </label>
 
@@ -511,13 +567,13 @@ export default function ContactsPage() {
                     )
                   }
                   rows={3}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                  className="w-full rounded-lg border border-[var(--fos-border)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
                   placeholder="Physical or postal address"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                   Notes
                 </label>
 
@@ -530,7 +586,7 @@ export default function ContactsPage() {
                     )
                   }
                   rows={4}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                  className="w-full rounded-lg border border-[var(--fos-border)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
                   placeholder="Additional contact notes..."
                 />
               </div>
@@ -541,7 +597,7 @@ export default function ContactsPage() {
                   onClick={() =>
                     setShowForm(false)
                   }
-                  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-[var(--fos-border)] px-5 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
                 >
                   Cancel
                 </button>
@@ -578,20 +634,20 @@ function ContactCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="rounded-2xl border bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border bg-[var(--fos-surface)] p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]">
             <UserRound size={20} />
           </div>
 
           <div>
-            <h2 className="font-semibold text-slate-900">
+            <h2 className="font-semibold text-[var(--fos-text)]">
               {contact.first_name}{" "}
               {contact.last_name}
             </h2>
 
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
               {formatContactType(
                 contact.contact_type
               )}
@@ -603,7 +659,7 @@ function ContactCard({
           <button
             type="button"
             onClick={onEdit}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text-secondary)]"
             title="Edit contact"
           >
             <Pencil size={16} />
@@ -613,7 +669,7 @@ function ContactCard({
             type="button"
             onClick={onDelete}
             disabled={deleting}
-            className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+            className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
             title="Delete contact"
           >
             <Trash2 size={16} />
@@ -639,7 +695,7 @@ function ContactCard({
         {contact.phone && (
           <a
             href={`tel:${contact.phone}`}
-            className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:underline"
+            className="flex items-center gap-2 text-sm font-medium text-[var(--fos-text-secondary)] hover:underline"
           >
             <Phone size={15} />
             {contact.phone}
@@ -649,7 +705,7 @@ function ContactCard({
         {contact.email && (
           <a
             href={`mailto:${contact.email}`}
-            className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:underline"
+            className="flex items-center gap-2 text-sm font-medium text-[var(--fos-text-secondary)] hover:underline"
           >
             <Mail size={15} />
             {contact.email}
@@ -657,7 +713,7 @@ function ContactCard({
         )}
 
         {contact.address && (
-          <div className="flex gap-2 text-sm text-slate-600">
+          <div className="flex gap-2 text-sm text-[var(--fos-text-secondary)]">
             <MapPin
               size={15}
               className="mt-0.5 shrink-0"
@@ -672,11 +728,11 @@ function ContactCard({
 
       {contact.notes && (
         <div className="mt-5 border-t pt-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
             Notes
           </p>
 
-          <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+          <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[var(--fos-text-secondary)]">
             {contact.notes}
           </p>
         </div>
@@ -702,7 +758,7 @@ function ContactInput({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-slate-700">
+      <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
         {label}
         {required && (
           <span className="ml-1 text-red-500">
@@ -719,7 +775,7 @@ function ContactInput({
           onChange(event.target.value)
         }
         placeholder={placeholder}
-        className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+        className="w-full rounded-lg border border-[var(--fos-border)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
       />
     </div>
   );
@@ -734,11 +790,11 @@ function InfoRow({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
         {label}
       </p>
 
-      <p className="mt-1 text-sm text-slate-700">
+      <p className="mt-1 text-sm text-[var(--fos-text-secondary)]">
         {value}
       </p>
     </div>

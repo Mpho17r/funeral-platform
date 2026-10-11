@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import api from "@/lib/api";
 import {
   Edit,
@@ -77,12 +77,38 @@ function statusClass(status: string) {
     case "lapsed":
       return "bg-red-100 text-red-700";
     case "cancelled":
-      return "bg-gray-100 text-gray-700";
+      return "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300";
     case "deceased":
       return "bg-purple-100 text-purple-700";
     default:
-      return "bg-gray-100 text-gray-700";
+      return "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300";
   }
+}
+
+function getApiErrorDetails(error: unknown): {
+  status?: number;
+  detail?: string;
+} {
+  if (error === null || typeof error !== "object") return {};
+
+  const errorRecord = error as Record<string, unknown>;
+  const response = errorRecord.response;
+  if (response === null || typeof response !== "object") return {};
+
+  const responseRecord = response as Record<string, unknown>;
+  const data = responseRecord.data;
+  const detail =
+    data !== null && typeof data === "object"
+      ? (data as Record<string, unknown>).detail
+      : undefined;
+
+  return {
+    status:
+      typeof responseRecord.status === "number"
+        ? responseRecord.status
+        : undefined,
+    detail: typeof detail === "string" ? detail : undefined,
+  };
 }
 
 export default function MembersPage() {
@@ -98,34 +124,35 @@ export default function MembersPage() {
 
   const [error, setError] = useState("");
 
-  async function loadMembers() {
+  const loadMembers = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-
-      const response = await api.get("/members");
+      const response = await api.get<Member[]>("/members");
       setMembers(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
+      const { status, detail } = getApiErrorDetails(err);
 
-      if (err.response?.status === 401) {
+      if (status === 401) {
         setError("Your session has expired. Please log in again.");
-      } else if (err.response?.status === 403) {
+      } else if (status === 403) {
         setError("You do not have permission to view members.");
       } else {
-        setError(
-          err.response?.data?.detail ||
-            "Failed to load members."
-        );
+        setError(detail || "Failed to load members.");
       }
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadMembers();
-  }, []);
+    async function initializeMembers() {
+      await loadMembers();
+    }
+
+    void initializeMembers();
+  }, [loadMembers]);
 
   function openCreateModal() {
     setEditingMember(null);
@@ -212,25 +239,18 @@ export default function MembersPage() {
 
       closeModal();
       await loadMembers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
+      const { status, detail } = getApiErrorDetails(err);
 
-      if (err.response?.status === 401) {
+      if (status === 401) {
         setError("Your session has expired. Please log in again.");
-      } else if (err.response?.status === 403) {
-        setError(
-          "Only a Main Admin can create or edit members."
-        );
-      } else if (err.response?.status === 409) {
-        setError(
-          err.response?.data?.detail ||
-            "That member number already exists."
-        );
+      } else if (status === 403) {
+        setError("Only a Main Admin can create or edit members.");
+      } else if (status === 409) {
+        setError(detail || "That member number already exists.");
       } else {
-        setError(
-          err.response?.data?.detail ||
-            "Failed to save member."
-        );
+        setError(detail || "Failed to save member.");
       }
     } finally {
       setSaving(false);
@@ -250,13 +270,10 @@ export default function MembersPage() {
       await api.delete(`/members/${member.id}`);
 
       await loadMembers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-
-      setError(
-        err.response?.data?.detail ||
-          "Failed to delete member."
-      );
+      const { detail } = getApiErrorDetails(err);
+      setError(detail || "Failed to delete member.");
     }
   }
 
@@ -288,7 +305,7 @@ export default function MembersPage() {
   ).length;
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
       <div className="flex min-h-screen">
 
         <div className="min-w-0 flex-1 p-8">
@@ -296,17 +313,17 @@ export default function MembersPage() {
           {/* Header */}
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">
                 Members
               </h1>
-              <p className="mt-1 text-gray-500">
+              <p className="mt-1 text-gray-500 dark:text-slate-400">
                 Manage funeral scheme members and their details.
               </p>
             </div>
 
             <button
               onClick={openCreateModal}
-              className="flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-3 font-medium text-white transition hover:bg-gray-800"
+              className="flex items-center gap-2 rounded-lg bg-gray-900 dark:bg-emerald-500 px-5 py-3 font-medium text-white dark:text-slate-950 transition hover:bg-gray-800 dark:hover:bg-emerald-400"
             >
               <Plus size={18} />
               Add Member
@@ -322,25 +339,25 @@ export default function MembersPage() {
 
           {/* Summary */}
           <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-4">
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 dark:text-slate-400">
                     Total Members
                   </p>
-                  <p className="mt-2 text-3xl font-bold text-gray-900">
+                  <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-100">
                     {members.length}
                   </p>
                 </div>
 
-                <div className="rounded-lg bg-gray-100 p-3">
-                  <Users size={22} className="text-gray-700" />
+                <div className="rounded-lg bg-gray-100 dark:bg-slate-800 p-3">
+                  <Users size={22} className="text-gray-700 dark:text-slate-300" />
                 </div>
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-sm text-gray-500">
+            <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm">
+              <p className="text-sm text-gray-500 dark:text-slate-400">
                 Active
               </p>
               <p className="mt-2 text-3xl font-bold text-green-600">
@@ -348,8 +365,8 @@ export default function MembersPage() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-sm text-gray-500">
+            <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm">
+              <p className="text-sm text-gray-500 dark:text-slate-400">
                 In Arrears
               </p>
               <p className="mt-2 text-3xl font-bold text-yellow-600">
@@ -357,8 +374,8 @@ export default function MembersPage() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-sm text-gray-500">
+            <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm">
+              <p className="text-sm text-gray-500 dark:text-slate-400">
                 Lapsed
               </p>
               <p className="mt-2 text-3xl font-bold text-red-600">
@@ -372,7 +389,7 @@ export default function MembersPage() {
             <div className="relative max-w-md">
               <Search
                 size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500"
               />
 
               <input
@@ -382,31 +399,31 @@ export default function MembersPage() {
                 onChange={(event) =>
                   setSearch(event.target.value)
                 }
-                className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:border-gray-500"
+                className="w-full rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 py-3 pl-10 pr-4 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
               />
             </div>
           </div>
 
           {/* Members table */}
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
             {loading ? (
-              <div className="p-10 text-center text-gray-500">
+              <div className="p-10 text-center text-gray-500 dark:text-slate-400">
                 Loading members...
               </div>
             ) : filteredMembers.length === 0 ? (
               <div className="p-12 text-center">
                 <Users
                   size={40}
-                  className="mx-auto mb-4 text-gray-300"
+                  className="mx-auto mb-4 text-gray-300 dark:text-slate-600"
                 />
 
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">
                   {members.length === 0
                     ? "No members yet"
                     : "No members found"}
                 </h2>
 
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
                   {members.length === 0
                     ? "Create your first member to start building memberships."
                     : "Try a different search term."}
@@ -415,7 +432,7 @@ export default function MembersPage() {
                 {members.length === 0 && (
                   <button
                     onClick={openCreateModal}
-                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800"
+                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gray-900 dark:bg-emerald-500 px-4 py-2.5 text-sm font-medium text-white dark:text-slate-950 hover:bg-gray-800 dark:hover:bg-emerald-400"
                   >
                     <Plus size={17} />
                     Add First Member
@@ -425,29 +442,29 @@ export default function MembersPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="border-b border-gray-200 bg-gray-50">
+                  <thead className="border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800">
                     <tr>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                         Member
                       </th>
 
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                         Member Number
                       </th>
 
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                         Contact
                       </th>
 
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                         Join Date
                       </th>
 
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                         Status
                       </th>
 
-                      <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                         Actions
                       </th>
                     </tr>
@@ -457,40 +474,40 @@ export default function MembersPage() {
                     {filteredMembers.map((member) => (
                       <tr
                         key={member.id}
-                        className="transition hover:bg-gray-50"
+                        className="transition hover:bg-gray-50 dark:hover:bg-slate-800"
                       >
                         <td className="px-6 py-4">
                           <div>
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-gray-900 dark:text-slate-100">
                               {member.first_name}{" "}
                               {member.last_name}
                             </p>
 
                             {member.id_number && (
-                              <p className="mt-1 text-xs text-gray-500">
+                              <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                                 ID: {member.id_number}
                               </p>
                             )}
                           </div>
                         </td>
 
-                        <td className="px-6 py-4 text-sm text-gray-700">
+                        <td className="px-6 py-4 text-sm text-gray-700 dark:text-slate-300">
                           {member.member_number}
                         </td>
 
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-700">
+                          <div className="text-sm text-gray-700 dark:text-slate-300">
                             {member.phone || "—"}
                           </div>
 
                           {member.email && (
-                            <div className="mt-1 text-xs text-gray-500">
+                            <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                               {member.email}
                             </div>
                           )}
                         </td>
 
-                        <td className="px-6 py-4 text-sm text-gray-700">
+                        <td className="px-6 py-4 text-sm text-gray-700 dark:text-slate-300">
                           {formatDate(member.join_date)}
                         </td>
 
@@ -510,7 +527,7 @@ export default function MembersPage() {
                               onClick={() =>
                                 openEditModal(member)
                               }
-                              className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                              className="rounded-lg p-2 text-gray-500 dark:text-slate-400 transition hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-slate-100"
                               title="Edit member"
                             >
                               <Edit size={17} />
@@ -520,7 +537,7 @@ export default function MembersPage() {
                               onClick={() =>
                                 handleDelete(member)
                               }
-                              className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
+                              className="rounded-lg p-2 text-gray-500 dark:text-slate-400 transition hover:bg-red-50 hover:text-red-600"
                               title="Delete member"
                             >
                               <Trash2 size={17} />
@@ -541,16 +558,16 @@ export default function MembersPage() {
       {/* Create / Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-5">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 px-6 py-5">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">
                   {editingMember
                     ? "Edit Member"
                     : "Add Member"}
                 </h2>
 
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
                   {editingMember
                     ? "Update the member's information."
                     : "Create a new funeral scheme member."}
@@ -559,7 +576,7 @@ export default function MembersPage() {
 
               <button
                 onClick={closeModal}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                className="rounded-lg p-2 text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-700"
               >
                 <X size={20} />
               </button>
@@ -578,7 +595,7 @@ export default function MembersPage() {
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 {/* Member Number */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Member Number *
                   </label>
 
@@ -594,13 +611,13 @@ export default function MembersPage() {
                     }
                     placeholder="MEM-0001"
                     required
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Status */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Status
                   </label>
 
@@ -612,7 +629,7 @@ export default function MembersPage() {
                         status: event.target.value,
                       })
                     }
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-gray-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   >
                     <option value="active">
                       Active
@@ -634,7 +651,7 @@ export default function MembersPage() {
 
                 {/* First Name */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     First Name *
                   </label>
 
@@ -649,13 +666,13 @@ export default function MembersPage() {
                       })
                     }
                     required
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Last Name */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Last Name *
                   </label>
 
@@ -670,13 +687,13 @@ export default function MembersPage() {
                       })
                     }
                     required
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* ID Number */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     ID Number
                   </label>
 
@@ -690,13 +707,13 @@ export default function MembersPage() {
                           event.target.value,
                       })
                     }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Date of Birth */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Date of Birth
                   </label>
 
@@ -710,13 +727,13 @@ export default function MembersPage() {
                           event.target.value,
                       })
                     }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Phone */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Phone
                   </label>
 
@@ -730,13 +747,13 @@ export default function MembersPage() {
                       })
                     }
                     placeholder="082 123 4567"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Email
                   </label>
 
@@ -750,13 +767,13 @@ export default function MembersPage() {
                       })
                     }
                     placeholder="member@example.com"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Join Date */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Join Date
                   </label>
 
@@ -770,13 +787,13 @@ export default function MembersPage() {
                           event.target.value,
                       })
                     }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Address */}
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Address
                   </label>
 
@@ -790,17 +807,17 @@ export default function MembersPage() {
                       })
                     }
                     rows={3}
-                    className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
+                    className="w-full resize-none rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
               </div>
 
-              <div className="mt-7 flex justify-end gap-3 border-t border-gray-200 pt-5">
+              <div className="mt-7 flex justify-end gap-3 border-t border-gray-200 dark:border-slate-700 pt-5">
                 <button
                   type="button"
                   onClick={closeModal}
                   disabled={saving}
-                  className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-lg border border-gray-300 dark:border-slate-700 px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -808,7 +825,7 @@ export default function MembersPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-gray-900 dark:bg-emerald-500 px-5 py-2.5 text-sm font-medium text-white dark:text-slate-950 hover:bg-gray-800 dark:hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving
                     ? "Saving..."

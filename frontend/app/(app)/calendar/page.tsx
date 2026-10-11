@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   CalendarDays,
@@ -41,8 +41,19 @@ type CalendarDay = {
   isCurrentMonth: boolean;
 };
 
-function getApiErrorMessage(err: any, fallback: string) {
-  const detail = err?.response?.data?.detail;
+function asRecord(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function getApiErrorMessage(err: unknown, fallback: string) {
+  const errorRecord = asRecord(err);
+  const responseRecord = asRecord(errorRecord?.response);
+  const dataRecord = asRecord(responseRecord?.data);
+  const detail = dataRecord?.detail;
 
   if (typeof detail === "string") {
     return detail;
@@ -50,13 +61,14 @@ function getApiErrorMessage(err: any, fallback: string) {
 
   if (Array.isArray(detail)) {
     return detail
-      .map((item: any) => {
+      .map((item: unknown) => {
         if (typeof item === "string") {
           return item;
         }
 
-        if (item?.msg) {
-          return item.msg;
+        const itemRecord = asRecord(item);
+        if (typeof itemRecord?.msg === "string") {
+          return itemRecord.msg;
         }
 
         return "Invalid request.";
@@ -64,8 +76,8 @@ function getApiErrorMessage(err: any, fallback: string) {
       .join(" ");
   }
 
-  if (typeof err?.message === "string") {
-    return err.message;
+  if (typeof errorRecord?.message === "string") {
+    return errorRecord.message;
   }
 
   return fallback;
@@ -125,7 +137,7 @@ function getEventTypeClass(value: string) {
     case "task":
       return "bg-amber-100 text-amber-700 border-amber-200";
     default:
-      return "bg-slate-100 text-slate-700 border-slate-200";
+      return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)] border-[var(--fos-border)]";
   }
 }
 
@@ -233,27 +245,18 @@ export default function CalendarWorkspacePage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-
-    loadEvents();
-  }, [router]);
-
-  async function loadEvents() {
+  const loadEvents = useCallback(async () => {
     try {
       setLoading(true);
       setPageError("");
 
-      const response = await api.get<CalendarEvent[]>(
-        "/calendar"
-      );
-
+      const response = await api.get<CalendarEvent[]>("/calendar");
       setEvents(response.data);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      const errorRecord = asRecord(err);
+      const responseRecord = asRecord(errorRecord?.response);
+
+      if (responseRecord?.status === 401) {
         router.push("/login");
         return;
       }
@@ -261,13 +264,26 @@ export default function CalendarWorkspacePage() {
       setPageError(
         getApiErrorMessage(
           err,
-          "Unable to load the calendar workspace."
-        )
+          "Unable to load the calendar workspace.",
+        ),
       );
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push("/login");
+      return;
+    }
+
+    async function initializeCalendar() {
+      await loadEvents();
+    }
+
+    void initializeCalendar();
+  }, [router, loadEvents]);
 
   const eventTypes = useMemo(() => {
     return Array.from(
@@ -372,16 +388,16 @@ export default function CalendarWorkspacePage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-3">
-              <CalendarDays className="h-6 w-6 text-slate-700" />
+            <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3">
+              <CalendarDays className="h-6 w-6 text-[var(--fos-text-secondary)]" />
             </div>
 
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900">
+              <h1 className="text-2xl font-semibold text-[var(--fos-text)]">
                 Calendar
               </h1>
 
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-[var(--fos-text-muted)]">
                 Unified operational schedule
               </p>
             </div>
@@ -392,25 +408,25 @@ export default function CalendarWorkspacePage() {
           type="button"
           onClick={loadEvents}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2 text-sm font-medium text-[var(--fos-text-secondary)] shadow-sm transition hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh
         </button>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-4 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="w-full lg:flex-1">
             <label
               htmlFor="calendar-search"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-[var(--fos-text-secondary)]"
             >
               Search
             </label>
 
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fos-text-muted)]" />
 
               <input
                 id="calendar-search"
@@ -420,7 +436,7 @@ export default function CalendarWorkspacePage() {
                   setSearch(event.target.value)
                 }
                 placeholder="Event, case, deceased, venue or staff..."
-                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-slate-500"
+                className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] py-2 pl-9 pr-3 text-sm outline-none focus:border-slate-500"
               />
             </div>
           </div>
@@ -428,7 +444,7 @@ export default function CalendarWorkspacePage() {
           <div className="w-full lg:w-52">
             <label
               htmlFor="calendar-type-filter"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-[var(--fos-text-secondary)]"
             >
               Event type
             </label>
@@ -439,7 +455,7 @@ export default function CalendarWorkspacePage() {
               onChange={(event) =>
                 setTypeFilter(event.target.value)
               }
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500"
+              className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2 text-sm outline-none focus:border-slate-500"
             >
               <option value="all">All events</option>
 
@@ -451,9 +467,9 @@ export default function CalendarWorkspacePage() {
             </select>
           </div>
 
-          <div className="text-sm text-slate-500">
+          <div className="text-sm text-[var(--fos-text-muted)]">
             Showing{" "}
-            <span className="font-semibold text-slate-800">
+            <span className="font-semibold text-[var(--fos-text)]">
               {filteredEvents.length}
             </span>{" "}
             events
@@ -468,7 +484,7 @@ export default function CalendarWorkspacePage() {
       )}
 
       {loading ? (
-        <section className="flex items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-20 text-sm text-slate-500 shadow-sm">
+        <section className="flex items-center justify-center rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-6 py-20 text-sm text-[var(--fos-text-muted)] shadow-sm">
           <div className="flex items-center gap-2">
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading calendar...
@@ -476,13 +492,13 @@ export default function CalendarWorkspacePage() {
         </section>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <section className="overflow-hidden rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-[var(--fos-border)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={goToPreviousMonth}
-                  className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50"
+                  className="rounded-lg border border-[var(--fos-border)] p-2 text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)]"
                   aria-label="Previous month"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -491,7 +507,7 @@ export default function CalendarWorkspacePage() {
                 <button
                   type="button"
                   onClick={goToToday}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  className="rounded-lg border border-[var(--fos-border)] px-3 py-2 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)]"
                 >
                   Today
                 </button>
@@ -499,19 +515,19 @@ export default function CalendarWorkspacePage() {
                 <button
                   type="button"
                   onClick={goToNextMonth}
-                  className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50"
+                  className="rounded-lg border border-[var(--fos-border)] p-2 text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)]"
                   aria-label="Next month"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
 
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-[var(--fos-text)]">
                 {formatMonthYear(currentMonth)}
               </h2>
             </div>
 
-            <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+            <div className="grid grid-cols-7 border-b border-[var(--fos-border)] bg-[var(--fos-page)]">
               {[
                 "Sun",
                 "Mon",
@@ -523,7 +539,7 @@ export default function CalendarWorkspacePage() {
               ].map((day) => (
                 <div
                   key={day}
-                  className="border-r border-slate-200 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 last:border-r-0"
+                  className="border-r border-[var(--fos-border)] px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)] last:border-r-0"
                 >
                   {day}
                 </div>
@@ -541,10 +557,10 @@ export default function CalendarWorkspacePage() {
                 return (
                   <div
                     key={day.dateKey}
-                    className={`min-h-28 border-b border-r border-slate-200 p-2 last:border-r-0 ${
+                    className={`min-h-28 border-b border-r border-[var(--fos-border)] p-2 last:border-r-0 ${
                       day.isCurrentMonth
-                        ? "bg-white"
-                        : "bg-slate-50"
+                        ? "bg-[var(--fos-surface)]"
+                        : "bg-[var(--fos-page)]"
                     }`}
                   >
                     <div className="mb-2 flex justify-end">
@@ -553,8 +569,8 @@ export default function CalendarWorkspacePage() {
                           isToday
                             ? "bg-slate-900 text-white"
                             : day.isCurrentMonth
-                              ? "text-slate-700"
-                              : "text-slate-400"
+                              ? "text-[var(--fos-text-secondary)]"
+                              : "text-[var(--fos-text-muted)]"
                         }`}
                       >
                         {day.date.getDate()}
@@ -589,7 +605,7 @@ export default function CalendarWorkspacePage() {
                         ))}
 
                       {dayEvents.length > 3 && (
-                        <div className="px-2 text-xs font-medium text-slate-500">
+                        <div className="px-2 text-xs font-medium text-[var(--fos-text-muted)]">
                           +{dayEvents.length - 3} more
                         </div>
                       )}
@@ -599,12 +615,12 @@ export default function CalendarWorkspacePage() {
               })}
             </div>
 
-            <div className="flex flex-wrap gap-4 border-t border-slate-200 px-4 py-3">
+            <div className="flex flex-wrap gap-4 border-t border-[var(--fos-border)] px-4 py-3">
               {["funeral", "service", "task"].map(
                 (type) => (
                   <div
                     key={type}
-                    className="flex items-center gap-2 text-xs text-slate-600"
+                    className="flex items-center gap-2 text-xs text-[var(--fos-text-secondary)]"
                   >
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${getEventTypeDotClass(
@@ -619,17 +635,17 @@ export default function CalendarWorkspacePage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-4">
+          <section className="rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-sm">
+            <div className="border-b border-[var(--fos-border)] px-5 py-4">
               <div className="flex items-center gap-2">
-                <Clock3 className="h-5 w-5 text-slate-600" />
+                <Clock3 className="h-5 w-5 text-[var(--fos-text-secondary)]" />
 
                 <div>
-                  <h2 className="font-semibold text-slate-900">
+                  <h2 className="font-semibold text-[var(--fos-text)]">
                     Upcoming events
                   </h2>
 
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[var(--fos-text-muted)]">
                     Next scheduled operational items
                   </p>
                 </div>
@@ -640,11 +656,11 @@ export default function CalendarWorkspacePage() {
               <div className="px-5 py-12 text-center">
                 <CalendarDays className="mx-auto mb-3 h-10 w-10 text-slate-300" />
 
-                <h3 className="font-semibold text-slate-800">
+                <h3 className="font-semibold text-[var(--fos-text)]">
                   No upcoming events
                 </h3>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                   There are no scheduled events matching
                   the current filters.
                 </p>
@@ -663,7 +679,7 @@ export default function CalendarWorkspacePage() {
                       onClick={() =>
                         openCase(event.case_id)
                       }
-                      className="flex w-full gap-3 px-5 py-4 text-left transition hover:bg-slate-50"
+                      className="flex w-full gap-3 px-5 py-4 text-left transition hover:bg-[var(--fos-page)]"
                     >
                       <div
                         className={`mt-0.5 rounded-lg border p-2 ${getEventTypeClass(
@@ -685,28 +701,28 @@ export default function CalendarWorkspacePage() {
                             )}
                           </span>
 
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-[var(--fos-text-muted)]">
                             {formatEventDate(event.date)}
                           </span>
                         </div>
 
-                        <div className="mt-1 truncate font-medium text-slate-900">
+                        <div className="mt-1 truncate font-medium text-[var(--fos-text)]">
                           {event.title}
                         </div>
 
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="mt-1 text-xs text-[var(--fos-text-muted)]">
                           {event.case_number} ·{" "}
                           {event.deceased_full_name}
                         </div>
 
                         {event.venue && (
-                          <div className="mt-1 truncate text-xs text-slate-400">
+                          <div className="mt-1 truncate text-xs text-[var(--fos-text-muted)]">
                             {event.venue}
                           </div>
                         )}
 
                         {event.assigned_to_name && (
-                          <div className="mt-1 text-xs text-slate-400">
+                          <div className="mt-1 text-xs text-[var(--fos-text-muted)]">
                             Assigned to{" "}
                             {event.assigned_to_name}
                           </div>

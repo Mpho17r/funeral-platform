@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import axios from "axios";
 import {
   AlertCircle,
   ArrowLeft,
@@ -72,11 +73,34 @@ export default function GroupDetailsPage() {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedUserAdmin, setSelectedUserAdmin] = useState(false);
 
-  const getErrorMessage = (err: any, fallback: string) => {
-    return err?.response?.data?.detail || fallback;
+  const getErrorMessage = (err: unknown, fallback: string): string => {
+    if (axios.isAxiosError<{ detail?: unknown }>(err)) {
+      const detail = err.response?.data?.detail;
+      if (typeof detail === "string") {
+        return detail;
+      }
+      if (Array.isArray(detail)) {
+        return detail
+          .map((item: unknown) => {
+            if (
+              item !== null &&
+              typeof item === "object" &&
+              "msg" in item &&
+              typeof item.msg === "string"
+            ) {
+              return item.msg;
+            }
+            return "";
+          })
+          .filter(Boolean)
+          .join(" ") || fallback;
+      }
+    }
+
+    return err instanceof Error ? err.message : fallback;
   };
 
-  const loadGroup = async () => {
+  const loadGroup = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -91,35 +115,38 @@ export default function GroupDetailsPage() {
 
       setName(groupResponse.data.name);
       setDescription(groupResponse.data.description || "");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, "Unable to load this group."));
     } finally {
       setLoading(false);
     }
-  };
+  }, [groupId]);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setLoadingUsers(true);
 
       const response = await api.get<User[]>("/users");
 
       setUsers(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, "Unable to load users."));
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    console.log("GROUP DETAILS:", { groupId });
+    async function initializeGroupDetails() {
+      if (!groupId) {
+        return;
+      }
 
-    if (groupId) {
-      loadGroup();
-      loadUsers();
+      await Promise.all([loadGroup(), loadUsers()]);
     }
-  }, [groupId]);
+
+    void initializeGroupDetails();
+  }, [groupId, loadGroup, loadUsers]);
 
   const openAddMember = async () => {
     setError("");
@@ -151,7 +178,7 @@ export default function GroupDetailsPage() {
 
       setGroup(response.data);
       setShowEdit(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, "Unable to update the group."));
     } finally {
       setSaving(false);
@@ -183,7 +210,7 @@ export default function GroupDetailsPage() {
       setSelectedUserId("");
       setSelectedUserAdmin(false);
       setShowAddMember(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, "Unable to add this member."));
     } finally {
       setAddingMember(false);
@@ -210,7 +237,7 @@ export default function GroupDetailsPage() {
           item.user_id === member.user_id ? response.data : item
         )
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, "Unable to update member role."));
     } finally {
       setChangingAdminId("");
@@ -237,7 +264,7 @@ export default function GroupDetailsPage() {
       setMembers((current) =>
         current.filter((item) => item.user_id !== member.user_id)
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, "Unable to remove this member."));
     } finally {
       setRemovingMemberId("");
@@ -260,7 +287,7 @@ export default function GroupDetailsPage() {
       await api.delete(`/groups/${groupId}`);
 
       router.push("/groups");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, "Unable to delete the group."));
       setSaving(false);
     }

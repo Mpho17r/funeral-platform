@@ -180,7 +180,7 @@ function getStatusClass(status: string) {
 
     case "closed":
     case "lapsed":
-      return "bg-slate-100 text-slate-700";
+      return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]";
 
     case "arrears":
     case "overdue":
@@ -199,12 +199,12 @@ function MoneyCard({
   value: number | string;
 }) {
   return (
-    <div className="rounded-xl border bg-white p-5">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+    <div className="rounded-xl border bg-[var(--fos-surface)] p-5">
+      <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
         {label}
       </p>
 
-      <p className="mt-2 text-xl font-bold text-slate-900">
+      <p className="mt-2 text-xl font-bold text-[var(--fos-text)]">
         R {formatMoney(value)}
       </p>
     </div>
@@ -223,24 +223,24 @@ function ActivityCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-sm transition">
+    <div className="rounded-2xl border bg-[var(--fos-surface)] p-5 shadow-sm transition">
       <div className="flex items-start justify-between">
-        <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
+        <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3 text-[var(--fos-text-secondary)]">
           {icon}
         </div>
 
         <ChevronRight size={18} className="text-slate-300" />
       </div>
 
-      <p className="mt-5 text-sm font-medium text-slate-500">
+      <p className="mt-5 text-sm font-medium text-[var(--fos-text-muted)]">
         {title}
       </p>
 
-      <p className="mt-1 text-2xl font-bold text-slate-900">
+      <p className="mt-1 text-2xl font-bold text-[var(--fos-text)]">
         {total}
       </p>
 
-      <p className="mt-1 text-xs text-slate-400">
+      <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
         {detail}
       </p>
     </div>
@@ -258,16 +258,16 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="mt-0.5 text-slate-400">
+      <div className="mt-0.5 text-[var(--fos-text-muted)]">
         {icon}
       </div>
 
       <div className="min-w-0">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
           {label}
         </p>
 
-        <p className="mt-1 break-words text-sm font-medium text-slate-700">
+        <p className="mt-1 break-words text-sm font-medium text-[var(--fos-text-secondary)]">
           {value}
         </p>
       </div>
@@ -309,6 +309,7 @@ export default function CaseDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [coverageLoading, setCoverageLoading] = useState(false);
   const [error, setError] = useState("");
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -317,62 +318,94 @@ export default function CaseDetailsPage() {
     }
 
     if (!caseId) {
-      setError("Case ID is missing from the URL.");
-      setLoading(false);
       return;
     }
 
-    loadCase();
-  }, [caseId, router]);
+    let cancelled = false;
 
-  async function loadCase() {
-    try {
-      setLoading(true);
-      setCoverageLoading(true);
-      setError("");
+    async function fetchCase() {
+      try {
+        setLoading(true);
+        setCoverageLoading(true);
+        setError("");
 
-      const response = await api.get<CaseSummary>(
-        `/cases/${caseId}/summary`
-      );
+        const response = await api.get<CaseSummary>(
+          `/cases/${caseId}/summary`
+        );
 
-      setSummary(response.data);
+        if (cancelled) return;
+        setSummary(response.data);
 
-      const [
-        membersResponse,
-        plansResponse,
-        membershipsResponse,
-        dependentsResponse,
-      ] = await Promise.all([
-        api.get<Member[]>("/members"),
-        api.get<MembershipPlan[]>("/membership-plans"),
-        api.get<Membership[]>("/memberships"),
-        api.get<CoveredDependent[]>("/covered-dependents"),
-      ]);
+        const [
+          membersResponse,
+          plansResponse,
+          membershipsResponse,
+          dependentsResponse,
+        ] = await Promise.all([
+          api.get<Member[]>("/members"),
+          api.get<MembershipPlan[]>("/membership-plans"),
+          api.get<Membership[]>("/memberships"),
+          api.get<CoveredDependent[]>("/covered-dependents"),
+        ]);
 
-      setMembers(membersResponse.data);
-      setPlans(plansResponse.data);
-      setMemberships(membershipsResponse.data);
-      setDependents(dependentsResponse.data);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
-        router.push("/login");
-        return;
+        if (cancelled) return;
+        setMembers(membersResponse.data);
+        setPlans(plansResponse.data);
+        setMemberships(membershipsResponse.data);
+        setDependents(dependentsResponse.data);
+      } catch (err: unknown) {
+        const errorRecord =
+          err !== null && typeof err === "object"
+            ? err as {
+                response?: {
+                  status?: unknown;
+                  data?: { detail?: unknown };
+                };
+              }
+            : {};
+
+        if (errorRecord.response?.status === 401) {
+          router.push("/login");
+          return;
+        }
+
+        if (!cancelled) {
+          const detail = errorRecord.response?.data?.detail;
+          setError(
+            typeof detail === "string"
+              ? detail
+              : "Unable to load funeral case."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setCoverageLoading(false);
+        }
       }
-
-      setError(
-        err.response?.data?.detail ||
-          "Unable to load funeral case."
-      );
-    } finally {
-      setLoading(false);
-      setCoverageLoading(false);
     }
+
+    void fetchCase();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [caseId, router, refreshVersion]);
+
+  if (!caseId) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[var(--fos-surface-muted)] p-6">
+        <p className="text-sm text-[var(--fos-text-muted)]">
+          Case ID is missing from the URL.
+        </p>
+      </main>
+    );
   }
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="flex items-center gap-3 text-sm text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-[var(--fos-surface-muted)]">
+        <div className="flex items-center gap-3 text-sm text-[var(--fos-text-muted)]">
           <Loader2
             size={20}
             className="animate-spin"
@@ -385,12 +418,12 @@ export default function CaseDetailsPage() {
 
   if (error || !summary) {
     return (
-      <main className="min-h-screen bg-slate-100 p-6">
+      <main className="min-h-screen bg-[var(--fos-surface-muted)] p-6">
         <div className="mx-auto max-w-3xl">
           <button
             type="button"
             onClick={() => router.push("/cases")}
-            className="mb-6 flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+            className="mb-6 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-muted)] hover:text-[var(--fos-text)]"
           >
             <ArrowLeft size={17} />
             Back to Cases
@@ -437,15 +470,15 @@ export default function CaseDetailsPage() {
   const membershipStatus = membership?.status || null;
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-[var(--fos-surface-muted)]">
       {/* HEADER */}
 
-      <header className="border-b bg-white">
+      <header className="border-b bg-[var(--fos-surface)]">
         <div className="mx-auto max-w-7xl px-6 py-5 md:px-8">
           <button
             type="button"
             onClick={() => router.push("/cases")}
-            className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+            className="mb-5 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-muted)] hover:text-[var(--fos-text)]"
           >
             <ArrowLeft size={17} />
             Back to Cases
@@ -460,7 +493,7 @@ export default function CaseDetailsPage() {
 
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="text-2xl font-bold text-slate-900">
+                    <h1 className="text-2xl font-bold text-[var(--fos-text)]">
                       {funeralCase.deceased_full_name}
                     </h1>
 
@@ -473,7 +506,7 @@ export default function CaseDetailsPage() {
                     </span>
                   </div>
 
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                     Case #{funeralCase.case_number}
                   </p>
                 </div>
@@ -482,8 +515,8 @@ export default function CaseDetailsPage() {
 
             <button
               type="button"
-              onClick={loadCase}
-              className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              onClick={() => setRefreshVersion((version) => version + 1)}
+              className="flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
             >
               {coverageLoading ? (
                 <Loader2
@@ -503,18 +536,18 @@ export default function CaseDetailsPage() {
       <section className="mx-auto max-w-7xl p-6 md:p-8">
         {/* CASE INFORMATION */}
 
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border bg-[var(--fos-surface)] p-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
+            <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3 text-[var(--fos-text-secondary)]">
               <UserRound size={20} />
             </div>
 
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-[var(--fos-text)]">
                 Case Information
               </h2>
 
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-[var(--fos-text-muted)]">
                 Important details for this funeral case.
               </p>
             </div>
@@ -573,41 +606,41 @@ export default function CaseDetailsPage() {
 
         {/* COVERAGE & MEMBERSHIP */}
 
-        <div className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="mt-6 rounded-2xl border bg-[var(--fos-surface)] p-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
+            <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3 text-[var(--fos-text-secondary)]">
               <ShieldCheck size={20} />
             </div>
 
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-[var(--fos-text)]">
                 Coverage & Membership
               </h2>
 
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-[var(--fos-text-muted)]">
                 Membership and funeral cover information linked to this case.
               </p>
             </div>
           </div>
 
           {isPrivateCase ? (
-            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
+            <div className="mt-6 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-page)] p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Funeral Type
                   </p>
 
-                  <p className="mt-1 text-base font-semibold text-slate-900">
+                  <p className="mt-1 text-base font-semibold text-[var(--fos-text)]">
                     Private / Non-member
                   </p>
 
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                     No membership or covered dependent is linked to this case.
                   </p>
                 </div>
 
-                <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                <span className="rounded-full bg-[var(--fos-border)] px-3 py-1 text-xs font-medium text-[var(--fos-text-secondary)]">
                   No Cover
                 </span>
               </div>
@@ -615,30 +648,30 @@ export default function CaseDetailsPage() {
           ) : (
             <div className="mt-6 space-y-5">
               <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-xl border bg-slate-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                <div className="rounded-xl border bg-[var(--fos-page)] p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Funeral Type
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                  <p className="mt-1 text-sm font-semibold text-[var(--fos-text)]">
                     {isDependentCase
                       ? "Covered Dependent"
                       : "Member"}
                   </p>
                 </div>
 
-                <div className="rounded-xl border bg-slate-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                <div className="rounded-xl border bg-[var(--fos-page)] p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Membership Number
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                  <p className="mt-1 text-sm font-semibold text-[var(--fos-text)]">
                     {membership?.membership_number || "—"}
                   </p>
                 </div>
 
-                <div className="rounded-xl border bg-slate-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                <div className="rounded-xl border bg-[var(--fos-page)] p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Membership Status
                   </p>
 
@@ -646,7 +679,7 @@ export default function CaseDetailsPage() {
                     {membershipStatus ? (
                       <CoverageBadge status={membershipStatus} />
                     ) : (
-                      <span className="text-sm text-slate-500">
+                      <span className="text-sm text-[var(--fos-text-muted)]">
                         Membership not found
                       </span>
                     )}
@@ -701,7 +734,7 @@ export default function CaseDetailsPage() {
                   <p className="mt-1 text-sm text-amber-700">
                     Arrears began on{" "}
                     {formatDate(membership.arrears_since)}.
-                    Coverage is governed by the business's configured
+                    Coverage is governed by the business&apos;s configured
                     arrears and lapse policy.
                   </p>
                 </div>
@@ -721,14 +754,14 @@ export default function CaseDetailsPage() {
               ) : null}
 
               {isDependentCase && dependent ? (
-                <div className="rounded-xl border bg-slate-50 p-5">
+                <div className="rounded-xl border bg-[var(--fos-page)] p-5">
                   <div className="mb-4 flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">
+                      <p className="text-sm font-semibold text-[var(--fos-text)]">
                         Covered Dependent
                       </p>
 
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
                         Person covered under the linked membership.
                       </p>
                     </div>
@@ -805,18 +838,18 @@ export default function CaseDetailsPage() {
 
         {/* FINANCIAL SUMMARY */}
 
-        <div className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="mt-6 rounded-2xl border bg-[var(--fos-surface)] p-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
+            <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3 text-[var(--fos-text-secondary)]">
               <CreditCard size={20} />
             </div>
 
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-[var(--fos-text)]">
                 Financial Summary
               </h2>
 
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-[var(--fos-text-muted)]">
                 Current case financial position
               </p>
             </div>
@@ -845,7 +878,7 @@ export default function CaseDetailsPage() {
               />
             </div>
           ) : (
-            <div className="mt-6 rounded-xl bg-slate-50 p-5 text-sm text-slate-500">
+            <div className="mt-6 rounded-xl bg-[var(--fos-page)] p-5 text-sm text-[var(--fos-text-muted)]">
               No financial record has been created for this case yet.
             </div>
           )}
@@ -906,12 +939,12 @@ export default function CaseDetailsPage() {
 
         {/* QUICK ACTIONS */}
 
-        <div className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900">
+        <div className="mt-6 rounded-2xl border bg-[var(--fos-surface)] p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-[var(--fos-text)]">
             Case Management
           </h2>
 
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
             Manage the different parts of this funeral case.
           </p>
 
@@ -925,20 +958,20 @@ export default function CaseDetailsPage() {
                   `/cases/${caseId}/contacts`
                 )
               }
-              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-slate-50"
+              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-[var(--fos-page)]"
             >
               <div className="flex items-center gap-3">
                 <Users
                   size={20}
-                  className="text-slate-500"
+                  className="text-[var(--fos-text-muted)]"
                 />
 
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-semibold text-[var(--fos-text)]">
                     Contacts
                   </p>
 
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[var(--fos-text-muted)]">
                     Manage family and other contacts
                   </p>
                 </div>
@@ -946,7 +979,7 @@ export default function CaseDetailsPage() {
 
               <ChevronRight
                 size={18}
-                className="text-slate-400"
+                className="text-[var(--fos-text-muted)]"
               />
             </button>
 
@@ -959,20 +992,20 @@ export default function CaseDetailsPage() {
                   `/cases/${caseId}/services`
                 )
               }
-              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-slate-50"
+              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-[var(--fos-page)]"
             >
               <div className="flex items-center gap-3">
                 <HeartHandshake
                   size={20}
-                  className="text-slate-500"
+                  className="text-[var(--fos-text-muted)]"
                 />
 
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-semibold text-[var(--fos-text)]">
                     Services
                   </p>
 
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[var(--fos-text-muted)]">
                     Manage funeral services
                   </p>
                 </div>
@@ -980,7 +1013,7 @@ export default function CaseDetailsPage() {
 
               <ChevronRight
                 size={18}
-                className="text-slate-400"
+                className="text-[var(--fos-text-muted)]"
               />
             </button>
 
@@ -993,20 +1026,20 @@ export default function CaseDetailsPage() {
                   `/cases/${caseId}/financial`
                 )
               }
-              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-slate-50"
+              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-[var(--fos-page)]"
             >
               <div className="flex items-center gap-3">
                 <CreditCard
                   size={20}
-                  className="text-slate-500"
+                  className="text-[var(--fos-text-muted)]"
                 />
 
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-semibold text-[var(--fos-text)]">
                     Financials
                   </p>
 
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[var(--fos-text-muted)]">
                     Manage case finances
                   </p>
                 </div>
@@ -1014,7 +1047,7 @@ export default function CaseDetailsPage() {
 
               <ChevronRight
                 size={18}
-                className="text-slate-400"
+                className="text-[var(--fos-text-muted)]"
               />
             </button>
 
@@ -1027,20 +1060,20 @@ export default function CaseDetailsPage() {
                   `/cases/${caseId}/documents`
                 )
               }
-              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-slate-50"
+              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-[var(--fos-page)]"
             >
               <div className="flex items-center gap-3">
                 <FileText
                   size={20}
-                  className="text-slate-500"
+                  className="text-[var(--fos-text-muted)]"
                 />
 
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-semibold text-[var(--fos-text)]">
                     Documents
                   </p>
 
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[var(--fos-text-muted)]">
                     Manage case documents
                   </p>
                 </div>
@@ -1048,7 +1081,7 @@ export default function CaseDetailsPage() {
 
               <ChevronRight
                 size={18}
-                className="text-slate-400"
+                className="text-[var(--fos-text-muted)]"
               />
             </button>
           </div>

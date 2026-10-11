@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   Clock3,
@@ -37,11 +37,22 @@ type Business = {
   break_expiry_notification_enabled: boolean;
 };
 
+function asRecord(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
 function getErrorMessage(
-  error: any,
+  error: unknown,
   fallback: string,
-) {
-  const detail = error?.response?.data?.detail;
+): string {
+  const errorRecord = asRecord(error);
+  const responseRecord = asRecord(errorRecord?.response);
+  const dataRecord = asRecord(responseRecord?.data);
+  const detail = dataRecord?.detail;
 
   if (typeof detail === "string") {
     return detail;
@@ -49,37 +60,34 @@ function getErrorMessage(
 
   if (Array.isArray(detail)) {
     return detail
-      .map((item: any) => {
+      .map((item: unknown) => {
         if (typeof item === "string") {
           return item;
         }
 
-        if (item?.msg) {
-          const location = Array.isArray(item.loc)
-            ? item.loc.join(".")
+        const itemRecord = asRecord(item);
+        if (typeof itemRecord?.msg === "string") {
+          const location = Array.isArray(itemRecord.loc)
+            ? itemRecord.loc.join(".")
             : "";
-
           return location
-            ? `${location}: ${item.msg}`
-            : item.msg;
+            ? `${location}: ${itemRecord.msg}`
+            : itemRecord.msg;
         }
 
         return null;
       })
-      .filter(Boolean)
+      .filter((item): item is string => item !== null)
       .join(" | ");
   }
 
-  if (
-    detail &&
-    typeof detail === "object" &&
-    typeof detail.msg === "string"
-  ) {
-    return detail.msg;
+  const detailRecord = asRecord(detail);
+  if (typeof detailRecord?.msg === "string") {
+    return detailRecord.msg;
   }
 
-  if (typeof error?.message === "string") {
-    return error.message;
+  if (typeof errorRecord?.message === "string") {
+    return errorRecord.message;
   }
 
   return fallback;
@@ -131,41 +139,36 @@ export default function AttendanceSettingsPage() {
   const [error, setError] =
     useState("");
 
-  async function loadBusiness() {
+  const loadBusiness = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
       setMessage("");
 
-      const [meResponse, usersResponse] =
-        await Promise.all([
-          api.get("/auth/me"),
-          api.get<User[]>("/users"),
-        ]);
+      const [meResponse, usersResponse] = await Promise.all([
+        api.get<{ business_id?: string }>("/auth/me"),
+        api.get<User[]>("/users"),
+      ]);
 
-      const businessId =
-        meResponse.data?.business_id;
-
+      const businessId = meResponse.data?.business_id;
       if (!businessId) {
         throw new Error(
           "Your account is not linked to a business.",
         );
       }
 
-      const token =
-        localStorage.getItem("access_token");
-
+      const token = localStorage.getItem("access_token");
       let loggedInUser: User | null = null;
 
       if (token) {
         try {
-          const payload =
-            JSON.parse(atob(token.split(".")[1]));
-
+          const payload: { sub?: string } = JSON.parse(
+            atob(token.split(".")[1]),
+          );
           loggedInUser =
             usersResponse.data.find(
               (user) => user.id === payload.sub,
-            ) || null;
+            ) ?? null;
         } catch {
           loggedInUser = null;
         }
@@ -177,37 +180,22 @@ export default function AttendanceSettingsPage() {
         return;
       }
 
-      const businessResponse =
-        await api.get(
-          `/businesses/${businessId}`,
-        );
-
-      const data: Business =
-        businessResponse.data;
+      const businessResponse = await api.get<Business>(
+        `/businesses/${businessId}`,
+      );
+      const data = businessResponse.data;
 
       setBusiness(data);
-      setTeaBreakMinutes(
-        data.tea_break_minutes,
-      );
-      setLunchBreakMinutes(
-        data.lunch_break_minutes,
-      );
-      setIdleTimeoutMinutes(
-        data.idle_timeout_minutes,
-      );
-      setBreakExpiryBehavior(
-        data.break_expiry_behavior,
-      );
-      setBreakWarningEnabled(
-        data.break_warning_enabled,
-      );
-      setBreakWarningMinutes(
-        data.break_warning_minutes,
-      );
+      setTeaBreakMinutes(data.tea_break_minutes);
+      setLunchBreakMinutes(data.lunch_break_minutes);
+      setIdleTimeoutMinutes(data.idle_timeout_minutes);
+      setBreakExpiryBehavior(data.break_expiry_behavior);
+      setBreakWarningEnabled(data.break_warning_enabled);
+      setBreakWarningMinutes(data.break_warning_minutes);
       setBreakExpiryNotificationEnabled(
         data.break_expiry_notification_enabled,
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(
         getErrorMessage(
           err,
@@ -217,11 +205,15 @@ export default function AttendanceSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadBusiness();
-  }, []);
+    async function initializeAttendanceSettings() {
+      await loadBusiness();
+    }
+
+    void initializeAttendanceSettings();
+  }, [loadBusiness]);
 
   async function saveSettings() {
     if (!business) {
@@ -340,7 +332,7 @@ export default function AttendanceSettingsPage() {
       setMessage(
         "Attendance settings saved successfully.",
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(
         getErrorMessage(
           err,
@@ -354,9 +346,9 @@ export default function AttendanceSettingsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <main className="min-h-screen bg-[var(--fos-surface-muted)] text-[var(--fos-text)] dark:bg-slate-950 dark:text-slate-100">
         <div className="flex min-h-screen items-center justify-center">
-          <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-3 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
             <Loader2
               size={20}
               className="animate-spin"
@@ -370,18 +362,18 @@ export default function AttendanceSettingsPage() {
 
   if (currentUser?.role !== "main_admin") {
     return (
-      <main className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <main className="min-h-screen bg-[var(--fos-surface-muted)] text-[var(--fos-text)] dark:bg-slate-950 dark:text-slate-100">
         <div className="flex min-h-screen items-center justify-center p-6">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          <div className="w-full max-w-lg rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)] dark:bg-slate-800 dark:text-slate-200">
               <Clock3 size={24} />
             </div>
 
-            <h1 className="mt-5 text-xl font-bold text-slate-900 dark:text-white">
+            <h1 className="mt-5 text-xl font-bold text-[var(--fos-text)] dark:text-white">
               Main Admin access required
             </h1>
 
-            <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <p className="mt-3 text-sm leading-6 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
               Attendance and staff policy settings can only be
               configured by the Main Admin.
             </p>
@@ -389,7 +381,7 @@ export default function AttendanceSettingsPage() {
             <button
               type="button"
               onClick={() => router.push("/settings")}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-[var(--fos-surface)] dark:text-[var(--fos-text)] dark:hover:bg-[var(--fos-border)]"
             >
               <ArrowLeft size={16} />
               Back to Settings
@@ -401,15 +393,15 @@ export default function AttendanceSettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <main className="min-h-screen bg-[var(--fos-surface-muted)] text-[var(--fos-text)] dark:bg-slate-950 dark:text-slate-100">
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-20 items-center justify-between border-b border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900">
+        <header className="flex h-20 items-center justify-between border-b border-[var(--fos-border)] bg-[var(--fos-surface)] px-6 dark:border-slate-800 dark:bg-slate-900">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+            <h2 className="text-xl font-bold text-[var(--fos-text)] dark:text-white">
               Attendance & Staff
             </h2>
 
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
               Configure attendance, breaks and staff presence.
             </p>
           </div>
@@ -420,7 +412,7 @@ export default function AttendanceSettingsPage() {
             <button
               type="button"
               onClick={() => router.push("/settings")}
-              className="mb-6 flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+              className="mb-6 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-muted)] transition hover:text-[var(--fos-text)] dark:text-[var(--fos-text-muted)] dark:hover:text-white"
             >
               <ArrowLeft size={16} />
               Back to Settings
@@ -428,16 +420,16 @@ export default function AttendanceSettingsPage() {
 
             <div className="mb-8">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)] dark:bg-slate-800 dark:text-slate-200">
                   <Clock3 size={24} />
                 </div>
 
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  <h1 className="text-2xl font-bold text-[var(--fos-text)] dark:text-white">
                     Attendance Policy
                   </h1>
 
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                     {business?.name ??
                       "Configure staff attendance behaviour."}
                   </p>
@@ -458,18 +450,18 @@ export default function AttendanceSettingsPage() {
             )}
 
             <div className="space-y-6">
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="text-lg font-semibold text-[var(--fos-text)] dark:text-white">
                   Workday presence
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                   Control when checked-in staff are considered away
                   because of inactivity.
                 </p>
 
                 <div className="mt-6 max-w-md">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <label className="block text-sm font-medium text-[var(--fos-text-secondary)] dark:text-slate-200">
                     Idle timeout
                   </label>
 
@@ -484,29 +476,29 @@ export default function AttendanceSettingsPage() {
                           Number(event.target.value),
                         )
                       }
-                      className="w-32 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
+                      className="w-32 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm text-[var(--fos-text)] outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
                     />
 
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                    <span className="text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                       minutes
                     </span>
                   </div>
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="text-lg font-semibold text-[var(--fos-text)] dark:text-white">
                   Break durations
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                   Set the standard duration for staff tea and lunch
                   breaks.
                 </p>
 
                 <div className="mt-6 grid gap-6 md:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <label className="block text-sm font-medium text-[var(--fos-text-secondary)] dark:text-slate-200">
                       Tea break
                     </label>
 
@@ -521,17 +513,17 @@ export default function AttendanceSettingsPage() {
                             Number(event.target.value),
                           )
                         }
-                        className="w-32 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
+                        className="w-32 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm text-[var(--fos-text)] outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
                       />
 
-                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                      <span className="text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                         minutes
                       </span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <label className="block text-sm font-medium text-[var(--fos-text-secondary)] dark:text-slate-200">
                       Lunch break
                     </label>
 
@@ -546,10 +538,10 @@ export default function AttendanceSettingsPage() {
                             Number(event.target.value),
                           )
                         }
-                        className="w-32 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
+                        className="w-32 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm text-[var(--fos-text)] outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
                       />
 
-                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                      <span className="text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                         minutes
                       </span>
                     </div>
@@ -557,18 +549,18 @@ export default function AttendanceSettingsPage() {
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="text-lg font-semibold text-[var(--fos-text)] dark:text-white">
                   Break expiry
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                   Decide what happens when a staff break reaches its
                   configured duration.
                 </p>
 
                 <div className="mt-6">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <label className="block text-sm font-medium text-[var(--fos-text-secondary)] dark:text-slate-200">
                     Expiry behaviour
                   </label>
 
@@ -579,7 +571,7 @@ export default function AttendanceSettingsPage() {
                         event.target.value as BreakExpiryBehavior,
                       )
                     }
-                    className="mt-2 w-full max-w-md rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
+                    className="mt-2 w-full max-w-md rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm text-[var(--fos-text)] outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
                   >
                     <option value="auto_return">
                       Automatically return staff to attendance
@@ -594,12 +586,12 @@ export default function AttendanceSettingsPage() {
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="text-lg font-semibold text-[var(--fos-text)] dark:text-white">
                   Break warnings
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                   Warn staff before their configured break duration
                   expires.
                 </p>
@@ -614,16 +606,16 @@ export default function AttendanceSettingsPage() {
                           event.target.checked,
                         )
                       }
-                      className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 dark:border-slate-700"
+                      className="h-4 w-4 rounded border-[var(--fos-border)] text-purple-600 focus:ring-purple-500 dark:border-slate-700"
                     />
 
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <span className="text-sm font-medium text-[var(--fos-text-secondary)] dark:text-slate-200">
                       Enable break warnings
                     </span>
                   </label>
 
                   <div className="max-w-md">
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <label className="block text-sm font-medium text-[var(--fos-text-secondary)] dark:text-slate-200">
                       Warning time
                     </label>
 
@@ -639,10 +631,10 @@ export default function AttendanceSettingsPage() {
                             Number(event.target.value),
                           )
                         }
-                        className="w-32 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
+                        className="w-32 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm text-[var(--fos-text)] outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
                       />
 
-                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                      <span className="text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                         minutes before expiry
                       </span>
                     </div>
@@ -659,10 +651,10 @@ export default function AttendanceSettingsPage() {
                           event.target.checked,
                         )
                       }
-                      className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 dark:border-slate-700"
+                      className="h-4 w-4 rounded border-[var(--fos-border)] text-purple-600 focus:ring-purple-500 dark:border-slate-700"
                     />
 
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <span className="text-sm font-medium text-[var(--fos-text-secondary)] dark:text-slate-200">
                       Enable break expiry notifications
                     </span>
                   </label>
@@ -674,7 +666,7 @@ export default function AttendanceSettingsPage() {
                   type="button"
                   onClick={() => router.push("/settings")}
                   disabled={saving}
-                  className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-5 py-3 text-sm font-semibold text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   ArrowLeft,
@@ -19,6 +19,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 
 import api from "@/lib/api";
+import axios from "axios";
 import { isAuthenticated } from "@/lib/auth";
 
 /* ============================================================
@@ -74,11 +75,14 @@ type PaymentForm = {
    API ERROR HELPER
 ============================================================ */
 
-function getApiErrorMessage(
-  err: any,
-  fallback: string
-): string {
-  const detail = err?.response?.data?.detail;
+function getApiErrorStatus(err: unknown): number | undefined {
+  return axios.isAxiosError(err) ? err.response?.status : undefined;
+}
+
+function getApiErrorMessage(err: unknown, fallback: string): string {
+  const detail = axios.isAxiosError<{ detail?: unknown }>(err)
+    ? err.response?.data?.detail
+    : undefined;
 
   if (typeof detail === "string") {
     return detail;
@@ -86,19 +90,21 @@ function getApiErrorMessage(
 
   if (Array.isArray(detail)) {
     return detail
-      .map((item: any) => {
+      .map((item: unknown) => {
         if (typeof item === "string") {
           return item;
         }
 
-        if (item?.msg) {
-          const location = Array.isArray(item.loc)
-            ? item.loc.join(".")
-            : "";
+        if (item !== null && typeof item === "object" && "msg" in item) {
+          const message = item.msg;
+          const location =
+            "loc" in item && Array.isArray(item.loc)
+              ? item.loc.join(".")
+              : "";
 
-          return location
-            ? `${location}: ${item.msg}`
-            : item.msg;
+          if (typeof message === "string") {
+            return location ? `${location}: ${message}` : message;
+          }
         }
 
         return "Invalid request.";
@@ -106,18 +112,14 @@ function getApiErrorMessage(
       .join(" ");
   }
 
-  if (
-    detail &&
-    typeof detail === "object"
-  ) {
-    if (detail.msg) {
-      return String(detail.msg);
+  if (detail !== null && typeof detail === "object" && "msg" in detail) {
+    const message = detail.msg;
+    if (typeof message === "string") {
+      return message;
     }
-
-    return fallback;
   }
 
-  if (typeof err?.message === "string") {
+  if (err instanceof Error) {
     return err.message;
   }
 
@@ -190,24 +192,7 @@ export default function FinancialPage() {
       notes: "",
     });
 
-  /* ==========================================================
-     AUTH + LOAD
-  ========================================================== */
-
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-
-    if (!caseId) {
-      return;
-    }
-
-    loadFinancialData();
-  }, [caseId, router]);
-
-  async function loadFinancialData() {
+  const loadFinancialData = useCallback(async () => {
     try {
       setLoading(true);
       setPageError("");
@@ -244,7 +229,7 @@ export default function FinancialPage() {
         });
       } else {
         const status =
-          financialResult.reason?.response?.status;
+          getApiErrorStatus(financialResult.reason);
 
         if (status === 401) {
           router.push("/login");
@@ -271,7 +256,7 @@ export default function FinancialPage() {
         );
       } else {
         const status =
-          paymentsResult.reason?.response?.status;
+          getApiErrorStatus(paymentsResult.reason);
 
         if (status === 401) {
           router.push("/login");
@@ -289,8 +274,8 @@ export default function FinancialPage() {
 
         setPayments([]);
       }
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -304,7 +289,28 @@ export default function FinancialPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [caseId, router]);
+
+  /* ==========================================================
+     AUTH + LOAD
+  ========================================================== */
+
+  useEffect(() => {
+    async function initializeFinancialData() {
+      if (!isAuthenticated()) {
+        router.push("/login");
+        return;
+      }
+
+      if (!caseId) {
+        return;
+      }
+
+      await loadFinancialData();
+    }
+
+    void initializeFinancialData();
+  }, [caseId, router, loadFinancialData]);
 
   /* ==========================================================
      CREATE FINANCIAL RECORD
@@ -382,8 +388,8 @@ export default function FinancialPage() {
       });
 
       setShowFinancialForm(false);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -465,8 +471,8 @@ export default function FinancialPage() {
       setFinancial(response.data);
 
       setShowFinancialForm(false);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -513,8 +519,8 @@ export default function FinancialPage() {
       });
 
       await loadPayments();
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -542,8 +548,8 @@ export default function FinancialPage() {
         );
 
       setPayments(response.data);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -678,8 +684,8 @@ export default function FinancialPage() {
         loadPayments(),
         refreshFinancial(),
       ]);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -723,8 +729,8 @@ export default function FinancialPage() {
         notes:
           response.data.notes || "",
       });
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -766,8 +772,8 @@ export default function FinancialPage() {
         loadPayments(),
         refreshFinancial(),
       ]);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -789,8 +795,8 @@ export default function FinancialPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="flex items-center gap-3 text-sm text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-[var(--fos-surface-muted)]">
+        <div className="flex items-center gap-3 text-sm text-[var(--fos-text-muted)]">
           <Loader2
             size={20}
             className="animate-spin"
@@ -806,12 +812,12 @@ export default function FinancialPage() {
   ========================================================== */
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-[var(--fos-surface-muted)]">
       {/* ======================================================
           HEADER
       ====================================================== */}
 
-      <header className="border-b bg-white">
+      <header className="border-b bg-[var(--fos-surface)]">
         <div className="mx-auto max-w-7xl px-6 py-5 md:px-8">
           <button
             onClick={() =>
@@ -819,7 +825,7 @@ export default function FinancialPage() {
                 `/cases/${caseId}`
               )
             }
-            className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+            className="mb-5 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-muted)] hover:text-[var(--fos-text)]"
           >
             <ArrowLeft size={17} />
             Back to Case
@@ -828,16 +834,16 @@ export default function FinancialPage() {
           <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
             <div>
               <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
+                <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3 text-[var(--fos-text-secondary)]">
                   <CreditCard size={24} />
                 </div>
 
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">
+                  <h1 className="text-2xl font-bold text-[var(--fos-text)]">
                     Case Financials
                   </h1>
 
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                     Manage case charges, payments
                     and outstanding balances.
                   </p>
@@ -852,7 +858,7 @@ export default function FinancialPage() {
                     handleRecalculate
                   }
                   disabled={recalculating}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {recalculating ? (
                     <Loader2
@@ -917,19 +923,19 @@ export default function FinancialPage() {
             FINANCIAL SUMMARY
         ==================================================== */}
 
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border bg-[var(--fos-surface)] p-6 shadow-sm">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-slate-100 p-2 text-slate-700">
+              <div className="rounded-lg bg-[var(--fos-surface-muted)] p-2 text-[var(--fos-text-secondary)]">
                 <Calculator size={20} />
               </div>
 
               <div>
-                <h2 className="font-semibold text-slate-900">
+                <h2 className="font-semibold text-[var(--fos-text)]">
                   Financial Summary
                 </h2>
 
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[var(--fos-text-muted)]">
                   Current case financial position
                 </p>
               </div>
@@ -943,17 +949,17 @@ export default function FinancialPage() {
           </div>
 
           {!financial ? (
-            <div className="mt-6 rounded-xl bg-slate-50 p-8 text-center">
+            <div className="mt-6 rounded-xl bg-[var(--fos-page)] p-8 text-center">
               <CreditCard
                 size={32}
-                className="mx-auto text-slate-400"
+                className="mx-auto text-[var(--fos-text-muted)]"
               />
 
-              <h3 className="mt-3 font-semibold text-slate-800">
+              <h3 className="mt-3 font-semibold text-[var(--fos-text)]">
                 No financial record
               </h3>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                 Create a financial record to
                 start managing charges and
                 payments for this case.
@@ -1038,11 +1044,11 @@ export default function FinancialPage() {
 
               {financial.notes && (
                 <div className="mt-6 border-t pt-6">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Financial Notes
                   </p>
 
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--fos-text-secondary)]">
                     {financial.notes}
                   </p>
                 </div>
@@ -1055,19 +1061,19 @@ export default function FinancialPage() {
             PAYMENTS
         ==================================================== */}
 
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border bg-[var(--fos-surface)] p-6 shadow-sm">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-slate-100 p-2 text-slate-700">
+              <div className="rounded-lg bg-[var(--fos-surface-muted)] p-2 text-[var(--fos-text-secondary)]">
                 <Receipt size={20} />
               </div>
 
               <div>
-                <h2 className="font-semibold text-slate-900">
+                <h2 className="font-semibold text-[var(--fos-text)]">
                   Payments
                 </h2>
 
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[var(--fos-text-muted)]">
                   Payment history for this case
                 </p>
               </div>
@@ -1092,22 +1098,22 @@ export default function FinancialPage() {
           )}
 
           {!financial ? (
-            <div className="mt-6 rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+            <div className="mt-6 rounded-xl bg-[var(--fos-page)] p-6 text-center text-sm text-[var(--fos-text-muted)]">
               Create a financial record before
               recording payments.
             </div>
           ) : payments.length === 0 ? (
-            <div className="mt-6 rounded-xl bg-slate-50 p-8 text-center">
+            <div className="mt-6 rounded-xl bg-[var(--fos-page)] p-8 text-center">
               <Receipt
                 size={32}
-                className="mx-auto text-slate-400"
+                className="mx-auto text-[var(--fos-text-muted)]"
               />
 
-              <p className="mt-3 font-medium text-slate-700">
+              <p className="mt-3 font-medium text-[var(--fos-text-secondary)]">
                 No payments recorded
               </p>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                 Add the first payment for this
                 case.
               </p>
@@ -1116,7 +1122,7 @@ export default function FinancialPage() {
             <div className="mt-6 overflow-x-auto">
               <table className="w-full min-w-[760px] text-left">
                 <thead>
-                  <tr className="border-b text-xs uppercase tracking-wide text-slate-400">
+                  <tr className="border-b text-xs uppercase tracking-wide text-[var(--fos-text-muted)]">
                     <th className="px-4 py-3 font-medium">
                       Date
                     </th>
@@ -1148,15 +1154,15 @@ export default function FinancialPage() {
                     (payment) => (
                       <tr
                         key={payment.id}
-                        className="hover:bg-slate-50"
+                        className="hover:bg-[var(--fos-page)]"
                       >
-                        <td className="px-4 py-4 text-sm text-slate-700">
+                        <td className="px-4 py-4 text-sm text-[var(--fos-text-secondary)]">
                           {formatDate(
                             payment.payment_date
                           )}
                         </td>
 
-                        <td className="px-4 py-4 text-sm font-semibold text-slate-900">
+                        <td className="px-4 py-4 text-sm font-semibold text-[var(--fos-text)]">
                           R{" "}
                           {formatMoney(
                             payment.amount
@@ -1164,19 +1170,19 @@ export default function FinancialPage() {
                         </td>
 
                         <td className="px-4 py-4">
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
+                          <span className="rounded-full bg-[var(--fos-surface-muted)] px-3 py-1 text-xs font-medium capitalize text-[var(--fos-text-secondary)]">
                             {formatStatus(
                               payment.payment_method
                             )}
                           </span>
                         </td>
 
-                        <td className="px-4 py-4 text-sm text-slate-600">
+                        <td className="px-4 py-4 text-sm text-[var(--fos-text-secondary)]">
                           {payment.reference ||
                             "—"}
                         </td>
 
-                        <td className="max-w-[220px] px-4 py-4 text-sm text-slate-500">
+                        <td className="max-w-[220px] px-4 py-4 text-sm text-[var(--fos-text-muted)]">
                           <span className="block truncate">
                             {payment.notes ||
                               "—"}
@@ -1191,7 +1197,7 @@ export default function FinancialPage() {
                                   payment
                                 )
                               }
-                              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                              className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text)]"
                               title="Edit payment"
                             >
                               <Pencil
@@ -1242,16 +1248,16 @@ export default function FinancialPage() {
 
       {showFinancialForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 flex items-center justify-between border-b bg-white px-6 py-5">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-2xl">
+            <div className="sticky top-0 flex items-center justify-between border-b bg-[var(--fos-surface)] px-6 py-5">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">
+                <h3 className="text-lg font-bold text-[var(--fos-text)]">
                   {financial
                     ? "Edit Financial Record"
                     : "Create Financial Record"}
                 </h3>
 
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
                   Manage charges for this funeral
                   case.
                 </p>
@@ -1262,7 +1268,7 @@ export default function FinancialPage() {
                 onClick={() =>
                   setShowFinancialForm(false)
                 }
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text-secondary)]"
               >
                 <X size={20} />
               </button>
@@ -1327,12 +1333,12 @@ export default function FinancialPage() {
                 />
               </div>
 
-              <div className="rounded-xl bg-slate-50 p-5">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              <div className="rounded-xl bg-[var(--fos-page)] p-5">
+                <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                   Estimated Total
                 </p>
 
-                <p className="mt-2 text-2xl font-bold text-slate-900">
+                <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                   R{" "}
                   {formatMoney(
                     Math.max(
@@ -1354,7 +1360,7 @@ export default function FinancialPage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                   Notes
                 </label>
 
@@ -1371,7 +1377,7 @@ export default function FinancialPage() {
                   }
                   rows={4}
                   placeholder="Financial notes..."
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                  className="w-full rounded-lg border border-[var(--fos-border)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
                 />
               </div>
 
@@ -1381,7 +1387,7 @@ export default function FinancialPage() {
                   onClick={() =>
                     setShowFinancialForm(false)
                   }
-                  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-[var(--fos-border)] px-5 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
                 >
                   Cancel
                 </button>
@@ -1418,16 +1424,16 @@ export default function FinancialPage() {
 
       {showPaymentForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 flex items-center justify-between border-b bg-white px-6 py-5">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-2xl">
+            <div className="sticky top-0 flex items-center justify-between border-b bg-[var(--fos-surface)] px-6 py-5">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">
+                <h3 className="text-lg font-bold text-[var(--fos-text)]">
                   {editingPaymentId
                     ? "Edit Payment"
                     : "Add Payment"}
                 </h3>
 
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
                   Record a payment received for
                   this case.
                 </p>
@@ -1438,7 +1444,7 @@ export default function FinancialPage() {
                 onClick={() =>
                   setShowPaymentForm(false)
                 }
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text-secondary)]"
               >
                 <X size={20} />
               </button>
@@ -1470,7 +1476,7 @@ export default function FinancialPage() {
                 />
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Payment Method
                   </label>
 
@@ -1487,7 +1493,7 @@ export default function FinancialPage() {
                         })
                       )
                     }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
                   >
                     <option value="cash">
                       Cash
@@ -1514,7 +1520,7 @@ export default function FinancialPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Payment Date
                   </label>
 
@@ -1533,12 +1539,12 @@ export default function FinancialPage() {
                       )
                     }
                     required
-                    className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-lg border border-[var(--fos-border)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Reference
                   </label>
 
@@ -1557,13 +1563,13 @@ export default function FinancialPage() {
                       )
                     }
                     placeholder="Receipt / transaction reference"
-                    className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-lg border border-[var(--fos-border)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                   Notes
                 </label>
 
@@ -1580,7 +1586,7 @@ export default function FinancialPage() {
                   }
                   rows={4}
                   placeholder="Payment notes..."
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                  className="w-full rounded-lg border border-[var(--fos-border)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
                 />
               </div>
 
@@ -1590,7 +1596,7 @@ export default function FinancialPage() {
                   onClick={() =>
                     setShowPaymentForm(false)
                   }
-                  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-[var(--fos-border)] px-5 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
                 >
                   Cancel
                 </button>
@@ -1645,7 +1651,7 @@ function StatusBadge({
 }) {
   const styles: Record<string, string> = {
     draft:
-      "bg-slate-100 text-slate-700",
+      "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]",
     unpaid:
       "bg-red-50 text-red-700",
     partially_paid:
@@ -1660,7 +1666,7 @@ function StatusBadge({
     <span
       className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
         styles[status] ||
-        "bg-slate-100 text-slate-700"
+        "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]"
       }`}
     >
       {formatStatus(status)}
@@ -1678,18 +1684,18 @@ function MoneyCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-5">
+    <div className="rounded-xl bg-[var(--fos-page)] p-5">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-slate-500">
+        <p className="text-xs font-medium text-[var(--fos-text-muted)]">
           {label}
         </p>
 
-        <div className="rounded-lg bg-white p-2 text-slate-600 shadow-sm">
+        <div className="rounded-lg bg-[var(--fos-surface)] p-2 text-[var(--fos-text-secondary)] shadow-sm">
           {icon}
         </div>
       </div>
 
-      <p className="mt-3 text-xl font-bold text-slate-900">
+      <p className="mt-3 text-xl font-bold text-[var(--fos-text)]">
         R {formatMoney(value)}
       </p>
     </div>
@@ -1705,11 +1711,11 @@ function FinancialDetail({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
         {label}
       </p>
 
-      <p className="mt-2 text-sm font-semibold text-slate-800">
+      <p className="mt-2 text-sm font-semibold text-[var(--fos-text)]">
         R {formatMoney(value)}
       </p>
     </div>
@@ -1729,7 +1735,7 @@ function MoneyInput({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-slate-700">
+      <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
         {label}
 
         {required && (
@@ -1740,7 +1746,7 @@ function MoneyInput({
       </label>
 
       <div className="relative">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--fos-text-muted)]">
           R
         </span>
 
@@ -1753,7 +1759,7 @@ function MoneyInput({
             onChange(event.target.value)
           }
           required={required}
-          className="w-full rounded-lg border border-slate-300 py-3 pl-9 pr-4 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+          className="w-full rounded-lg border border-[var(--fos-border)] py-3 pl-9 pr-4 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
         />
       </div>
     </div>

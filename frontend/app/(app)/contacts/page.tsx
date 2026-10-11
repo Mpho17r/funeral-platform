@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ContactRound,
@@ -36,8 +36,19 @@ type WorkspaceContact = {
   updated_at: string;
 };
 
-function getApiErrorMessage(err: any, fallback: string) {
-  const detail = err?.response?.data?.detail;
+function asRecord(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function getApiErrorMessage(err: unknown, fallback: string) {
+  const errorRecord = asRecord(err);
+  const responseRecord = asRecord(errorRecord?.response);
+  const dataRecord = asRecord(responseRecord?.data);
+  const detail = dataRecord?.detail;
 
   if (typeof detail === "string") {
     return detail;
@@ -45,13 +56,14 @@ function getApiErrorMessage(err: any, fallback: string) {
 
   if (Array.isArray(detail)) {
     return detail
-      .map((item: any) => {
+      .map((item: unknown) => {
         if (typeof item === "string") {
           return item;
         }
 
-        if (item?.msg) {
-          return item.msg;
+        const itemRecord = asRecord(item);
+        if (typeof itemRecord?.msg === "string") {
+          return itemRecord.msg;
         }
 
         return "Invalid request.";
@@ -59,8 +71,8 @@ function getApiErrorMessage(err: any, fallback: string) {
       .join(" ");
   }
 
-  if (typeof err?.message === "string") {
-    return err.message;
+  if (typeof errorRecord?.message === "string") {
+    return errorRecord.message;
   }
 
   return fallback;
@@ -81,7 +93,7 @@ function getContactTypeClass(value: string) {
     case "supplier":
       return "bg-amber-50 text-amber-700";
     default:
-      return "bg-slate-100 text-slate-700";
+      return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]";
   }
 }
 
@@ -94,27 +106,18 @@ export default function ContactsWorkspacePage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
 
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-
-    loadContacts();
-  }, [router]);
-
-  async function loadContacts() {
+  const loadContacts = useCallback(async () => {
     try {
       setLoading(true);
       setPageError("");
 
-      const response = await api.get<WorkspaceContact[]>(
-        "/contacts"
-      );
-
+      const response = await api.get<WorkspaceContact[]>("/contacts");
       setContacts(response.data);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      const errorRecord = asRecord(err);
+      const responseRecord = asRecord(errorRecord?.response);
+
+      if (responseRecord?.status === 401) {
         router.push("/login");
         return;
       }
@@ -122,13 +125,26 @@ export default function ContactsWorkspacePage() {
       setPageError(
         getApiErrorMessage(
           err,
-          "Unable to load the contact workspace."
-        )
+          "Unable to load the contact workspace.",
+        ),
       );
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push("/login");
+      return;
+    }
+
+    async function initializeContacts() {
+      await loadContacts();
+    }
+
+    void initializeContacts();
+  }, [router, loadContacts]);
 
   const contactTypes = useMemo(() => {
     return Array.from(
@@ -175,16 +191,16 @@ export default function ContactsWorkspacePage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-3">
-              <ContactRound className="h-6 w-6 text-slate-700" />
+            <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3">
+              <ContactRound className="h-6 w-6 text-[var(--fos-text-secondary)]" />
             </div>
 
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900">
+              <h1 className="text-2xl font-semibold text-[var(--fos-text)]">
                 Contacts
               </h1>
 
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-[var(--fos-text-muted)]">
                 Business-wide contact workspace
               </p>
             </div>
@@ -195,25 +211,25 @@ export default function ContactsWorkspacePage() {
           type="button"
           onClick={loadContacts}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2 text-sm font-medium text-[var(--fos-text-secondary)] shadow-sm transition hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh
         </button>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-4 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="w-full lg:flex-1">
             <label
               htmlFor="contact-search"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-[var(--fos-text-secondary)]"
             >
               Search
             </label>
 
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fos-text-muted)]" />
 
               <input
                 id="contact-search"
@@ -223,7 +239,7 @@ export default function ContactsWorkspacePage() {
                   setSearch(event.target.value)
                 }
                 placeholder="Name, phone, email, case or deceased..."
-                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-slate-500"
+                className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] py-2 pl-9 pr-3 text-sm outline-none focus:border-slate-500"
               />
             </div>
           </div>
@@ -231,7 +247,7 @@ export default function ContactsWorkspacePage() {
           <div className="w-full lg:w-56">
             <label
               htmlFor="contact-type-filter"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-[var(--fos-text-secondary)]"
             >
               Contact type
             </label>
@@ -242,7 +258,7 @@ export default function ContactsWorkspacePage() {
               onChange={(event) =>
                 setTypeFilter(event.target.value)
               }
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500"
+              className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2 text-sm outline-none focus:border-slate-500"
             >
               <option value="all">All types</option>
 
@@ -254,13 +270,13 @@ export default function ContactsWorkspacePage() {
             </select>
           </div>
 
-          <div className="text-sm text-slate-500">
+          <div className="text-sm text-[var(--fos-text-muted)]">
             Showing{" "}
-            <span className="font-semibold text-slate-800">
+            <span className="font-semibold text-[var(--fos-text)]">
               {filteredContacts.length}
             </span>{" "}
             of{" "}
-            <span className="font-semibold text-slate-800">
+            <span className="font-semibold text-[var(--fos-text)]">
               {contacts.length}
             </span>{" "}
             contacts
@@ -274,9 +290,9 @@ export default function ContactsWorkspacePage() {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-sm">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 px-6 py-16 text-sm text-slate-500">
+          <div className="flex items-center justify-center gap-2 px-6 py-16 text-sm text-[var(--fos-text-muted)]">
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading contacts...
           </div>
@@ -284,11 +300,11 @@ export default function ContactsWorkspacePage() {
           <div className="px-6 py-16 text-center">
             <ContactRound className="mx-auto mb-3 h-10 w-10 text-slate-300" />
 
-            <h2 className="text-lg font-semibold text-slate-800">
+            <h2 className="text-lg font-semibold text-[var(--fos-text)]">
               No contacts found
             </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
               There are no contacts matching the current
               search or filters.
             </p>
@@ -296,25 +312,25 @@ export default function ContactsWorkspacePage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+              <thead className="bg-[var(--fos-page)]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Contact
                   </th>
 
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Type
                   </th>
 
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Phone / Email
                   </th>
 
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Case
                   </th>
 
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Deceased
                   </th>
                 </tr>
@@ -324,22 +340,22 @@ export default function ContactsWorkspacePage() {
                 {filteredContacts.map((contact) => (
                   <tr
                     key={contact.id}
-                    className="transition hover:bg-slate-50"
+                    className="transition hover:bg-[var(--fos-page)]"
                   >
                     <td className="px-6 py-4">
-                      <div className="font-medium text-slate-900">
+                      <div className="font-medium text-[var(--fos-text)]">
                         {contact.first_name}{" "}
                         {contact.last_name}
                       </div>
 
                       {contact.relationship && (
-                        <div className="mt-1 text-sm text-slate-500">
+                        <div className="mt-1 text-sm text-[var(--fos-text-muted)]">
                           {contact.relationship}
                         </div>
                       )}
 
                       {contact.organization && (
-                        <div className="mt-1 text-xs text-slate-400">
+                        <div className="mt-1 text-xs text-[var(--fos-text-muted)]">
                           {contact.organization}
                         </div>
                       )}
@@ -362,13 +378,13 @@ export default function ContactsWorkspacePage() {
                         {contact.phone ? (
                           <a
                             href={`tel:${contact.phone}`}
-                            className="flex items-center gap-2 text-slate-700 hover:text-slate-900 hover:underline"
+                            className="flex items-center gap-2 text-[var(--fos-text-secondary)] hover:text-[var(--fos-text)] hover:underline"
                           >
                             <Phone className="h-3.5 w-3.5" />
                             {contact.phone}
                           </a>
                         ) : (
-                          <div className="text-slate-400">
+                          <div className="text-[var(--fos-text-muted)]">
                             No phone
                           </div>
                         )}
@@ -376,13 +392,13 @@ export default function ContactsWorkspacePage() {
                         {contact.email ? (
                           <a
                             href={`mailto:${contact.email}`}
-                            className="flex items-center gap-2 text-slate-700 hover:text-slate-900 hover:underline"
+                            className="flex items-center gap-2 text-[var(--fos-text-secondary)] hover:text-[var(--fos-text)] hover:underline"
                           >
                             <Mail className="h-3.5 w-3.5" />
                             {contact.email}
                           </a>
                         ) : (
-                          <div className="text-slate-400">
+                          <div className="text-[var(--fos-text-muted)]">
                             No email
                           </div>
                         )}
@@ -399,13 +415,13 @@ export default function ContactsWorkspacePage() {
                         }
                         className="text-left"
                       >
-                        <div className="font-medium text-slate-900 hover:underline">
+                        <div className="font-medium text-[var(--fos-text)] hover:underline">
                           {contact.case_number}
                         </div>
                       </button>
                     </td>
 
-                    <td className="px-6 py-4 text-sm text-slate-700">
+                    <td className="px-6 py-4 text-sm text-[var(--fos-text-secondary)]">
                       {contact.deceased_full_name}
                     </td>
                   </tr>
