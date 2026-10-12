@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.services.branch_service import create_main_branch
 from app.database import get_db
 from app.models.user import User
 from app.models.business import Business
@@ -132,6 +133,9 @@ def register(
     # before the transaction is committed.
     db.flush()
 
+    # Every business starts with its main branch.
+    main_branch = create_main_branch(db, business.id)
+
     # ---------------------------------------------------------
     # CREATE MAIN ADMIN
     # ---------------------------------------------------------
@@ -143,6 +147,7 @@ def register(
         password_hash=hash_password(data.password),
         role="main_admin",
         is_active=True,
+        branch_id=main_branch.id,
     )
 
     db.add(user)

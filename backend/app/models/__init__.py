@@ -44,3 +44,4 @@ from app.models.financial_document import (
     FinancialDocumentLine,
     PaymentReceipt,
 )
+from app.models.branch import Branch

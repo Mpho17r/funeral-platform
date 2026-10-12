@@ -25,6 +25,10 @@ class MemberCreate(BaseModel):
     join_date: date = Field(default_factory=date.today)
     status: str = "active"
 
+    # Defaults to the creator's branch. Moving a member later uses the
+    # transfer endpoint.
+    branch_id: UUID | None = None
+
     @field_validator("status")
     @classmethod
     def validate_status(cls, value: str) -> str:
@@ -87,5 +91,6 @@ class MemberResponse(BaseModel):
     address: str | None
     join_date: date
     status: str
+    branch_id: UUID | None = None
     created_at: datetime
     updated_at: datetime

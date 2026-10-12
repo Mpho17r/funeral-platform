@@ -6,6 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.services.branch_service import (
+    BranchError,
+    resolve_branch_id,
+)
 from app.models.member import Member
 from app.schemas.member import (
     MemberCreate,
@@ -64,8 +68,22 @@ def create_member(
             detail="Member number already exists",
         )
 
+    try:
+        branch_id = resolve_branch_id(
+            db,
+            business_id=business_id,
+            requested=member_data.branch_id,
+            acting_user_id=current_user["user_id"],
+        )
+    except BranchError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail=error.detail,
+        )
+
     member = Member(
         business_id=business_id,
+        branch_id=branch_id,
         member_number=member_data.member_number.strip(),
         first_name=member_data.first_name.strip(),
         last_name=member_data.last_name.strip(),
@@ -90,17 +108,18 @@ def create_member(
     response_model=list[MemberResponse],
 )
 def list_members(
+    branch_id: UUID | None = None,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("members.view")),
 ):
     business_id = get_business_id(current_user)
 
-    return (
-        db.query(Member)
-        .filter(Member.business_id == business_id)
-        .order_by(Member.created_at.desc())
-        .all()
-    )
+    query = db.query(Member).filter(Member.business_id == business_id)
+
+    if branch_id is not None:
+        query = query.filter(Member.branch_id == branch_id)
+
+    return query.order_by(Member.created_at.desc()).all()
 
 
 @router.get(

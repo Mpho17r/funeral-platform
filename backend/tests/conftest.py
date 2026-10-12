@@ -129,6 +129,9 @@ def db():
             "group_members",
             "groups",
 
+            # Branches
+            "branches",
+
             # Core application tables
             "users",
             "businesses",

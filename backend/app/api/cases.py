@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 
 from app.dependencies.roles import require_permission
+from app.services.branch_service import (
+    BranchError,
+    resolve_branch_id,
+)
 
 from app.models.funeral_case import FuneralCase
 
@@ -222,20 +226,19 @@ def get_case_coverage_date(
     response_model=list[FuneralCaseResponse],
 )
 def list_cases(
+    branch_id: UUID | None = None,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("cases.view")),
 ):
-    cases = (
-        db.query(FuneralCase)
-        .filter(
-            FuneralCase.business_id == current_user["business_id"],
-            FuneralCase.is_archived.is_(False),
-        )
-        .order_by(FuneralCase.created_at.desc())
-        .all()
+    query = db.query(FuneralCase).filter(
+        FuneralCase.business_id == current_user["business_id"],
+        FuneralCase.is_archived.is_(False),
     )
 
-    return cases
+    if branch_id is not None:
+        query = query.filter(FuneralCase.branch_id == branch_id)
+
+    return query.order_by(FuneralCase.created_at.desc()).all()
 
 
 # ============================================================
@@ -298,10 +301,24 @@ def create_case(
     # CREATE CASE
     # --------------------------------------------------------
 
+    try:
+        branch_id = resolve_branch_id(
+            db,
+            business_id=business_id,
+            requested=data.branch_id,
+            acting_user_id=current_user["user_id"],
+        )
+    except BranchError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail=error.detail,
+        )
+
     case = FuneralCase(
         business_id=business_id,
         status="open",
-        **data.model_dump(),
+        branch_id=branch_id,
+        **data.model_dump(exclude={"branch_id"}),
     )
 
     db.add(case)
@@ -319,6 +336,9 @@ def create_case(
         entity_id=case.id,
         details={
             "case_number": case.case_number,
+            "branch_id": (
+                str(case.branch_id) if case.branch_id else None
+            ),
         },
         notes=f"Case {case.case_number} was created.",
     )

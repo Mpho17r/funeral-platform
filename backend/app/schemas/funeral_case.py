@@ -56,6 +56,10 @@ class FuneralCaseCreate(BaseModel):
 
     notes: str | None = None
 
+    # Defaults to the creator's branch. Moving a case later uses the
+    # transfer endpoint.
+    branch_id: UUID | None = None
+
 
 class FuneralCaseUpdate(BaseModel):
 
@@ -127,6 +131,8 @@ class FuneralCaseResponse(BaseModel):
     funeral_venue: str | None = None
 
     status: str
+
+    branch_id: UUID | None = None
 
     is_archived: bool
 

@@ -8,6 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.services.branch_service import (
+    BranchError,
+    resolve_branch_id,
+)
 
 from app.models.funeral_case import FuneralCase
 from app.models.resource import Resource, ResourceBooking
@@ -171,8 +175,22 @@ def create_resource(
 ):
     business_id = get_business_id(current_user)
 
+    try:
+        branch_id = resolve_branch_id(
+            db,
+            business_id=business_id,
+            requested=data.branch_id,
+            acting_user_id=current_user["user_id"],
+        )
+    except BranchError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail=error.detail,
+        )
+
     resource = Resource(
         business_id=business_id,
+        branch_id=branch_id,
         resource_type=data.resource_type,
         name=data.name,
         identifier=data.identifier,
@@ -221,6 +239,7 @@ def create_resource(
 )
 def list_resources(
     resource_type: ResourceType | None = None,
+    branch_id: UUID | None = None,
     include_inactive: bool = False,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("resources.view")),
@@ -233,6 +252,9 @@ def list_resources(
 
     if resource_type is not None:
         query = query.filter(Resource.resource_type == resource_type)
+
+    if branch_id is not None:
+        query = query.filter(Resource.branch_id == branch_id)
 
     if not include_inactive:
         query = query.filter(Resource.is_active.is_(True))

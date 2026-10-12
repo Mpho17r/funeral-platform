@@ -50,6 +50,8 @@ def test_case_creation_creates_audit_event(
     assert str(audit.entity_id) == case_id
     assert audit.details == {
         "case_number": "AUDIT-CREATE-001",
+        # The fixture business has no branches yet.
+        "branch_id": None,
     }
 
 

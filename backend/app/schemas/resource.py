@@ -28,6 +28,10 @@ class ResourceCreate(BaseModel):
     location: str | None = Field(default=None, max_length=255)
     notes: str | None = None
 
+    # Defaults to the creator's branch. Moving a resource later uses
+    # the transfer endpoint.
+    branch_id: UUID | None = None
+
 
 class ResourceUpdate(BaseModel):
     # resource_type is intentionally immutable: bookings depend on it.
@@ -50,6 +54,7 @@ class ResourceResponse(BaseModel):
     location: str | None
     is_active: bool
     notes: str | None
+    branch_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

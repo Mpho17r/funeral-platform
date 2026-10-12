@@ -106,6 +106,15 @@ PERMISSIONS = {
     "resource_bookings.view": "View resource bookings and availability",
     "resource_bookings.manage": "Create, change and cancel resource bookings",
 
+    # Branches
+    "branches.view": "View branches",
+    "branches.manage": (
+        "Create, edit, deactivate and choose the main branch"
+    ),
+    "branches.transfer": (
+        "Move cases, members, resources and staff between branches"
+    ),
+
     # Quotes, invoices and receipts
     "financial_documents.view": "View quotes and invoices",
     "financial_documents.manage": (

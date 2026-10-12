@@ -26,6 +26,10 @@ from app.api.attendance import router as attendance_router
 from app.api.groups import router as groups_router
 from app.api.resources import router as resources_router
 from app.api.claims import router as claims_router
+from app.api.branches import router as branches_router
+from app.api.branch_transfers import (
+    router as branch_transfers_router,
+)
 from app.api.financial_documents import (
     router as financial_documents_router,
 )
@@ -151,6 +155,15 @@ app.include_router(
 # Resources (vehicles, venues, equipment) and bookings
 app.include_router(
     resources_router
+)
+
+# Branches
+app.include_router(
+    branches_router
+)
+
+app.include_router(
+    branch_transfers_router
 )
 
 # Beneficiaries and claims

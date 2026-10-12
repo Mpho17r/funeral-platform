@@ -9,6 +9,10 @@ class UserCreate(BaseModel):
     password: str
     role: str = "staff"
 
+    # Defaults to the creator's branch. Moving a user later uses the
+    # transfer endpoint.
+    branch_id: UUID | None = None
+
 
 class UserUpdate(BaseModel):
     full_name: str | None = None
@@ -25,3 +29,4 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: str
     is_active: bool
+    branch_id: UUID | None = None

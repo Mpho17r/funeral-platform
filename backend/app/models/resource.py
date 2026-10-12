@@ -62,6 +62,17 @@ class Resource(Base):
         index=True,
     )
 
+    # The branch this record belongs to. Nullable so records created
+    # outside the API are not rejected; the API always assigns one.
+    # No ON DELETE rule: a branch in use cannot be removed, while
+    # deleting a whole business still cascades cleanly.
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("branches.id"),
+        nullable=True,
+        index=True,
+    )
+
     resource_type: Mapped[str] = mapped_column(
         String(30),
         nullable=False,

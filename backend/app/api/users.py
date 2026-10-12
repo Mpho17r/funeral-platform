@@ -11,6 +11,10 @@ from app.constants import (
 )
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.services.branch_service import (
+    BranchError,
+    resolve_branch_id,
+)
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.security import hash_password
@@ -70,17 +74,18 @@ def get_business_user(
     response_model=list[UserResponse],
 )
 def list_users(
+    branch_id: UUID | None = None,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("users.view")),
 ):
-    users = (
-        db.query(User)
-        .filter(User.business_id == current_user["business_id"])
-        .order_by(User.created_at)
-        .all()
+    query = db.query(User).filter(
+        User.business_id == current_user["business_id"]
     )
 
-    return users
+    if branch_id is not None:
+        query = query.filter(User.branch_id == branch_id)
+
+    return query.order_by(User.created_at).all()
 
 
 @router.post(
@@ -117,8 +122,22 @@ def create_user(
             detail="Email already registered",
         )
 
+    try:
+        branch_id = resolve_branch_id(
+            db,
+            business_id=current_user["business_id"],
+            requested=data.branch_id,
+            acting_user_id=current_user["user_id"],
+        )
+    except BranchError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail=error.detail,
+        )
+
     user = User(
         business_id=current_user["business_id"],
+        branch_id=branch_id,
         full_name=data.full_name,
         email=data.email,
         password_hash=hash_password(data.password),
