@@ -2,6 +2,16 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import api from "@/lib/api";
+import { useBranches } from "@/lib/branches";
+import {
+  ALL_BRANCHES,
+  BranchBadge,
+  BranchFilter,
+  BranchSelect,
+  MoveButton,
+  TransferDialog,
+  matchesBranch,
+} from "@/components/BranchControls";
 import {
   Edit,
   Plus,
@@ -24,6 +34,7 @@ type Member = {
   address: string | null;
   join_date: string;
   status: string;
+  branch_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -98,6 +109,12 @@ export default function MembersPage() {
 
   const [error, setError] = useState("");
 
+  const branchData = useBranches();
+  const [branchFilter, setBranchFilter] = useState(ALL_BRANCHES);
+  const [newMemberBranch, setNewMemberBranch] = useState("");
+  const [moving, setMoving] = useState<Member | null>(null);
+  const [notice, setNotice] = useState("");
+
   async function loadMembers() {
     try {
       setLoading(true);
@@ -133,6 +150,7 @@ export default function MembersPage() {
       ...emptyForm,
       join_date: new Date().toISOString().split("T")[0],
     });
+    setNewMemberBranch("");
     setError("");
     setShowModal(true);
   }
@@ -207,7 +225,13 @@ export default function MembersPage() {
           payload
         );
       } else {
-        await api.post("/members", payload);
+        await api.post("/members", {
+          ...payload,
+          // Left empty, the server uses the creator's own branch.
+          ...(newMemberBranch
+            ? { branch_id: newMemberBranch }
+            : {}),
+        });
       }
 
       closeModal();
@@ -261,6 +285,10 @@ export default function MembersPage() {
   }
 
   const filteredMembers = members.filter((member) => {
+    if (!matchesBranch(branchFilter, member.branch_id)) {
+      return false;
+    }
+
     const query = search.toLowerCase().trim();
 
     if (!query) return true;
@@ -368,8 +396,8 @@ export default function MembersPage() {
           </div>
 
           {/* Search */}
-          <div className="mb-5">
-            <div className="relative max-w-md">
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            <div className="relative w-full max-w-md">
               <Search
                 size={18}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -385,7 +413,24 @@ export default function MembersPage() {
                 className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:border-gray-500"
               />
             </div>
+
+            {branchData.multiple && (
+              <BranchFilter
+                branches={branchData.branches}
+                value={branchFilter}
+                onChange={setBranchFilter}
+              />
+            )}
           </div>
+
+          {notice && (
+            <div
+              role="status"
+              className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+            >
+              {notice}
+            </div>
+          )}
 
           {/* Members table */}
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -476,6 +521,15 @@ export default function MembersPage() {
 
                         <td className="px-6 py-4 text-sm text-gray-700">
                           {member.member_number}
+
+                          {branchData.multiple && (
+                            <div className="mt-1.5">
+                              <BranchBadge
+                                branchId={member.branch_id}
+                                byId={branchData.byId}
+                              />
+                            </div>
+                          )}
                         </td>
 
                         <td className="px-6 py-4">
@@ -505,7 +559,15 @@ export default function MembersPage() {
                         </td>
 
                         <td className="px-6 py-4">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex items-center justify-end gap-2">
+                            {branchData.multiple && (
+                              <MoveButton
+                                onClick={() =>
+                                  setMoving(member)
+                                }
+                              />
+                            )}
+
                             <button
                               onClick={() =>
                                 openEditModal(member)
@@ -793,6 +855,18 @@ export default function MembersPage() {
                     className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
                   />
                 </div>
+
+                {/* Branch: chosen when creating; moved later with
+                    the Move action. */}
+                {branchData.multiple && !editingMember && (
+                  <div className="md:col-span-2">
+                    <BranchSelect
+                      branches={branchData.branches}
+                      value={newMemberBranch}
+                      onChange={setNewMemberBranch}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="mt-7 flex justify-end gap-3 border-t border-gray-200 pt-5">
@@ -820,6 +894,21 @@ export default function MembersPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {moving && (
+        <TransferDialog
+          path={`/members/${moving.id}/transfer`}
+          subject={`${moving.first_name} ${moving.last_name}`}
+          currentBranchId={moving.branch_id}
+          branches={branchData.branches}
+          onClose={() => setMoving(null)}
+          onMoved={(message) => {
+            setMoving(null);
+            setNotice(message);
+            loadMembers();
+          }}
+        />
       )}
     </main>
   );

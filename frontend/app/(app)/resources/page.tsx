@@ -36,6 +36,16 @@ import {
   inputClass,
 } from "@/components/Dialog";
 import { Banner, ErrorNote } from "@/components/Notices";
+import { useBranches, type Branch } from "@/lib/branches";
+import {
+  ALL_BRANCHES,
+  BranchBadge,
+  BranchFilter,
+  BranchSelect,
+  MoveButton,
+  TransferDialog,
+  matchesBranch,
+} from "@/components/BranchControls";
 
 /* ============================================================
    TYPES
@@ -52,6 +62,7 @@ type Resource = {
   location: string | null;
   is_active: boolean;
   notes: string | null;
+  branch_id: string | null;
 };
 
 type Booking = {
@@ -92,6 +103,7 @@ type Dialogue =
   | { kind: "edit"; resource: Resource }
   | { kind: "availability"; resource: Resource }
   | { kind: "deactivate"; resource: Resource }
+  | { kind: "move"; resource: Resource }
   | null;
 
 /* ============================================================
@@ -133,6 +145,9 @@ export default function ResourcesPage() {
 
   const [filter, setFilter] = useState<"all" | ResourceType>("all");
   const [showInactive, setShowInactive] = useState(false);
+
+  const branchData = useBranches();
+  const [branchFilter, setBranchFilter] = useState(ALL_BRANCHES);
 
   const [dialog, setDialog] = useState<Dialogue>(null);
   const [dialogError, setDialogError] = useState("");
@@ -229,7 +244,8 @@ export default function ResourcesPage() {
   const visible = resources.filter(
     (item) =>
       (filter === "all" || item.resource_type === filter) &&
-      (showInactive || item.is_active)
+      (showInactive || item.is_active) &&
+      matchesBranch(branchFilter, item.branch_id)
   );
 
   /* ---------------- actions ---------------- */
@@ -346,6 +362,15 @@ export default function ResourcesPage() {
           ))}
         </div>
 
+        {branchData.multiple && (
+          <BranchFilter
+            branches={branchData.branches}
+            value={branchFilter}
+            onChange={setBranchFilter}
+            className="rounded-full border border-slate-300 bg-white px-4 py-1.5 text-sm outline-none focus:border-slate-900"
+          />
+        )}
+
         {inactiveCount > 0 && (
           <label className="ml-auto flex items-center gap-2 text-sm text-slate-600">
             <input
@@ -381,6 +406,22 @@ export default function ResourcesPage() {
             <ResourceCard
               key={resource.id}
               resource={resource}
+              branchBadge={
+                branchData.multiple ? (
+                  <BranchBadge
+                    branchId={resource.branch_id}
+                    byId={branchData.byId}
+                  />
+                ) : null
+              }
+              onMove={
+                branchData.multiple
+                  ? () => {
+                      setDialogError("");
+                      setDialog({ kind: "move", resource });
+                    }
+                  : undefined
+              }
               onEdit={() => {
                 setDialogError("");
                 setDialog({ kind: "edit", resource });
@@ -411,6 +452,9 @@ export default function ResourcesPage() {
 
       {dialog?.kind === "create" && (
         <ResourceDialog
+          branches={
+            branchData.multiple ? branchData.branches : undefined
+          }
           saving={saving}
           error={dialogError}
           onClose={closeDialog}
@@ -431,8 +475,9 @@ export default function ResourcesPage() {
           onClose={closeDialog}
           onSubmit={(body) => {
             // The type is fixed once a resource exists.
-            const { resource_type, ...changes } = body;
+            const { resource_type, branch_id, ...changes } = body;
             void resource_type;
+            void branch_id;
 
             return runAction(
               () =>
@@ -442,6 +487,21 @@ export default function ResourcesPage() {
                 ),
               `${body.name} updated.`
             );
+          }}
+        />
+      )}
+
+      {dialog?.kind === "move" && (
+        <TransferDialog
+          path={`/resources/${dialog.resource.id}/transfer`}
+          subject={dialog.resource.name}
+          currentBranchId={dialog.resource.branch_id}
+          branches={branchData.branches}
+          onClose={closeDialog}
+          onMoved={(message) => {
+            closeDialog();
+            setNotice(message);
+            reload();
           }}
         />
       )}
@@ -594,11 +654,15 @@ function GapRow({
 
 function ResourceCard({
   resource,
+  branchBadge,
+  onMove,
   onEdit,
   onCheck,
   onToggle,
 }: {
   resource: Resource;
+  branchBadge: React.ReactNode;
+  onMove?: () => void;
   onEdit: () => void;
   onCheck: () => void;
   onToggle: () => void;
@@ -636,6 +700,8 @@ function ResourceCard({
             {meta.label}
             {resource.identifier && ` · ${resource.identifier}`}
           </p>
+
+          {branchBadge && <div className="mt-1.5">{branchBadge}</div>}
         </div>
       </div>
 
@@ -682,6 +748,8 @@ function ResourceCard({
           Edit
         </button>
 
+        {onMove && <MoveButton onClick={onMove} />}
+
         <button
           type="button"
           onClick={onToggle}
@@ -719,16 +787,21 @@ type ResourceBody = {
   capacity: number | null;
   location: string | null;
   notes: string | null;
+  // Only sent when creating, and only if a branch was chosen.
+  branch_id?: string;
 };
 
 function ResourceDialog({
   resource,
+  branches,
   saving,
   error,
   onClose,
   onSubmit,
 }: {
   resource?: Resource;
+  /** Present only when the business has several branches. */
+  branches?: Branch[];
   saving: boolean;
   error: string;
   onClose: () => void;
@@ -748,6 +821,7 @@ function ResourceDialog({
     resource?.location ?? ""
   );
   const [notes, setNotes] = useState(resource?.notes ?? "");
+  const [branchId, setBranchId] = useState("");
 
   const editing = Boolean(resource);
 
@@ -761,6 +835,7 @@ function ResourceDialog({
       capacity: capacity === "" ? null : Number(capacity),
       location: location.trim() || null,
       notes: notes.trim() || null,
+      ...(branchId ? { branch_id: branchId } : {}),
     });
   }
 
@@ -856,6 +931,14 @@ function ResourceDialog({
             className={inputClass}
           />
         </Field>
+
+        {branches && !editing && (
+          <BranchSelect
+            branches={branches}
+            value={branchId}
+            onChange={setBranchId}
+          />
+        )}
 
         {error && <ErrorNote message={error} />}
 

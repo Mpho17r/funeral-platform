@@ -17,6 +17,13 @@ import {
 import { useRouter } from "next/navigation";
 
 import api from "@/lib/api";
+import { useBranches } from "@/lib/branches";
+import {
+  BranchBadge,
+  BranchSelect,
+  MoveButton,
+  TransferDialog,
+} from "@/components/BranchControls";
 
 type User = {
   id: string;
@@ -25,6 +32,7 @@ type User = {
   email: string;
   role: string;
   is_active: boolean;
+  branch_id: string | null;
 };
 
 type UserForm = {
@@ -59,6 +67,11 @@ export default function TeamPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const [form, setForm] = useState<UserForm>(emptyForm);
+
+  const branchData = useBranches();
+  const [newUserBranch, setNewUserBranch] = useState("");
+  const [moving, setMoving] = useState<User | null>(null);
+  const [notice, setNotice] = useState("");
 
   async function loadUsers() {
     try {
@@ -111,6 +124,7 @@ export default function TeamPage() {
   function openCreateForm() {
     setEditingUser(null);
     setForm(emptyForm);
+    setNewUserBranch("");
     setFormError("");
     setShowForm(true);
   }
@@ -243,6 +257,8 @@ export default function TeamPage() {
           email,
           password: form.password,
           role: form.role,
+          // Left empty, the server uses the creator's own branch.
+          ...(newUserBranch ? { branch_id: newUserBranch } : {}),
         });
 
         setUsers((current) => [...current, response.data]);
@@ -367,6 +383,15 @@ export default function TeamPage() {
               Back to Settings
             </button>
 
+            {notice && (
+              <div
+                role="status"
+                className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+              >
+                {notice}
+              </div>
+            )}
+
             {error && (
               <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                 <XCircle size={20} className="mt-0.5 shrink-0" />
@@ -489,6 +514,15 @@ export default function TeamPage() {
                             <p className="truncate text-sm text-slate-500">
                               {user.email}
                             </p>
+
+                            {branchData.multiple && (
+                              <div className="mt-1.5">
+                                <BranchBadge
+                                  branchId={user.branch_id}
+                                  byId={branchData.byId}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -517,6 +551,12 @@ export default function TeamPage() {
 
                           {manageable && (
                             <>
+                              {branchData.multiple && (
+                                <MoveButton
+                                  onClick={() => setMoving(user)}
+                                />
+                              )}
+
                               <button
                                 type="button"
                                 onClick={() =>
@@ -665,6 +705,14 @@ export default function TeamPage() {
                 </>
               )}
 
+              {branchData.multiple && !editingUser && (
+                <BranchSelect
+                  branches={branchData.branches}
+                  value={newUserBranch}
+                  onChange={setNewUserBranch}
+                />
+              )}
+
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
                   Role
@@ -750,6 +798,21 @@ export default function TeamPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {moving && (
+        <TransferDialog
+          path={`/users/${moving.id}/transfer`}
+          subject={moving.full_name}
+          currentBranchId={moving.branch_id}
+          branches={branchData.branches}
+          onClose={() => setMoving(null)}
+          onMoved={(message) => {
+            setMoving(null);
+            setNotice(message);
+            loadUsers();
+          }}
+        />
       )}
     </main>
   );

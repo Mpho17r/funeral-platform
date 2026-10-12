@@ -20,6 +20,7 @@ import {
   ClipboardCheck,
   Truck,
   CalendarClock,
+  Building,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -158,6 +159,11 @@ export default function Sidebar({
       label: "Staff Workspace",
       icon: <Users size={18} />,
       path: "/staff",
+    },
+    {
+      label: "Branches",
+      icon: <Building size={18} />,
+      path: "/branches",
     },
   ];
 

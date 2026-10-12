@@ -12,6 +12,16 @@ import {
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
+import { useBranches } from "@/lib/branches";
+import {
+  ALL_BRANCHES,
+  BranchBadge,
+  BranchFilter,
+  BranchSelect,
+  MoveButton,
+  TransferDialog,
+  matchesBranch,
+} from "@/components/BranchControls";
 
 type FuneralCase = {
   id: string;
@@ -28,6 +38,7 @@ type FuneralCase = {
   notes: string | null;
   membership_id: string | null;
   covered_dependent_id: string | null;
+  branch_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -130,6 +141,12 @@ export default function CasesPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  const branchData = useBranches();
+  const [branchFilter, setBranchFilter] = useState(ALL_BRANCHES);
+  const [newCaseBranch, setNewCaseBranch] = useState("");
+  const [moving, setMoving] = useState<FuneralCase | null>(null);
+  const [notice, setNotice] = useState("");
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -254,6 +271,7 @@ export default function CasesPage() {
     });
 
     setFuneralType("private");
+    setNewCaseBranch("");
   }
 
   async function handleCreateCase(
@@ -308,6 +326,8 @@ export default function CasesPage() {
           funeralType === "dependent"
             ? form.covered_dependent_id
             : null,
+        // Left empty, the server uses the creator's own branch.
+        ...(newCaseBranch ? { branch_id: newCaseBranch } : {}),
       };
 
       const response = await api.post<FuneralCase>(
@@ -457,9 +477,13 @@ export default function CasesPage() {
         statusFilter === "all" ||
         item.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesBranch(branchFilter, item.branch_id)
+      );
     });
-  }, [cases, search, statusFilter]);
+  }, [cases, search, statusFilter, branchFilter]);
 
   const statistics = {
     total: cases.length,
@@ -561,8 +585,25 @@ export default function CasesPage() {
                       </option>
                     ))}
                   </select>
+
+                  {branchData.multiple && (
+                    <BranchFilter
+                      branches={branchData.branches}
+                      value={branchFilter}
+                      onChange={setBranchFilter}
+                    />
+                  )}
                 </div>
               </div>
+
+              {notice && (
+                <div
+                  role="status"
+                  className="mt-6 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+                >
+                  {notice}
+                </div>
+              )}
 
               {error && (
                 <div className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -646,6 +687,15 @@ export default function CasesPage() {
                                   item.created_at
                                 )}
                               </p>
+
+                              {branchData.multiple && (
+                                <div className="mt-1.5">
+                                  <BranchBadge
+                                    branchId={item.branch_id}
+                                    byId={branchData.byId}
+                                  />
+                                </div>
+                              )}
                             </td>
 
                             <td className="px-6 py-4">
@@ -688,17 +738,27 @@ export default function CasesPage() {
                             </td>
 
                             <td className="px-6 py-4">
-                              <button
-                                onClick={() =>
-                                  router.push(
-                                    `/cases/${item.id}`
-                                  )
-                                }
-                                className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                              >
-                                <Eye size={15} />
-                                View
-                              </button>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() =>
+                                    router.push(
+                                      `/cases/${item.id}`
+                                    )
+                                  }
+                                  className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                                >
+                                  <Eye size={15} />
+                                  View
+                                </button>
+
+                                {branchData.multiple && (
+                                  <MoveButton
+                                    onClick={() =>
+                                      setMoving(item)
+                                    }
+                                  />
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1104,6 +1164,14 @@ export default function CasesPage() {
                 />
               </div>
 
+              {branchData.multiple && (
+                <BranchSelect
+                  branches={branchData.branches}
+                  value={newCaseBranch}
+                  onChange={setNewCaseBranch}
+                />
+              )}
+
               {/* Notes */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -1148,6 +1216,21 @@ export default function CasesPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {moving && (
+        <TransferDialog
+          path={`/cases/${moving.id}/transfer`}
+          subject={`case ${moving.case_number}`}
+          currentBranchId={moving.branch_id}
+          branches={branchData.branches}
+          onClose={() => setMoving(null)}
+          onMoved={(message) => {
+            setMoving(null);
+            setNotice(message);
+            loadCases();
+          }}
+        />
       )}
     </main>
   );
