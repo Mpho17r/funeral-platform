@@ -33,6 +33,15 @@ SENSITIVE_AUDIT_FIELDS = {
     "informant_phone",
     "informant_id_number",
     "reference_number",
+    "received_from",
+    "collected_by_name",
+    "condition_notes",
+    "belongings",
+    "identified_by_name",
+    "identified_relationship",
+    "released_to_name",
+    "released_to_id_number",
+    "released_to_relationship",
 }
 
 

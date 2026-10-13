@@ -119,6 +119,9 @@ def db():
             "resources",
 
             # Death records and paperwork
+            "custody_events",
+            "remains_records",
+            "mortuary_locations",
             "case_paperwork_items",
             "death_records",
 

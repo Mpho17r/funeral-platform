@@ -128,6 +128,27 @@ PERMISSIONS = {
         "Tick off, add and update death paperwork on a case"
     ),
 
+    # Mortuary and custody of remains
+    "mortuary.view": (
+        "View mortuary locations and who is where right now"
+    ),
+    "mortuary.manage": (
+        "Create and edit mortuary locations such as fridges and "
+        "cold rooms"
+    ),
+    "remains.view": (
+        "View the custody record and movement log of remains"
+    ),
+    "remains.manage": (
+        "Take remains into care, move them, record preparation, "
+        "identification and temperature"
+    ),
+    "remains.release": "Release remains to a family or undertaker",
+    "remains.release_override": (
+        "Release remains even though required paperwork is missing, "
+        "with a written reason"
+    ),
+
     # Inventory and suppliers
     "inventory.view": "View stock items and stock movements",
     "inventory.manage": (
