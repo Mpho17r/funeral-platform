@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
+  ClipboardCheck,
   CreditCard,
   FileText,
   HeartHandshake,
@@ -1008,6 +1009,40 @@ export default function CaseDetailsPage() {
 
                   <p className="text-xs text-slate-500">
                     Manage case finances
+                  </p>
+                </div>
+              </div>
+
+              <ChevronRight
+                size={18}
+                className="text-slate-400"
+              />
+            </button>
+
+            {/* DEATH RECORD AND PAPERWORK */}
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  `/cases/${caseId}/death-record`
+                )
+              }
+              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-slate-50"
+            >
+              <div className="flex items-center gap-3">
+                <ClipboardCheck
+                  size={20}
+                  className="text-slate-500"
+                />
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Death record
+                  </p>
+
+                  <p className="text-xs text-slate-500">
+                    Death details and paperwork checklist
                   </p>
                 </div>
               </div>
