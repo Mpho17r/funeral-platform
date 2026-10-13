@@ -21,6 +21,8 @@ import {
   Truck,
   CalendarClock,
   Building,
+  Boxes,
+  Store,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -90,6 +92,16 @@ export default function Sidebar({
       label: "Schedule",
       icon: <CalendarClock size={18} />,
       path: "/resource-bookings",
+    },
+    {
+      label: "Inventory",
+      icon: <Boxes size={18} />,
+      path: "/inventory",
+    },
+    {
+      label: "Suppliers",
+      icon: <Store size={18} />,
+      path: "/suppliers",
     },
   ];
 
