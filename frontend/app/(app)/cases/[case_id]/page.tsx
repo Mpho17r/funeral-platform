@@ -15,6 +15,7 @@ import {
   MapPin,
   Phone,
   ShieldCheck,
+  Snowflake,
   UserRound,
   Users,
 } from "lucide-react";
@@ -1043,6 +1044,38 @@ export default function CaseDetailsPage() {
 
                   <p className="text-xs text-slate-500">
                     Death details and paperwork checklist
+                  </p>
+                </div>
+              </div>
+
+              <ChevronRight
+                size={18}
+                className="text-slate-400"
+              />
+            </button>
+
+            {/* REMAINS AND CUSTODY */}
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(`/cases/${caseId}/remains`)
+              }
+              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-slate-50"
+            >
+              <div className="flex items-center gap-3">
+                <Snowflake
+                  size={20}
+                  className="text-slate-500"
+                />
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Remains and custody
+                  </p>
+
+                  <p className="text-xs text-slate-500">
+                    Intake, location, identification and release
                   </p>
                 </div>
               </div>

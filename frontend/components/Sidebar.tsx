@@ -23,6 +23,7 @@ import {
   Building,
   Boxes,
   Store,
+  Snowflake,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -82,6 +83,11 @@ export default function Sidebar({
       label: "Services",
       icon: <HeartHandshake size={18} />,
       path: "/services",
+    },
+    {
+      label: "Mortuary",
+      icon: <Snowflake size={18} />,
+      path: "/mortuary",
     },
     {
       label: "Resources",
