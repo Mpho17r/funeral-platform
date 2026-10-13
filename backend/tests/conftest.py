@@ -109,6 +109,11 @@ def db():
             "members",
             "membership_plans",
 
+            # Inventory and suppliers
+            "stock_movements",
+            "inventory_items",
+            "suppliers",
+
             # Resources
             "resource_bookings",
             "resources",

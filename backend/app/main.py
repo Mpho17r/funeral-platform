@@ -27,6 +27,9 @@ from app.api.groups import router as groups_router
 from app.api.resources import router as resources_router
 from app.api.claims import router as claims_router
 from app.api.branches import router as branches_router
+from app.api.inventory import router as inventory_router
+from app.api.suppliers import router as suppliers_router
+from app.api.reports import router as reports_router
 from app.api.branch_transfers import (
     router as branch_transfers_router,
 )
@@ -164,6 +167,20 @@ app.include_router(
 
 app.include_router(
     branch_transfers_router
+)
+
+# Inventory and suppliers
+app.include_router(
+    suppliers_router
+)
+
+app.include_router(
+    inventory_router
+)
+
+# Reports
+app.include_router(
+    reports_router
 )
 
 # Beneficiaries and claims

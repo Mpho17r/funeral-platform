@@ -45,3 +45,4 @@ from app.models.financial_document import (
     PaymentReceipt,
 )
 from app.models.branch import Branch
+from app.models.inventory import InventoryItem, StockMovement, Supplier

@@ -8,11 +8,13 @@ from app.database import get_db
 from app.dependencies.roles import require_permission
 
 from app.models.funeral_case import FuneralCase
+from app.models.inventory import InventoryItem
 from app.models.member import Member
 from app.models.resource import Resource
 from app.models.user import User
 from app.schemas.branch import BranchTransfer
 from app.schemas.funeral_case import FuneralCaseResponse
+from app.schemas.inventory import InventoryItemResponse
 from app.schemas.member import MemberResponse
 from app.schemas.resource import ResourceResponse
 from app.schemas.user import UserResponse
@@ -112,7 +114,10 @@ def transfer(
             "to_branch_id": str(record.branch_id),
             **(details or {}),
         },
-        notes=f"{entity_type.capitalize()} was moved to another branch.",
+        notes=(
+            f"{entity_type.replace('_', ' ').capitalize()} "
+            "was moved to another branch."
+        ),
     )
 
     db.commit()
@@ -217,6 +222,39 @@ def transfer_resource(
         current_user=current_user,
         business_id=business_id,
         details={"resource_type": resource.resource_type},
+    )
+
+
+# ============================================================
+# STOCK
+# ============================================================
+
+@router.post(
+    "/inventory/items/{item_id}/transfer",
+    response_model=InventoryItemResponse,
+)
+def transfer_inventory_item(
+    item_id: UUID,
+    data: BranchTransfer,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("branches.transfer")),
+):
+    """Move a stock item, with all of its stock, to another branch."""
+
+    business_id = get_business_id(current_user)
+
+    item = load_or_404(
+        db, InventoryItem, item_id, business_id, "Inventory item"
+    )
+
+    return transfer(
+        db,
+        record=item,
+        entity_type="inventory_item",
+        data=data,
+        current_user=current_user,
+        business_id=business_id,
+        details={"sku": item.sku},
     )
 
 

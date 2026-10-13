@@ -112,8 +112,20 @@ PERMISSIONS = {
         "Create, edit, deactivate and choose the main branch"
     ),
     "branches.transfer": (
-        "Move cases, members, resources and staff between branches"
+        "Move cases, members, resources, stock and staff between "
+        "branches"
     ),
+
+    # Inventory and suppliers
+    "inventory.view": "View stock items and stock movements",
+    "inventory.manage": (
+        "Create and edit stock items and correct stock levels"
+    ),
+    "inventory.stock": (
+        "Record stock received, issued and returned"
+    ),
+    "suppliers.view": "View suppliers",
+    "suppliers.manage": "Create, edit and deactivate suppliers",
 
     # Quotes, invoices and receipts
     "financial_documents.view": "View quotes and invoices",
