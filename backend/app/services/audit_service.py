@@ -22,6 +22,17 @@ SENSITIVE_AUDIT_FIELDS = {
     "notes",
     "description",
     "title",
+    "cause_of_death",
+    "deceased_id_number",
+    "id_number",
+    "place_of_death",
+    "certifier_name",
+    "police_case_number",
+    "informant_name",
+    "informant_relationship",
+    "informant_phone",
+    "informant_id_number",
+    "reference_number",
 }
 
 

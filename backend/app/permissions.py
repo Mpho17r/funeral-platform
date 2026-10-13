@@ -116,6 +116,18 @@ PERMISSIONS = {
         "branches"
     ),
 
+    # Death records and paperwork
+    "death_records.view": (
+        "View how and where a person died, including cause of death"
+    ),
+    "death_records.manage": (
+        "Capture and edit the death record of a case"
+    ),
+    "paperwork.view": "View the death paperwork checklist of a case",
+    "paperwork.manage": (
+        "Tick off, add and update death paperwork on a case"
+    ),
+
     # Inventory and suppliers
     "inventory.view": "View stock items and stock movements",
     "inventory.manage": (

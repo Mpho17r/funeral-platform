@@ -118,6 +118,10 @@ def db():
             "resource_bookings",
             "resources",
 
+            # Death records and paperwork
+            "case_paperwork_items",
+            "death_records",
+
             # Funeral case system
             "case_payments",
             "case_financials",

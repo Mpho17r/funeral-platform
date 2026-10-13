@@ -30,6 +30,7 @@ from app.api.branches import router as branches_router
 from app.api.inventory import router as inventory_router
 from app.api.suppliers import router as suppliers_router
 from app.api.reports import router as reports_router
+from app.api.death_records import router as death_records_router
 from app.api.branch_transfers import (
     router as branch_transfers_router,
 )
@@ -176,6 +177,11 @@ app.include_router(
 
 app.include_router(
     inventory_router
+)
+
+# Death records and paperwork
+app.include_router(
+    death_records_router
 )
 
 # Reports
