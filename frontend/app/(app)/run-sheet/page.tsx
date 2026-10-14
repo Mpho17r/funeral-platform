@@ -15,6 +15,7 @@ import api from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/format";
 import {
   KIND_LABELS,
+  PICKUP_TYPES,
   formatDay,
   shiftDay,
   timeInSouthAfrica,
@@ -303,7 +304,15 @@ function Row({
 
             {(item.location || item.address) && (
               <p className="mt-1 text-sm text-slate-600">
-                {[item.location, item.address].filter(Boolean).join(" · ")}
+                {[
+                  item.kind === "collection"
+                    ? PICKUP_TYPES.find((t) => t.value === item.location)?.label ??
+                      item.location
+                    : item.location,
+                  item.address,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             )}
 
