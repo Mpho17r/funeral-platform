@@ -50,6 +50,7 @@ SENSITIVE_AUDIT_FIELDS = {
     "pickup_contact_name",
     "pickup_contact_phone",
     "cancel_reason",
+    "opt_out_reason",
 }
 
 

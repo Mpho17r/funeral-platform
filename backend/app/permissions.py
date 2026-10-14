@@ -164,6 +164,16 @@ PERMISSIONS = {
         "View the daily run sheet of collections and funerals"
     ),
 
+    # Communications
+    "communications.view": (
+        "View reminders and messages, and preview which reminders are due"
+    ),
+    "communications.send": (
+        "Queue reminders, write messages, mark them sent or cancel them, "
+        "and record a member's contact preferences"
+    ),
+    "communications.templates": "Change the wording of reminders",
+
     # Inventory and suppliers
     "inventory.view": "View stock items and stock movements",
     "inventory.manage": (

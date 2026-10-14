@@ -29,6 +29,7 @@ from app.api.claims import router as claims_router
 from app.api.branches import router as branches_router
 from app.api.inventory import router as inventory_router
 from app.api.suppliers import router as suppliers_router
+from app.api.communications import router as communications_router
 from app.api.reports import router as reports_router
 from app.api.death_records import router as death_records_router
 from app.api.arrangements import router as arrangements_router
@@ -172,6 +173,11 @@ app.include_router(
 
 app.include_router(
     branch_transfers_router
+)
+
+# Communications
+app.include_router(
+    communications_router
 )
 
 # Inventory and suppliers
