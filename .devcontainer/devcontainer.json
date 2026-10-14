@@ -1,0 +1,20 @@
+{
+  "name": "FuneralOS",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/funeral-platform",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" }
+  },
+  "containerEnv": {
+    "PGPASSWORD": "mac",
+    "DATABASE_URL": "postgresql+psycopg://mac:mac@localhost:5432/funeralos",
+    "JWT_SECRET_KEY": "codespaces-dev-secret-change-me-0123456789abcdef"
+  },
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": { "label": "FuneralOS app", "onAutoForward": "openBrowser" }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "bash .devcontainer/start.sh"
+}
