@@ -278,6 +278,97 @@ function InfoRow({
   );
 }
 
+type CaseCoverage = {
+  covered: boolean;
+  reason: string;
+  plan_name: string | null;
+  benefit_plan_id: string | null;
+  plan_id: string | null;
+  benefit_plan_name: string | null;
+  waiting_period: {
+    status: "not_applicable" | "served" | "in_waiting" | "cause_pending";
+    message: string;
+    ends_on: string | null;
+    months: number;
+  } | null;
+  upgrade_waiting: { ends_on: string; message: string } | null;
+};
+
+const WAITING_STYLE: Record<
+  NonNullable<CaseCoverage["waiting_period"]>["status"],
+  { label: string; box: string; title: string; text: string }
+> = {
+  in_waiting: {
+    label: "Within waiting period",
+    box: "border-red-200 bg-red-50",
+    title: "text-red-800",
+    text: "text-red-700",
+  },
+  cause_pending: {
+    label: "Depends on cause of death",
+    box: "border-amber-200 bg-amber-50",
+    title: "text-amber-800",
+    text: "text-amber-700",
+  },
+  served: {
+    label: "Waiting period served",
+    box: "border-emerald-200 bg-emerald-50",
+    title: "text-emerald-800",
+    text: "text-emerald-700",
+  },
+  not_applicable: {
+    label: "No waiting period",
+    box: "border-slate-200 bg-slate-50",
+    title: "text-slate-700",
+    text: "text-slate-600",
+  },
+};
+
+function WaitingPanel({ coverage }: { coverage: CaseCoverage }) {
+  const waiting = coverage.waiting_period;
+
+  if (!waiting && !coverage.upgrade_waiting) {
+    return null;
+  }
+
+  const style = WAITING_STYLE[waiting?.status ?? "not_applicable"];
+
+  return (
+    <div className="space-y-3">
+      {waiting && (
+        <div className={`rounded-xl border p-5 ${style.box}`}>
+          <p className={`text-sm font-semibold ${style.title}`}>
+            {style.label}
+          </p>
+
+          <p className={`mt-1 text-sm ${style.text}`}>{waiting.message}</p>
+
+          {waiting.status === "cause_pending" && (
+            <p className={`mt-1 text-sm ${style.text}`}>
+              Record the cause of death on the death record to settle this.
+            </p>
+          )}
+        </div>
+      )}
+
+      {coverage.upgrade_waiting && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <p className="text-sm font-semibold text-amber-800">
+            Recently upgraded: cover is at the previous plan's level
+            {coverage.benefit_plan_name
+              ? ` (${coverage.benefit_plan_name})`
+              : ""}
+          </p>
+
+          <p className="mt-1 text-sm text-amber-700">
+            {coverage.upgrade_waiting.message}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CoverageBadge({
   status,
   label,
@@ -311,6 +402,7 @@ export default function CaseDetailsPage() {
 
   const [loading, setLoading] = useState(true);
   const [coverageLoading, setCoverageLoading] = useState(false);
+  const [coverage, setCoverage] = useState<CaseCoverage | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -356,6 +448,18 @@ export default function CaseDetailsPage() {
       setPlans(plansResponse.data);
       setMemberships(membershipsResponse.data);
       setDependents(dependentsResponse.data);
+
+      // Waiting-period detail is extra context: a failure here (for
+      // example no permission) must not break the rest of the page.
+      try {
+        const coverageResponse = await api.get<CaseCoverage>(
+          `/cases/${caseId}/coverage`
+        );
+
+        setCoverage(coverageResponse.data);
+      } catch {
+        setCoverage(null);
+      }
     } catch (err: any) {
       if (err.response?.status === 401) {
         router.push("/login");
@@ -694,6 +798,8 @@ export default function CaseDetailsPage() {
                   }
                 />
               </div>
+
+              {coverage && <WaitingPanel coverage={coverage} />}
 
               {membership?.arrears_since ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">

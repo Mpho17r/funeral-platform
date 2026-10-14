@@ -20,6 +20,7 @@ import {
   FORENSIC_STATUSES,
   ID_TYPES,
   MANNERS,
+  UNNATURAL_CAUSES,
   PLACE_TYPES,
   labelFor,
   type DeathRecord,
@@ -45,6 +46,7 @@ type RecordForm = {
   place_of_death_type: string;
   place_of_death: string;
   manner_of_death: string;
+  unnatural_cause: string;
   cause_of_death: string;
   certifier_name: string;
   forensic_status: string;
@@ -65,6 +67,7 @@ const emptyForm: RecordForm = {
   place_of_death_type: "",
   place_of_death: "",
   manner_of_death: "pending",
+  unnatural_cause: "",
   cause_of_death: "",
   certifier_name: "",
   forensic_status: "not_applicable",
@@ -87,6 +90,7 @@ function formFromRecord(record: DeathRecord): RecordForm {
     place_of_death_type: record.place_of_death_type ?? "",
     place_of_death: record.place_of_death ?? "",
     manner_of_death: record.manner_of_death,
+    unnatural_cause: record.unnatural_cause ?? "",
     cause_of_death: record.cause_of_death ?? "",
     certifier_name: record.certifier_name ?? "",
     forensic_status: record.forensic_status,
@@ -112,6 +116,11 @@ function payloadFrom(form: RecordForm) {
     place_of_death_type: form.place_of_death_type || null,
     place_of_death: text(form.place_of_death),
     manner_of_death: form.manner_of_death,
+    // Only an unnatural death has a cause; the API rejects one otherwise.
+    unnatural_cause:
+      form.manner_of_death === "unnatural"
+        ? form.unnatural_cause || null
+        : null,
     cause_of_death: text(form.cause_of_death),
     certifier_name: text(form.certifier_name),
     forensic_status: form.forensic_status,
@@ -537,6 +546,15 @@ export default function DeathRecordPage() {
               label="Manner of death"
               value={labelFor(MANNERS, record.manner_of_death)}
             />
+            {record.manner_of_death === "unnatural" && (
+              <Detail
+                label="Unnatural cause"
+                value={labelFor(
+                  UNNATURAL_CAUSES,
+                  record.unnatural_cause ?? ""
+                )}
+              />
+            )}
             <Detail
               label="Cause of death"
               value={record.cause_of_death}
@@ -752,6 +770,18 @@ export default function DeathRecordPage() {
                   options={MANNERS}
                 />
               </Field>
+
+              {form.manner_of_death === "unnatural" && (
+                <Field label="Unnatural cause">
+                  <Select
+                    value={form.unnatural_cause}
+                    onChange={(value) =>
+                      setForm({ ...form, unnatural_cause: value })
+                    }
+                    options={UNNATURAL_CAUSES}
+                  />
+                </Field>
+              )}
 
               <Field label="Forensic status">
                 <Select

@@ -7,6 +7,7 @@ export type DeathRecord = {
   place_of_death_type: string | null;
   place_of_death: string | null;
   manner_of_death: string;
+  unnatural_cause: string | null;
   cause_of_death: string | null;
   certifier_name: string | null;
   forensic_status: string;
@@ -62,6 +63,16 @@ export const MANNERS = [
   { value: "pending", label: "Not yet known" },
   { value: "natural", label: "Natural" },
   { value: "unnatural", label: "Unnatural" },
+];
+
+// Decides which cover waiting period applies: a homicide is treated like
+// an accident, a suicide has its own period.
+export const UNNATURAL_CAUSES = [
+  { value: "", label: "Not yet known" },
+  { value: "accident", label: "Accident" },
+  { value: "suicide", label: "Suicide" },
+  { value: "homicide", label: "Homicide" },
+  { value: "undetermined", label: "Undetermined" },
 ];
 
 export const FORENSIC_STATUSES = [
