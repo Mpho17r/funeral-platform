@@ -85,6 +85,11 @@ export default function Sidebar({
       path: "/services",
     },
     {
+      label: "Run sheet",
+      icon: <ClipboardList size={18} />,
+      path: "/run-sheet",
+    },
+    {
       label: "Mortuary",
       icon: <Snowflake size={18} />,
       path: "/mortuary",

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
+  CalendarHeart,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
@@ -1044,6 +1045,38 @@ export default function CaseDetailsPage() {
 
                   <p className="text-xs text-slate-500">
                     Death details and paperwork checklist
+                  </p>
+                </div>
+              </div>
+
+              <ChevronRight
+                size={18}
+                className="text-slate-400"
+              />
+            </button>
+
+            {/* FUNERAL ARRANGEMENTS */}
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(`/cases/${caseId}/arrangement`)
+              }
+              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-slate-50"
+            >
+              <div className="flex items-center gap-3">
+                <CalendarHeart
+                  size={20}
+                  className="text-slate-500"
+                />
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Funeral arrangements
+                  </p>
+
+                  <p className="text-xs text-slate-500">
+                    Collection, wake, service and burial
                   </p>
                 </div>
               </div>
