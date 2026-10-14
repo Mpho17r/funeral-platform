@@ -149,6 +149,21 @@ PERMISSIONS = {
         "with a written reason"
     ),
 
+    # Funeral arrangements, collections and the daily run sheet
+    "arrangements.view": (
+        "View the wake, service and burial arrangements of a case"
+    ),
+    "arrangements.manage": (
+        "Plan, confirm, complete and cancel funeral arrangements"
+    ),
+    "collections.view": "View body collection call-outs",
+    "collections.manage": (
+        "Schedule, dispatch, complete and cancel body collections"
+    ),
+    "run_sheet.view": (
+        "View the daily run sheet of collections and funerals"
+    ),
+
     # Inventory and suppliers
     "inventory.view": "View stock items and stock movements",
     "inventory.manage": (

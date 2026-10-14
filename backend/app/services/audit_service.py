@@ -42,6 +42,14 @@ SENSITIVE_AUDIT_FIELDS = {
     "released_to_name",
     "released_to_id_number",
     "released_to_relationship",
+    "wake_venue",
+    "wake_address",
+    "service_address",
+    "officiant",
+    "pickup_address",
+    "pickup_contact_name",
+    "pickup_contact_phone",
+    "cancel_reason",
 }
 
 
