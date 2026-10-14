@@ -75,6 +75,17 @@ def _serialize_audit_value(value):
     return value
 
 
+def serialize_snapshot(snapshot: dict) -> dict:
+    """
+    Make a snapshot_fields result JSON-safe, for audit entries that
+    record the whole record (such as on creation).
+    """
+    return {
+        field: _serialize_audit_value(value)
+        for field, value in snapshot.items()
+    }
+
+
 def snapshot_fields(instance, fields) -> dict:
     """
     Capture the current values of the given attributes.

@@ -32,6 +32,7 @@ from app.api.suppliers import router as suppliers_router
 from app.api.reports import router as reports_router
 from app.api.death_records import router as death_records_router
 from app.api.arrangements import router as arrangements_router
+from app.api.case_coverage import router as case_coverage_router
 from app.api.mortuary import router as mortuary_router
 from app.api.remains import router as remains_router
 from app.api.branch_transfers import (
@@ -199,6 +200,11 @@ app.include_router(
 # Funeral arrangements, collections and run sheet
 app.include_router(
     arrangements_router
+)
+
+# Case coverage and waiting periods
+app.include_router(
+    case_coverage_router
 )
 
 # Reports

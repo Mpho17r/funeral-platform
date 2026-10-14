@@ -6,10 +6,36 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.roles import require_permission
 from app.models.membership_plan import MembershipPlan
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+    serialize_snapshot,
+    snapshot_fields,
+)
 from app.schemas.membership_plan import (
     MembershipPlanCreate,
     MembershipPlanResponse,
     MembershipPlanUpdate,
+)
+
+
+AUDITED_PLAN_FIELDS = (
+    "name",
+    "description",
+    "monthly_contribution",
+    "is_active",
+    "waiting_natural_months",
+    "waiting_accidental_months",
+    "waiting_suicide_months",
+    "waiting_upgrade_months",
+)
+
+# Waiting periods can never be null.
+NOT_NULL_PLAN_FIELDS = (
+    "waiting_natural_months",
+    "waiting_accidental_months",
+    "waiting_suicide_months",
+    "waiting_upgrade_months",
 )
 
 
@@ -60,9 +86,28 @@ def create_membership_plan(
         description=plan_data.description,
         monthly_contribution=plan_data.monthly_contribution,
         is_active=plan_data.is_active,
+        waiting_natural_months=plan_data.waiting_natural_months,
+        waiting_accidental_months=plan_data.waiting_accidental_months,
+        waiting_suicide_months=plan_data.waiting_suicide_months,
+        waiting_upgrade_months=plan_data.waiting_upgrade_months,
     )
 
     db.add(plan)
+    db.flush()
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="membership_plan.created",
+        entity_type="membership_plan",
+        entity_id=plan.id,
+        details=serialize_snapshot(
+            snapshot_fields(plan, AUDITED_PLAN_FIELDS)
+        ),
+        notes="Membership plan was created.",
+    )
+
     db.commit()
     db.refresh(plan)
 
@@ -169,8 +214,31 @@ def update_membership_plan(
     if "name" in updates and updates["name"] is not None:
         updates["name"] = updates["name"].strip()
 
+    for field in NOT_NULL_PLAN_FIELDS:
+        if field in updates and updates[field] is None:
+            del updates[field]
+
+    old_values = snapshot_fields(plan, AUDITED_PLAN_FIELDS)
+
     for field, value in updates.items():
         setattr(plan, field, value)
+
+    changes = build_audit_changes(
+        old_values,
+        snapshot_fields(plan, AUDITED_PLAN_FIELDS),
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="membership_plan.updated",
+            entity_type="membership_plan",
+            entity_id=plan.id,
+            details={"changes": changes},
+            notes="Membership plan was updated.",
+        )
 
     db.commit()
     db.refresh(plan)

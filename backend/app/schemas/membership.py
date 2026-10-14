@@ -92,6 +92,8 @@ class MembershipResponse(BaseModel):
     business_id: UUID
     member_id: UUID
     plan_id: UUID
+    previous_plan_id: UUID | None = None
+    plan_changed_at: date | None = None
     membership_number: str
     start_date: date
     status: str

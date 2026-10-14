@@ -8,6 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 IdType = Literal["sa_id", "passport", "other"]
 PlaceType = Literal["home", "hospital", "public_place", "other"]
 Manner = Literal["pending", "natural", "unnatural"]
+UnnaturalCause = Literal[
+    "accident", "suicide", "homicide", "undetermined"
+]
 ForensicStatus = Literal[
     "not_applicable", "referred", "post_mortem_done", "released"
 ]
@@ -25,6 +28,7 @@ def _strip(value: str | None) -> str | None:
 
 
 class DeathRecordBase(BaseModel):
+    unnatural_cause: UnnaturalCause | None = None
     deceased_id_number: str | None = Field(default=None, max_length=50)
     time_of_death: time | None = None
     place_of_death_type: PlaceType | None = None
@@ -88,6 +92,7 @@ class DeathRecordResponse(BaseModel):
     place_of_death_type: str | None
     place_of_death: str | None
     manner_of_death: str
+    unnatural_cause: str | None
     cause_of_death: str | None
     certifier_name: str | None
     forensic_status: str

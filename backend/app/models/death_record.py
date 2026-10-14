@@ -44,6 +44,15 @@ class DeathRecord(Base):
             name="ck_death_records_manner",
         ),
         CheckConstraint(
+            "unnatural_cause IS NULL OR unnatural_cause IN "
+            "('accident', 'suicide', 'homicide', 'undetermined')",
+            name="ck_death_records_unnatural_cause",
+        ),
+        CheckConstraint(
+            "unnatural_cause IS NULL OR manner_of_death = 'unnatural'",
+            name="ck_death_records_cause_needs_unnatural",
+        ),
+        CheckConstraint(
             "forensic_status IN ('not_applicable', 'referred', "
             "'post_mortem_done', 'released')",
             name="ck_death_records_forensic_status",
@@ -110,6 +119,12 @@ class DeathRecord(Base):
 
     manner_of_death: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
+    )
+
+    # Only for an unnatural death. Decides which cover waiting period
+    # applies, so it is kept apart from the free-text cause.
+    unnatural_cause: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
     )
 
     cause_of_death: Mapped[str | None] = mapped_column(

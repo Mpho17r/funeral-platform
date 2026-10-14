@@ -64,6 +64,35 @@ def coverage_snapshot(decision: CoverageDecision) -> dict:
         "reason": decision.reason,
         "plan_id": str(decision.plan_id) if decision.plan_id else None,
         "plan_name": decision.plan_name,
+        "benefit_plan_id": (
+            str(decision.benefit_plan_id)
+            if decision.benefit_plan_id
+            else None
+        ),
+        "benefit_plan_name": decision.benefit_plan_name,
+        "waiting_period": (
+            {
+                "status": decision.waiting_period.status,
+                "cause_category": decision.waiting_period.cause_category,
+                "months": decision.waiting_period.months,
+                "ends_on": (
+                    decision.waiting_period.ends_on.isoformat()
+                    if decision.waiting_period.ends_on
+                    else None
+                ),
+                "message": decision.waiting_period.message,
+            }
+            if decision.waiting_period is not None
+            else None
+        ),
+        "upgrade_waiting": (
+            {
+                "ends_on": decision.upgrade_waiting.ends_on.isoformat(),
+                "message": decision.upgrade_waiting.message,
+            }
+            if decision.upgrade_waiting is not None
+            else None
+        ),
         "benefits": [
             {
                 "benefit_id": str(benefit.benefit_id),

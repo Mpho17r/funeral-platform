@@ -753,6 +753,16 @@ def approve_claim(
     if not decision.covered:
         problems.append(f"coverage check failed: {decision.reason}")
 
+    if (
+        decision.covered
+        and decision.waiting_period is not None
+        and decision.waiting_period.status == "cause_pending"
+    ):
+        problems.append(
+            "the waiting period depends on the cause of death, which is "
+            "not confirmed yet"
+        )
+
     cap = max_payable(decision) if decision.covered else None
 
     if cap is not None and approved_amount > cap:

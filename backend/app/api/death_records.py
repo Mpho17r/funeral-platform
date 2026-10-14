@@ -47,6 +47,7 @@ AUDITED_RECORD_FIELDS = (
     "place_of_death_type",
     "place_of_death",
     "manner_of_death",
+    "unnatural_cause",
     "cause_of_death",
     "certifier_name",
     "forensic_status",
@@ -180,6 +181,18 @@ def check_record_rules(values: dict) -> None:
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Informant: {problem}",
             )
+
+    if (
+        values.get("unnatural_cause") is not None
+        and values["manner_of_death"] != "unnatural"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                "An unnatural cause can only be set when the manner "
+                "of death is unnatural."
+            ),
+        )
 
     if (
         values["manner_of_death"] == "natural"
@@ -374,6 +387,15 @@ def update_death_record(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"{field} cannot be null",
             )
+
+    # Moving away from an unnatural death clears its cause rather than
+    # leaving a stale one behind.
+    if (
+        "manner_of_death" in updates
+        and updates["manner_of_death"] != "unnatural"
+        and "unnatural_cause" not in updates
+    ):
+        updates["unnatural_cause"] = None
 
     old_values = snapshot_fields(record, AUDITED_RECORD_FIELDS)
     merged = {**old_values, **updates}
