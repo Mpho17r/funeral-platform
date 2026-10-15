@@ -31,6 +31,7 @@ from app.api.inventory import router as inventory_router
 from app.api.suppliers import router as suppliers_router
 from app.api.communications import router as communications_router
 from app.api.reports import router as reports_router
+from app.api.audit_logs import router as audit_logs_router
 from app.api.death_records import router as death_records_router
 from app.api.arrangements import router as arrangements_router
 from app.api.case_coverage import router as case_coverage_router
@@ -216,6 +217,11 @@ app.include_router(
 # Reports
 app.include_router(
     reports_router
+)
+
+# Audit trail
+app.include_router(
+    audit_logs_router
 )
 
 # Beneficiaries and claims

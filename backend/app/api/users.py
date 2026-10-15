@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -16,14 +17,63 @@ from app.services.branch_service import (
     resolve_branch_id,
 )
 from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate, UserResponse
+from app.schemas.user import (
+    PasswordReset,
+    UserCreate,
+    UserResponse,
+    UserUpdate,
+)
 from app.security import hash_password
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+    snapshot_fields,
+)
 
 
 router = APIRouter(
     prefix="/users",
     tags=["Users"],
 )
+
+AUDITED_USER_FIELDS = ("full_name", "role", "is_active")
+
+
+def audit_user_change(
+    db: Session,
+    *,
+    user: User,
+    current_user: dict,
+    old_values: dict,
+) -> None:
+    """Record what changed on a user account, if anything."""
+
+    changes = build_audit_changes(
+        old_values,
+        snapshot_fields(user, AUDITED_USER_FIELDS),
+    )
+
+    if not changes:
+        return
+
+    if "role" in changes:
+        action = "user.role_changed"
+    elif "is_active" in changes:
+        action = (
+            "user.reactivated" if user.is_active else "user.deactivated"
+        )
+    else:
+        action = "user.updated"
+
+    create_audit_log(
+        db,
+        business_id=current_user["business_id"],
+        user_id=current_user["user_id"],
+        action=action,
+        entity_type="user",
+        entity_id=user.id,
+        details={"changes": changes},
+    )
 
 
 def can_manage_role(current_role: str, target_role: str) -> bool:
@@ -146,6 +196,23 @@ def create_user(
     )
 
     db.add(user)
+    db.flush()
+
+    create_audit_log(
+        db,
+        business_id=current_user["business_id"],
+        user_id=current_user["user_id"],
+        action="user.created",
+        entity_type="user",
+        entity_id=user.id,
+        details={
+            "role": user.role,
+            "branch_id": (
+                str(user.branch_id) if user.branch_id else None
+            ),
+        },
+    )
+
     db.commit()
     db.refresh(user)
 
@@ -189,8 +256,17 @@ def update_user(
                 detail="You cannot deactivate yourself",
             )
 
+        old_values = snapshot_fields(user, AUDITED_USER_FIELDS)
+
         if data.full_name is not None:
             user.full_name = data.full_name
+
+        audit_user_change(
+            db,
+            user=user,
+            current_user=current_user,
+            old_values=old_values,
+        )
 
         db.commit()
         db.refresh(user)
@@ -202,6 +278,8 @@ def update_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to manage this user",
         )
+
+    old_values = snapshot_fields(user, AUDITED_USER_FIELDS)
 
     if data.role is not None:
         if data.role not in MANAGEABLE_ROLES:
@@ -223,6 +301,13 @@ def update_user(
 
     if data.is_active is not None:
         user.is_active = data.is_active
+
+    audit_user_change(
+        db,
+        user=user,
+        current_user=current_user,
+        old_values=old_values,
+    )
 
     db.commit()
     db.refresh(user)
@@ -253,8 +338,109 @@ def deactivate_user(
             detail="You do not have permission to deactivate this user",
         )
 
+    was_active = user.is_active
+
     user.is_active = False
+
+    if was_active:
+        create_audit_log(
+            db,
+            business_id=current_user["business_id"],
+            user_id=current_user["user_id"],
+            action="user.deactivated",
+            entity_type="user",
+            entity_id=user.id,
+            details={
+                "changes": {
+                    "is_active": {"old": True, "new": False},
+                },
+            },
+        )
 
     db.commit()
 
     return None
+
+
+@router.post(
+    "/{user_id}/unlock",
+    response_model=UserResponse,
+)
+def unlock_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("users.edit")),
+):
+    """Let someone back in after too many wrong passwords."""
+
+    user = get_business_user(user_id, db, current_user)
+
+    if not can_manage_user(current_user["role"], user.role):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage this user",
+        )
+
+    user.locked_until = None
+    user.failed_login_count = 0
+
+    create_audit_log(
+        db,
+        business_id=current_user["business_id"],
+        user_id=current_user["user_id"],
+        action="user.unlocked",
+        entity_type="user",
+        entity_id=user.id,
+    )
+
+    db.commit()
+    db.refresh(user)
+
+    return user
+
+
+@router.post(
+    "/{user_id}/reset-password",
+    response_model=UserResponse,
+)
+def reset_user_password(
+    user_id: UUID,
+    data: PasswordReset,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("users.edit")),
+):
+    """Set a new password for someone who has forgotten theirs. Their
+    earlier sessions end and any lock is lifted."""
+
+    user = get_business_user(user_id, db, current_user)
+
+    if user.id == current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Use change password for your own account",
+        )
+
+    if not can_manage_user(current_user["role"], user.role):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage this user",
+        )
+
+    user.password_hash = hash_password(data.new_password)
+    user.password_changed_at = datetime.now(timezone.utc)
+    user.locked_until = None
+    user.failed_login_count = 0
+
+    create_audit_log(
+        db,
+        business_id=current_user["business_id"],
+        user_id=current_user["user_id"],
+        action="user.password_reset",
+        entity_type="user",
+        entity_id=user.id,
+    )
+
+    db.commit()
+    db.refresh(user)
+
+    return user

@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.services.identity import normalise_identity_number
+
 
 COVERED_DEPENDENT_STATUSES = (
     "active",
@@ -95,6 +97,12 @@ class CoveredDependentCreate(BaseModel):
 
         return value
 
+    @field_validator("id_number", mode="after")
+    @classmethod
+    def check_identity_number(cls, value: str | None) -> str | None:
+        return normalise_identity_number(value)
+
+
 
 class CoveredDependentUpdate(BaseModel):
     first_name: str | None = Field(
@@ -178,6 +186,12 @@ class CoveredDependentUpdate(BaseModel):
             )
 
         return value
+
+    @field_validator("id_number", mode="after")
+    @classmethod
+    def check_identity_number(cls, value: str | None) -> str | None:
+        return normalise_identity_number(value)
+
 
 
 class CoveredDependentResponse(BaseModel):

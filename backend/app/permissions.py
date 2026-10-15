@@ -30,7 +30,14 @@ PERMISSIONS = {
     "members.view": "View members",
     "members.create": "Create members",
     "members.edit": "Edit members",
-    "members.delete": "Delete members",
+    "members.restore": "Restore archived members",
+    "members.export": (
+        "Download everything held about a member (a data access request)"
+    ),
+    "members.anonymise": (
+        "Permanently remove a former member's personal details"
+    ),
+    "members.delete": "Archive members (they can be restored)",
 
     # Membership plans
     "membership_plans.view": "View membership plans",
@@ -89,6 +96,9 @@ PERMISSIONS = {
 
     # Reports
     "reports.view": "View reports",
+
+    # Audit trail
+    "audit.view": "View the audit trail of who changed what",
 
     # Settings
     "settings.view": "View business settings",

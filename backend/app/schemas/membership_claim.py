@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.services.identity import normalise_identity_number
+
 
 # ============================================================
 # BENEFICIARIES
@@ -19,6 +21,12 @@ class BeneficiaryCreate(BaseModel):
     share_percent: Decimal = Field(..., gt=0, le=100, decimal_places=2)
     notes: str | None = None
 
+    @field_validator("id_number", mode="after")
+    @classmethod
+    def check_identity_number(cls, value: str | None) -> str | None:
+        return normalise_identity_number(value)
+
+
 
 class BeneficiaryUpdate(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=100)
@@ -31,6 +39,12 @@ class BeneficiaryUpdate(BaseModel):
         default=None, gt=0, le=100, decimal_places=2
     )
     notes: str | None = None
+
+    @field_validator("id_number", mode="after")
+    @classmethod
+    def check_identity_number(cls, value: str | None) -> str | None:
+        return normalise_identity_number(value)
+
 
 
 class BeneficiaryResponse(BaseModel):

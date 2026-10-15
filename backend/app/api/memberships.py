@@ -78,6 +78,12 @@ def create_membership(
             detail="Member not found",
         )
 
+    if member.archived_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This member is archived. Restore them first.",
+        )
+
     # --------------------------------------------------------
     # Verify plan belongs to this business
     # --------------------------------------------------------
@@ -192,6 +198,24 @@ def create_membership(
     )
 
     db.add(membership)
+    db.flush()
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="membership.created",
+        entity_type="membership",
+        entity_id=membership.id,
+        details={
+            "membership_number": membership.membership_number,
+            "member_id": str(membership.member_id),
+            "plan_id": str(membership.plan_id),
+            "start_date": membership.start_date.isoformat(),
+        },
+        notes="Membership was created.",
+    )
+
     db.commit()
     db.refresh(membership)
 

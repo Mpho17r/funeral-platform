@@ -67,6 +67,19 @@ def get_current_user(
                 detail="User account is inactive",
             )
 
+        # A password change or reset ends every earlier session.
+        if user.password_changed_at is not None:
+            issued_at = payload.get("iat")
+
+            if (
+                not isinstance(issued_at, (int, float))
+                or issued_at < int(user.password_changed_at.timestamp())
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Your session has ended. Please sign in again.",
+                )
+
         return {
             "user_id": user.id,
             "auth_type": auth_type,

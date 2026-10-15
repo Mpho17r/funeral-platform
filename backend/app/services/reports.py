@@ -443,7 +443,10 @@ def membership_report(
 
     names = branch_names(db, business_id)
 
-    member_filters = [Member.business_id == business_id]
+    member_filters = [
+        Member.business_id == business_id,
+        Member.archived_at.is_(None),
+    ]
 
     if branch_id:
         member_filters.append(Member.branch_id == branch_id)

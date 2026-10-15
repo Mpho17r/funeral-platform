@@ -56,3 +56,44 @@ def validate_sa_id(number: str | None) -> str | None:
         return "The ID number check digit is wrong"
 
     return None
+
+
+def normalise_identity_number(value: str | None) -> str | None:
+    """Tidy and check an identity document number for a person record.
+
+    A 13-digit number is treated as a South African ID and must pass the
+    full check, so a mistyped digit is caught when it is entered. Any
+    other value is accepted as a foreign passport or permit number if it
+    is 5 to 20 letters or digits. Spaces and dashes are removed. Returns
+    None for an empty value and raises ValueError with a short reason.
+    """
+
+    if value is None:
+        return None
+
+    cleaned = "".join(
+        char for char in value.strip() if char not in " -"
+    ).upper()
+
+    if not cleaned:
+        return None
+
+    if cleaned.isdigit() and len(cleaned) == 13:
+        reason = validate_sa_id(cleaned)
+
+        if reason is not None:
+            raise ValueError(reason)
+
+        return cleaned
+
+    if cleaned.isdigit() and len(cleaned) != 13 and len(cleaned) >= 8:
+        # Looks like a South African ID with a missing or extra digit.
+        raise ValueError("A South African ID number has 13 digits")
+
+    if not (5 <= len(cleaned) <= 20 and cleaned.isalnum()):
+        raise ValueError(
+            "Enter a 13-digit South African ID number or a passport "
+            "number of 5 to 20 letters and digits"
+        )
+
+    return cleaned

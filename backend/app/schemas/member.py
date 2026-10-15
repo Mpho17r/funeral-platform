@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.services.identity import normalise_identity_number
+
 
 MEMBER_STATUSES = (
     "active",
@@ -42,6 +44,12 @@ class MemberCreate(BaseModel):
 
         return value
 
+    @field_validator("id_number", mode="after")
+    @classmethod
+    def check_identity_number(cls, value: str | None) -> str | None:
+        return normalise_identity_number(value)
+
+
 
 class MemberUpdate(BaseModel):
     member_number: str | None = Field(
@@ -75,6 +83,12 @@ class MemberUpdate(BaseModel):
 
         return value
 
+    @field_validator("id_number", mode="after")
+    @classmethod
+    def check_identity_number(cls, value: str | None) -> str | None:
+        return normalise_identity_number(value)
+
+
 
 class MemberResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -92,5 +106,17 @@ class MemberResponse(BaseModel):
     join_date: date
     status: str
     branch_id: UUID | None = None
+    archived_at: datetime | None = None
+    archive_reason: str | None = None
+    anonymised_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class MemberAnonymise(BaseModel):
+    """Permanent removal of a former member's personal details. The
+    member number must be typed back so it cannot be done by accident."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    confirm_member_number: str = Field(min_length=1, max_length=50)

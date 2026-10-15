@@ -380,6 +380,7 @@ def plan_reminders(
             Membership.business_id == business.id,
             Membership.status.notin_(SKIPPED_MEMBERSHIP_STATUSES),
             Member.status == "active",
+            Member.archived_at.is_(None),
         )
         .order_by(Membership.membership_number.asc())
     )

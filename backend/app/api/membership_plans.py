@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.models.membership import Membership
 from app.models.membership_plan import MembershipPlan
 from app.services.audit_service import (
     build_audit_changes,
@@ -277,7 +278,42 @@ def delete_membership_plan(
             detail="Membership plan not found",
         )
 
+    in_use = (
+        db.query(Membership)
+        .filter(
+            Membership.business_id == business_id,
+            (Membership.plan_id == plan.id)
+            | (Membership.previous_plan_id == plan.id),
+        )
+        .count()
+    )
+
+    if in_use:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Members are on this plan, so it cannot be deleted. "
+                "Deactivate it instead."
+            ),
+        )
+
+    snapshot = serialize_snapshot(
+        snapshot_fields(plan, AUDITED_PLAN_FIELDS)
+    )
+
     db.delete(plan)
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="membership_plan.deleted",
+        entity_type="membership_plan",
+        entity_id=plan_id,
+        details=snapshot,
+        notes="Membership plan was deleted.",
+    )
+
     db.commit()
 
     return None

@@ -18,7 +18,11 @@ from app.dependencies.auth import get_current_user
 from app.dependencies.roles import require_main_admin, require_permission
 from app.models.business import Business
 from app.schemas.business import BusinessCreate, BusinessResponse
-from app.services.audit_service import create_audit_log
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+    snapshot_fields,
+)
 from app.services.business_storage import (
     get_business_branding_file,
     save_business_branding_file,
@@ -103,6 +107,16 @@ def verify_business_access(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this business",
         )
+
+
+BRANDING_FIELDS = (
+    "logo_url",
+    "primary_color",
+    "secondary_color",
+    "watermark_url",
+    "watermark_opacity",
+    "theme_preference",
+)
 
 
 @router.post(
@@ -195,12 +209,31 @@ def update_business_branding(
         db,
     )
 
+    before = snapshot_fields(business, BRANDING_FIELDS)
+
     business.logo_url = branding_data.logo_url
     business.primary_color = branding_data.primary_color
     business.secondary_color = branding_data.secondary_color
     business.watermark_url = branding_data.watermark_url
     business.watermark_opacity = branding_data.watermark_opacity
     business.theme_preference = branding_data.theme_preference
+
+    changes = build_audit_changes(
+        before,
+        snapshot_fields(business, BRANDING_FIELDS),
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business.id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="business.branding_updated",
+            entity_type="business",
+            entity_id=business.id,
+            details={"changes": changes},
+            notes="Business branding was updated.",
+        )
 
     db.commit()
     db.refresh(business)
@@ -466,6 +499,17 @@ async def upload_business_logo(
 
     business.logo_url = logo_url
 
+    create_audit_log(
+        db,
+        business_id=business.id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="business.logo_uploaded",
+        entity_type="business",
+        entity_id=business.id,
+        details={"file_replaced": True},
+        notes="Business logo was replaced.",
+    )
+
     db.commit()
     db.refresh(business)
 
@@ -507,6 +551,17 @@ async def upload_business_watermark(
         ) from exc
 
     business.watermark_url = watermark_url
+
+    create_audit_log(
+        db,
+        business_id=business.id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="business.watermark_uploaded",
+        entity_type="business",
+        entity_id=business.id,
+        details={"file_replaced": True},
+        notes="Business watermark was replaced.",
+    )
 
     db.commit()
     db.refresh(business)
