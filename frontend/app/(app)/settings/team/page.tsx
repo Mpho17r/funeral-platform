@@ -6,6 +6,8 @@ import {
   ArrowLeft,
   CheckCircle2,
   Edit3,
+  KeyRound,
+  LockOpen,
   Plus,
   UserCheck,
   UserX,
@@ -17,6 +19,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import api from "@/lib/api";
+import { ResetPasswordDialog } from "@/components/PasswordDialogs";
 import { useBranches } from "@/lib/branches";
 import {
   BranchBadge,
@@ -33,6 +36,8 @@ type User = {
   role: string;
   is_active: boolean;
   branch_id: string | null;
+  locked_until: string | null;
+  last_login_at: string | null;
 };
 
 type UserForm = {
@@ -72,6 +77,7 @@ export default function TeamPage() {
   const [newUserBranch, setNewUserBranch] = useState("");
   const [moving, setMoving] = useState<User | null>(null);
   const [notice, setNotice] = useState("");
+  const [resetting, setResetting] = useState<User | null>(null);
 
   async function loadUsers() {
     try {
@@ -341,6 +347,50 @@ export default function TeamPage() {
     }
   }
 
+  function isLocked(user: User) {
+    return (
+      user.locked_until !== null &&
+      new Date(user.locked_until).getTime() > Date.now()
+    );
+  }
+
+  function lastSignIn(user: User) {
+    if (!user.last_login_at) return "Has not signed in yet";
+
+    return `Last signed in ${new Date(
+      user.last_login_at,
+    ).toLocaleString("en-ZA", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })}`;
+  }
+
+  async function unlockUser(user: User) {
+    try {
+      setError("");
+
+      const response = await api.post<User>(
+        `/users/${user.id}/unlock`,
+      );
+
+      setUsers((current) =>
+        current.map((item) =>
+          item.id === user.id ? response.data : item,
+        ),
+      );
+      setNotice(`${user.full_name} can sign in again.`);
+    } catch (err: any) {
+      setError(
+        err.response?.data?.detail ||
+          "Unable to unlock this account.",
+      );
+    }
+  }
+
   const activeUsers = users.filter((user) => user.is_active);
   const inactiveUsers = users.filter((user) => !user.is_active);
   const managers = users.filter((user) => user.role === "manager");
@@ -515,6 +565,10 @@ export default function TeamPage() {
                               {user.email}
                             </p>
 
+                            <p className="text-xs text-slate-400">
+                              {lastSignIn(user)}
+                            </p>
+
                             {branchData.multiple && (
                               <div className="mt-1.5">
                                 <BranchBadge
@@ -549,6 +603,12 @@ export default function TeamPage() {
                               : "Inactive"}
                           </span>
 
+                          {isLocked(user) && (
+                            <span className="flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                              Locked after failed sign-ins
+                            </span>
+                          )}
+
                           {manageable && (
                             <>
                               {branchData.multiple && (
@@ -567,6 +627,28 @@ export default function TeamPage() {
                                 <Edit3 size={14} />
                                 Edit
                               </button>
+
+                              {isLocked(user) && (
+                                <button
+                                  type="button"
+                                  onClick={() => unlockUser(user)}
+                                  className="flex items-center gap-1.5 rounded-lg border border-amber-200 px-3 py-2 text-xs font-medium text-amber-700 transition hover:bg-amber-50"
+                                >
+                                  <LockOpen size={14} />
+                                  Unlock
+                                </button>
+                              )}
+
+                              {!isCurrentUser && (
+                                <button
+                                  type="button"
+                                  onClick={() => setResetting(user)}
+                                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  <KeyRound size={14} />
+                                  Reset password
+                                </button>
+                              )}
 
                               <button
                                 type="button"
@@ -809,6 +891,19 @@ export default function TeamPage() {
           onClose={() => setMoving(null)}
           onMoved={(message) => {
             setMoving(null);
+            setNotice(message);
+            loadUsers();
+          }}
+        />
+      )}
+
+      {resetting && (
+        <ResetPasswordDialog
+          userId={resetting.id}
+          userName={resetting.full_name}
+          onClose={() => setResetting(null)}
+          onDone={(message) => {
+            setResetting(null);
             setNotice(message);
             loadUsers();
           }}

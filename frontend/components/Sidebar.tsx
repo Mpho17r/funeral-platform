@@ -8,6 +8,7 @@ import {
   HeartHandshake,
   LayoutDashboard,
   LogOut,
+  ScrollText,
   Settings,
   Users,
   UserRound,
@@ -206,6 +207,11 @@ export default function Sidebar({
       label: "Reports",
       icon: <Activity size={18} />,
       path: "/reports",
+    },
+    {
+      label: "Audit trail",
+      icon: <ScrollText size={18} />,
+      path: "/audit",
     },
     {
       label: "Settings",
