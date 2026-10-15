@@ -12,8 +12,10 @@ import {
   TransferDialog,
   matchesBranch,
 } from "@/components/BranchControls";
+import { ContactPreferencesDialog } from "@/components/ContactPreferencesDialog";
 import {
   Edit,
+  MessageSquare,
   Plus,
   Search,
   Trash2,
@@ -113,6 +115,7 @@ export default function MembersPage() {
   const [branchFilter, setBranchFilter] = useState(ALL_BRANCHES);
   const [newMemberBranch, setNewMemberBranch] = useState("");
   const [moving, setMoving] = useState<Member | null>(null);
+  const [contactFor, setContactFor] = useState<Member | null>(null);
   const [notice, setNotice] = useState("");
 
   async function loadMembers() {
@@ -570,6 +573,17 @@ export default function MembersPage() {
 
                             <button
                               onClick={() =>
+                                setContactFor(member)
+                              }
+                              className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                              title="Contact preferences"
+                              aria-label={`Contact preferences for ${member.first_name} ${member.last_name}`}
+                            >
+                              <MessageSquare size={17} />
+                            </button>
+
+                            <button
+                              onClick={() =>
                                 openEditModal(member)
                               }
                               className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
@@ -907,6 +921,20 @@ export default function MembersPage() {
             setMoving(null);
             setNotice(message);
             loadMembers();
+          }}
+        />
+      )}
+
+      {contactFor && (
+        <ContactPreferencesDialog
+          memberId={contactFor.id}
+          memberName={`${contactFor.first_name} ${contactFor.last_name}`}
+          onClose={() => setContactFor(null)}
+          onSaved={() => {
+            setNotice(
+              `Contact preferences saved for ${contactFor.first_name} ${contactFor.last_name}.`,
+            );
+            setContactFor(null);
           }}
         />
       )}

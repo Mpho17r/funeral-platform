@@ -24,6 +24,7 @@ import {
   Boxes,
   Store,
   Snowflake,
+  MessageSquare,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -151,6 +152,11 @@ export default function Sidebar({
       label: "Payments",
       icon: <CreditCard size={18} />,
       path: "/membership-payments",
+    },
+    {
+      label: "Reminders",
+      icon: <MessageSquare size={18} />,
+      path: "/communications",
     },
   ];
 
