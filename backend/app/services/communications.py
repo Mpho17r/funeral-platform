@@ -103,7 +103,7 @@ DEFAULT_TEMPLATES = {
         "Hello {member_name}, your membership {membership_number} with "
         "{business_name} will lapse on {lapse_date} if the outstanding "
         "{amount_due} is not paid. Once it lapses you will no longer "
-        "have funeral cover. Please contact us on {business_phone} if "
+        "have funeral cover. Please contact us at {business_phone} if "
         "you need help.",
     ),
     "lapsed": (
@@ -111,7 +111,7 @@ DEFAULT_TEMPLATES = {
         "Hello {member_name}, your membership {membership_number} with "
         "{business_name} lapsed on {lapse_date} because of unpaid "
         "contributions, so your funeral cover has stopped. Please "
-        "contact us on {business_phone} to find out how to reinstate it.",
+        "contact us at {business_phone} to find out how to reinstate it.",
     ),
 }
 
@@ -488,7 +488,7 @@ def plan_reminders(
         values = {
             "member_name": member.first_name,
             "business_name": business.name,
-            "business_phone": business.phone or "",
+            "business_phone": business.phone or "our office",
             "membership_number": membership.membership_number,
             "plan_name": membership_plan.name,
             "amount_due": format_money(outstanding(contribution)),
@@ -545,9 +545,20 @@ def plan_reminders(
         days_to_lapse = lapse_after - days_in_arrears
 
         if days_to_lapse > 0:
+            warning_key = f"lapse_warning:{membership.id}:{oldest.due_date}"
+
+            # A lapse warning already says what the overdue notice would,
+            # so inside the warning window it replaces the notice rather
+            # than sending the member two messages.
+            warning_now = (
+                "lapse_warning" in wanted
+                and days_to_lapse <= warning_days
+            )
+
             if (
                 "payment_overdue" in wanted
                 and membership.id not in recent_overdue
+                and not warning_now
             ):
                 add(
                     "payment_overdue",
@@ -567,7 +578,7 @@ def plan_reminders(
                     membership,
                     membership_plan,
                     oldest,
-                    f"lapse_warning:{membership.id}:{oldest.due_date}",
+                    warning_key,
                     days_overdue=days_in_arrears,
                     lapse_date=lapse_date,
                 )

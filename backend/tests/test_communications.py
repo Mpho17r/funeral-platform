@@ -30,6 +30,7 @@ from app.services.communications import (
     normalize_phone,
     pick_channel,
     plan_reminders,
+    queue_candidates,
     render,
     today_in_south_africa,
     unknown_placeholders,
@@ -708,15 +709,42 @@ def test_warning_window_can_be_changed(db, test_data):
     ) == ["lapse_warning"]
 
 
-def test_overdue_and_lapse_warning_can_both_apply(db, test_data):
+def test_lapse_warning_replaces_the_overdue_notice(db, test_data):
     business = test_data["business_a"]
     set_lapse(db, business, 30)
     setup_member(db, business, due=today() - timedelta(days=25))
 
-    assert kinds_of(run(db, business)) == [
-        "lapse_warning",
-        "payment_overdue",
+    # One message, not two, when the warning window has been reached.
+    assert kinds_of(run(db, business)) == ["lapse_warning"]
+
+
+def test_overdue_notice_applies_when_the_warning_is_not_asked_for(
+    db, test_data
+):
+    business = test_data["business_a"]
+    set_lapse(db, business, 30)
+    setup_member(db, business, due=today() - timedelta(days=25))
+
+    # The warning is not requested here, so the overdue notice applies.
+    assert kinds_of(run(db, business, kinds=["payment_overdue"])) == [
+        "payment_overdue"
     ]
+
+
+def test_no_overdue_notice_after_the_warning_has_been_queued(
+    db, test_data
+):
+    business = test_data["business_a"]
+    set_lapse(db, business, 30)
+    setup_member(db, business, due=today() - timedelta(days=25))
+
+    first = run(db, business)
+    assert kinds_of(first) == ["lapse_warning"]
+
+    queue_candidates(db, business.id, None, first.candidates)
+
+    # Nothing more until the membership lapses.
+    assert run(db, business).candidates == []
 
 
 def test_lapsed_notice_when_the_membership_lapsed_recently(db, test_data):
@@ -1083,11 +1111,11 @@ def test_running_generate_twice_does_not_queue_duplicates(
     first = generate(client, auth_headers, test_data["manager"]).json()
     second = generate(client, auth_headers, test_data["manager"]).json()
 
-    assert first["created"] == 2
+    assert first["created"] == 1
     assert second["created"] == 0
     assert second["items"] == []
     assert second["already_queued"] >= 1
-    assert db.query(CommunicationMessage).count() == 2
+    assert db.query(CommunicationMessage).count() == 1
 
 
 def test_cancelled_reminder_is_not_brought_back(
@@ -1244,23 +1272,23 @@ def test_list_filters_by_status_kind_and_member(
 
     everything = messages(client, auth_headers, manager).json()
 
-    assert everything["total"] == 3
-    assert everything["counts"] == {"queued": 2, "sent": 1, "cancelled": 0}
+    assert everything["total"] == 2
+    assert everything["counts"] == {"queued": 1, "sent": 1, "cancelled": 0}
     assert messages(
         client, auth_headers, manager, status="sent"
-    ).json()["counts"] == {"queued": 2, "sent": 1, "cancelled": 0}
+    ).json()["counts"] == {"queued": 1, "sent": 1, "cancelled": 0}
     assert messages(
         client, auth_headers, manager, status="sent"
     ).json()["total"] == 1
     assert messages(
         client, auth_headers, manager, status="queued"
-    ).json()["total"] == 2
+    ).json()["total"] == 1
     assert messages(
         client, auth_headers, manager, kind="lapse_warning"
     ).json()["total"] == 1
     assert messages(
         client, auth_headers, manager, member_id=str(member.id)
-    ).json()["total"] == 2
+    ).json()["total"] == 1
 
 
 def test_status_counts_ignore_the_status_filter(
