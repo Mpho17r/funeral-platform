@@ -745,9 +745,12 @@ def test_coverage_endpoint_changes_nothing(
     business = test_data["business_a"]
     plan = make_plan(db, business, natural=6)
     case = make_case(db, business, make_membership(db, business, plan))
+
+    # Signing in is audited, so sign in before taking the count.
+    headers = auth_headers(test_data["staff"])
     before = db.query(AuditLog).count()
 
-    coverage(client, auth_headers(test_data["staff"]), case)
+    coverage(client, headers, case)
 
     assert db.query(AuditLog).count() == before
 
