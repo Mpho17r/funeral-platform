@@ -8,8 +8,14 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+    snapshot_fields,
+)
 from app.models.case_financial import CaseFinancial
 from app.models.case_payment import CasePayment
+from app.models.financial_document import PaymentReceipt
 from app.models.funeral_case import FuneralCase
 from app.schemas.case_payment import (
     CasePaymentCreate,
@@ -22,6 +28,32 @@ router = APIRouter(
     prefix="/cases",
     tags=["Case Payments"],
 )
+
+
+# Fields whose changes are recorded in the audit trail.
+AUDITED_PAYMENT_FIELDS = (
+    "amount",
+    "payment_method",
+    "reference",
+    "payment_date",
+    "notes",
+)
+
+
+def financial_effect(financial) -> dict | None:
+    """
+    Describe the case balance after a payment change, so the audit
+    trail shows what each payment did to the amount owed.
+    """
+    if financial is None:
+        return None
+
+    return {
+        "status": financial.status,
+        "amount_paid": str(financial.amount_paid),
+        "balance": str(financial.balance),
+        "credit": str(financial.credit),
+    }
 
 
 # ============================================================
@@ -149,6 +181,25 @@ def recalculate_financials(
     return financial
 
 
+def ensure_no_receipt(db: Session, payment: CasePayment) -> None:
+    """A receipted payment is part of the permanent financial record."""
+
+    receipt = (
+        db.query(PaymentReceipt.receipt_number)
+        .filter(PaymentReceipt.payment_id == payment.id)
+        .first()
+    )
+
+    if receipt is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Receipt {receipt[0]} has been issued for this "
+                f"payment, so it can no longer be changed or deleted"
+            ),
+        )
+
+
 def is_duplicate_payment_reference(exc: IntegrityError) -> bool:
     """
     Check whether the IntegrityError was caused by our
@@ -255,10 +306,27 @@ def create_payment(
     # Recalculate financials
     # --------------------------------------------------------
 
-    recalculate_financials(
+    financial = recalculate_financials(
         db=db,
         case_id=case_id,
         business_id=business_id,
+    )
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="case.payment_created",
+        entity_type="case_payment",
+        entity_id=payment.id,
+        details={
+            "case_id": str(case_id),
+            "amount": str(payment.amount),
+            "payment_method": payment.payment_method,
+            "reference": payment.reference,
+            "financial_after": financial_effect(financial),
+        },
+        notes="Case payment was recorded.",
     )
 
     # --------------------------------------------------------
@@ -394,12 +462,19 @@ def update_payment(
             detail="Payment not found",
         )
 
+    ensure_no_receipt(db, payment)
+
     # --------------------------------------------------------
     # Apply updates
     # --------------------------------------------------------
 
     updates = payment_data.model_dump(
         exclude_unset=True
+    )
+
+    old_values = snapshot_fields(
+        payment,
+        AUDITED_PAYMENT_FIELDS,
     )
 
     for field, value in updates.items():
@@ -430,11 +505,36 @@ def update_payment(
     # Recalculate financials
     # --------------------------------------------------------
 
-    recalculate_financials(
+    financial = recalculate_financials(
         db=db,
         case_id=payment.case_id,
         business_id=business_id,
     )
+
+    # --------------------------------------------------------
+    # Audit
+    # --------------------------------------------------------
+
+    changes = build_audit_changes(
+        old_values,
+        snapshot_fields(payment, AUDITED_PAYMENT_FIELDS),
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="case.payment_updated",
+            entity_type="case_payment",
+            entity_id=payment.id,
+            details={
+                "case_id": str(payment.case_id),
+                "changes": changes,
+                "financial_after": financial_effect(financial),
+            },
+            notes="Case payment was updated.",
+        )
 
     # --------------------------------------------------------
     # Commit
@@ -482,8 +582,17 @@ def delete_payment(
             detail="Payment not found",
         )
 
-    # Save case ID before deletion
+    ensure_no_receipt(db, payment)
+
+    # Save details before deletion
     case_id = payment.case_id
+    payment_id_value = payment.id
+    deleted_details = {
+        "case_id": str(case_id),
+        "amount": str(payment.amount),
+        "payment_method": payment.payment_method,
+        "reference": payment.reference,
+    }
 
     # --------------------------------------------------------
     # Delete payment
@@ -497,10 +606,24 @@ def delete_payment(
     # Recalculate financials
     # --------------------------------------------------------
 
-    recalculate_financials(
+    financial = recalculate_financials(
         db=db,
         case_id=case_id,
         business_id=business_id,
+    )
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="case.payment_deleted",
+        entity_type="case_payment",
+        entity_id=payment_id_value,
+        details={
+            **deleted_details,
+            "financial_after": financial_effect(financial),
+        },
+        notes="Case payment was deleted.",
     )
 
     # --------------------------------------------------------

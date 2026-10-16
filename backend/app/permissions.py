@@ -30,7 +30,14 @@ PERMISSIONS = {
     "members.view": "View members",
     "members.create": "Create members",
     "members.edit": "Edit members",
-    "members.delete": "Delete members",
+    "members.restore": "Restore archived members",
+    "members.export": (
+        "Download everything held about a member (a data access request)"
+    ),
+    "members.anonymise": (
+        "Permanently remove a former member's personal details"
+    ),
+    "members.delete": "Archive members (they can be restored)",
 
     # Membership plans
     "membership_plans.view": "View membership plans",
@@ -90,6 +97,9 @@ PERMISSIONS = {
     # Reports
     "reports.view": "View reports",
 
+    # Audit trail
+    "audit.view": "View the audit trail of who changed what",
+
     # Settings
     "settings.view": "View business settings",
     "settings.manage": "Manage business settings",
@@ -97,6 +107,119 @@ PERMISSIONS = {
     # Branding
     "branding.view": "View business branding",
     "branding.manage": "Manage business branding",
+
+    # Resources (vehicles, venues, equipment)
+    "resources.view": "View vehicles, venues and equipment",
+    "resources.manage": "Manage vehicles, venues and equipment",
+
+    # Resource bookings
+    "resource_bookings.view": "View resource bookings and availability",
+    "resource_bookings.manage": "Create, change and cancel resource bookings",
+
+    # Branches
+    "branches.view": "View branches",
+    "branches.manage": (
+        "Create, edit, deactivate and choose the main branch"
+    ),
+    "branches.transfer": (
+        "Move cases, members, resources, stock and staff between "
+        "branches"
+    ),
+
+    # Death records and paperwork
+    "death_records.view": (
+        "View how and where a person died, including cause of death"
+    ),
+    "death_records.manage": (
+        "Capture and edit the death record of a case"
+    ),
+    "paperwork.view": "View the death paperwork checklist of a case",
+    "paperwork.manage": (
+        "Tick off, add and update death paperwork on a case"
+    ),
+
+    # Mortuary and custody of remains
+    "mortuary.view": (
+        "View mortuary locations and who is where right now"
+    ),
+    "mortuary.manage": (
+        "Create and edit mortuary locations such as fridges and "
+        "cold rooms"
+    ),
+    "remains.view": (
+        "View the custody record and movement log of remains"
+    ),
+    "remains.manage": (
+        "Take remains into care, move them, record preparation, "
+        "identification and temperature"
+    ),
+    "remains.release": "Release remains to a family or undertaker",
+    "remains.release_override": (
+        "Release remains even though required paperwork is missing, "
+        "with a written reason"
+    ),
+
+    # Funeral arrangements, collections and the daily run sheet
+    "arrangements.view": (
+        "View the wake, service and burial arrangements of a case"
+    ),
+    "arrangements.manage": (
+        "Plan, confirm, complete and cancel funeral arrangements"
+    ),
+    "collections.view": "View body collection call-outs",
+    "collections.manage": (
+        "Schedule, dispatch, complete and cancel body collections"
+    ),
+    "run_sheet.view": (
+        "View the daily run sheet of collections and funerals"
+    ),
+
+    # Communications
+    "communications.view": (
+        "View reminders and messages, and preview which reminders are due"
+    ),
+    "communications.send": (
+        "Queue reminders, write messages, mark them sent or cancel them, "
+        "and record a member's contact preferences"
+    ),
+    "communications.templates": "Change the wording of reminders",
+
+    # Inventory and suppliers
+    "inventory.view": "View stock items and stock movements",
+    "inventory.manage": (
+        "Create and edit stock items and correct stock levels"
+    ),
+    "inventory.stock": (
+        "Record stock received, issued and returned"
+    ),
+    "suppliers.view": "View suppliers",
+    "suppliers.manage": "Create, edit and deactivate suppliers",
+
+    # Quotes, invoices and receipts
+    "financial_documents.view": "View quotes and invoices",
+    "financial_documents.manage": (
+        "Create and edit draft quotes and invoices, record quote "
+        "decisions and convert quotes into invoices"
+    ),
+    "financial_documents.issue": (
+        "Issue quotes and invoices, which makes them permanent"
+    ),
+    "financial_documents.void": "Void issued quotes and invoices",
+    "receipts.view": "View payment receipts",
+    "receipts.issue": "Issue receipts for recorded payments",
+
+    # Beneficiaries
+    "beneficiaries.view": "View membership beneficiaries",
+    "beneficiaries.manage": "Manage membership beneficiaries",
+
+    # Claims
+    "claims.view": "View membership claims",
+    "claims.create": "Submit, edit and cancel membership claims",
+    "claims.review": "Review, approve and reject membership claims",
+    "claims.pay": "Mark approved membership claims as paid",
+    "claims.override": (
+        "Approve claims despite failed coverage or above plan limits"
+    ),
 
     # User groups
     "groups.view": "View user groups",

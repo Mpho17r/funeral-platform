@@ -10,6 +10,7 @@ from app.models.member import Member
 from app.models.membership import Membership
 from app.models.membership_plan import MembershipPlan
 from app.services.audit_service import create_audit_log
+from app.services.waiting_periods import upgrade_waiting_still_running
 from app.schemas.membership import (
     MembershipCreate,
     MembershipResponse,
@@ -75,6 +76,12 @@ def create_membership(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Member not found",
+        )
+
+    if member.archived_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This member is archived. Restore them first.",
         )
 
     # --------------------------------------------------------
@@ -191,6 +198,24 @@ def create_membership(
     )
 
     db.add(membership)
+    db.flush()
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="membership.created",
+        entity_type="membership",
+        entity_id=membership.id,
+        details={
+            "membership_number": membership.membership_number,
+            "member_id": str(membership.member_id),
+            "plan_id": str(membership.plan_id),
+            "start_date": membership.start_date.isoformat(),
+        },
+        notes="Membership was created.",
+    )
+
     db.commit()
     db.refresh(membership)
 
@@ -349,11 +374,83 @@ def update_membership(
             )
 
     # --------------------------------------------------------
+    # Plan change: remember an upgrade so cover can stay at the old
+    # level while the new plan's upgrade waiting period runs
+    # --------------------------------------------------------
+
+    plan_change = None
+
+    if (
+        "plan_id" in updates
+        and updates["plan_id"] is not None
+        and updates["plan_id"] != membership.plan_id
+    ):
+        old_plan = (
+            db.query(MembershipPlan)
+            .filter(
+                MembershipPlan.id == membership.plan_id,
+                MembershipPlan.business_id == business_id,
+            )
+            .first()
+        )
+
+        is_upgrade = (
+            old_plan is not None
+            and plan.monthly_contribution > old_plan.monthly_contribution
+        )
+
+        today = date.today()
+
+        if is_upgrade:
+            # A second upgrade inside the first one's waiting period
+            # keeps the plan the member had fully earned.
+            if (
+                old_plan is not None
+                and upgrade_waiting_still_running(
+                    membership,
+                    old_plan,
+                    today=today,
+                )
+            ):
+                updates["previous_plan_id"] = membership.previous_plan_id
+            else:
+                updates["previous_plan_id"] = membership.plan_id
+        else:
+            updates["previous_plan_id"] = None
+
+        updates["plan_changed_at"] = today
+
+        plan_change = {
+            "from_plan_id": str(membership.plan_id),
+            "to_plan_id": str(updates["plan_id"]),
+            "upgrade": is_upgrade,
+            "upgrade_waiting_months": (
+                plan.waiting_upgrade_months if is_upgrade else 0
+            ),
+        }
+
+    # --------------------------------------------------------
     # Apply updates
     # --------------------------------------------------------
 
     for field, value in updates.items():
         setattr(membership, field, value)
+
+    if plan_change is not None:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="membership.plan_changed",
+            entity_type="membership",
+            entity_id=membership.id,
+            details=plan_change,
+            notes=(
+                "Membership plan was upgraded."
+                if plan_change["upgrade"]
+                else "Membership plan was changed."
+            ),
+        )
 
     db.commit()
     db.refresh(membership)

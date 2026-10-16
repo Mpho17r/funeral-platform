@@ -63,6 +63,20 @@ class Membership(Base):
         default="active",
     )
 
+    # Set when the plan was changed. previous_plan_id is only kept for
+    # an upgrade, so cover can stay at the old level while the new
+    # plan's upgrade waiting period runs.
+    previous_plan_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("membership_plans.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    plan_changed_at: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+    )
+
     next_due_date: Mapped[date | None] = mapped_column(
         Date,
         nullable=True,

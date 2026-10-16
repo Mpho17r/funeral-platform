@@ -2,7 +2,17 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,6 +21,16 @@ from app.database import Base
 
 class MembershipPlan(Base):
     __tablename__ = "membership_plans"
+
+    __table_args__ = (
+        CheckConstraint(
+            "waiting_natural_months BETWEEN 0 AND 60 AND "
+            "waiting_accidental_months BETWEEN 0 AND 60 AND "
+            "waiting_suicide_months BETWEEN 0 AND 60 AND "
+            "waiting_upgrade_months BETWEEN 0 AND 60",
+            name="ck_membership_plans_waiting_months",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -45,6 +65,23 @@ class MembershipPlan(Base):
         Boolean,
         default=True,
         nullable=False,
+    )
+
+    # Waiting periods, in months counted from the date cover started.
+    # Zero means no waiting period for that kind of death.
+    waiting_natural_months: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    waiting_accidental_months: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    waiting_suicide_months: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    # After moving to a dearer plan, cover stays at the old plan's
+    # level until this many months have passed.
+    waiting_upgrade_months: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
     )
 
     created_at: Mapped[datetime] = mapped_column(

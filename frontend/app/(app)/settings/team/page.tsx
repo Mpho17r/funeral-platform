@@ -6,6 +6,8 @@ import {
   ArrowLeft,
   CheckCircle2,
   Edit3,
+  KeyRound,
+  LockOpen,
   Plus,
   UserCheck,
   UserX,
@@ -17,6 +19,14 @@ import {
 import { useRouter } from "next/navigation";
 
 import api from "@/lib/api";
+import { ResetPasswordDialog } from "@/components/PasswordDialogs";
+import { useBranches } from "@/lib/branches";
+import {
+  BranchBadge,
+  BranchSelect,
+  MoveButton,
+  TransferDialog,
+} from "@/components/BranchControls";
 
 type User = {
   id: string;
@@ -25,6 +35,9 @@ type User = {
   email: string;
   role: string;
   is_active: boolean;
+  branch_id: string | null;
+  locked_until: string | null;
+  last_login_at: string | null;
 };
 
 type UserForm = {
@@ -59,6 +72,12 @@ export default function TeamPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const [form, setForm] = useState<UserForm>(emptyForm);
+
+  const branchData = useBranches();
+  const [newUserBranch, setNewUserBranch] = useState("");
+  const [moving, setMoving] = useState<User | null>(null);
+  const [notice, setNotice] = useState("");
+  const [resetting, setResetting] = useState<User | null>(null);
 
   async function loadUsers() {
     try {
@@ -111,6 +130,7 @@ export default function TeamPage() {
   function openCreateForm() {
     setEditingUser(null);
     setForm(emptyForm);
+    setNewUserBranch("");
     setFormError("");
     setShowForm(true);
   }
@@ -243,6 +263,8 @@ export default function TeamPage() {
           email,
           password: form.password,
           role: form.role,
+          // Left empty, the server uses the creator's own branch.
+          ...(newUserBranch ? { branch_id: newUserBranch } : {}),
         });
 
         setUsers((current) => [...current, response.data]);
@@ -325,6 +347,50 @@ export default function TeamPage() {
     }
   }
 
+  function isLocked(user: User) {
+    return (
+      user.locked_until !== null &&
+      new Date(user.locked_until).getTime() > Date.now()
+    );
+  }
+
+  function lastSignIn(user: User) {
+    if (!user.last_login_at) return "Has not signed in yet";
+
+    return `Last signed in ${new Date(
+      user.last_login_at,
+    ).toLocaleString("en-ZA", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })}`;
+  }
+
+  async function unlockUser(user: User) {
+    try {
+      setError("");
+
+      const response = await api.post<User>(
+        `/users/${user.id}/unlock`,
+      );
+
+      setUsers((current) =>
+        current.map((item) =>
+          item.id === user.id ? response.data : item,
+        ),
+      );
+      setNotice(`${user.full_name} can sign in again.`);
+    } catch (err: any) {
+      setError(
+        err.response?.data?.detail ||
+          "Unable to unlock this account.",
+      );
+    }
+  }
+
   const activeUsers = users.filter((user) => user.is_active);
   const inactiveUsers = users.filter((user) => !user.is_active);
   const managers = users.filter((user) => user.role === "manager");
@@ -366,6 +432,15 @@ export default function TeamPage() {
               <ArrowLeft size={16} />
               Back to Settings
             </button>
+
+            {notice && (
+              <div
+                role="status"
+                className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+              >
+                {notice}
+              </div>
+            )}
 
             {error && (
               <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -489,6 +564,19 @@ export default function TeamPage() {
                             <p className="truncate text-sm text-slate-500">
                               {user.email}
                             </p>
+
+                            <p className="text-xs text-slate-400">
+                              {lastSignIn(user)}
+                            </p>
+
+                            {branchData.multiple && (
+                              <div className="mt-1.5">
+                                <BranchBadge
+                                  branchId={user.branch_id}
+                                  byId={branchData.byId}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -515,8 +603,20 @@ export default function TeamPage() {
                               : "Inactive"}
                           </span>
 
+                          {isLocked(user) && (
+                            <span className="flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                              Locked after failed sign-ins
+                            </span>
+                          )}
+
                           {manageable && (
                             <>
+                              {branchData.multiple && (
+                                <MoveButton
+                                  onClick={() => setMoving(user)}
+                                />
+                              )}
+
                               <button
                                 type="button"
                                 onClick={() =>
@@ -527,6 +627,28 @@ export default function TeamPage() {
                                 <Edit3 size={14} />
                                 Edit
                               </button>
+
+                              {isLocked(user) && (
+                                <button
+                                  type="button"
+                                  onClick={() => unlockUser(user)}
+                                  className="flex items-center gap-1.5 rounded-lg border border-amber-200 px-3 py-2 text-xs font-medium text-amber-700 transition hover:bg-amber-50"
+                                >
+                                  <LockOpen size={14} />
+                                  Unlock
+                                </button>
+                              )}
+
+                              {!isCurrentUser && (
+                                <button
+                                  type="button"
+                                  onClick={() => setResetting(user)}
+                                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  <KeyRound size={14} />
+                                  Reset password
+                                </button>
+                              )}
 
                               <button
                                 type="button"
@@ -665,6 +787,14 @@ export default function TeamPage() {
                 </>
               )}
 
+              {branchData.multiple && !editingUser && (
+                <BranchSelect
+                  branches={branchData.branches}
+                  value={newUserBranch}
+                  onChange={setNewUserBranch}
+                />
+              )}
+
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
                   Role
@@ -750,6 +880,34 @@ export default function TeamPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {moving && (
+        <TransferDialog
+          path={`/users/${moving.id}/transfer`}
+          subject={moving.full_name}
+          currentBranchId={moving.branch_id}
+          branches={branchData.branches}
+          onClose={() => setMoving(null)}
+          onMoved={(message) => {
+            setMoving(null);
+            setNotice(message);
+            loadUsers();
+          }}
+        />
+      )}
+
+      {resetting && (
+        <ResetPasswordDialog
+          userId={resetting.id}
+          userName={resetting.full_name}
+          onClose={() => setResetting(null)}
+          onDone={(message) => {
+            setResetting(null);
+            setNotice(message);
+            loadUsers();
+          }}
+        />
       )}
     </main>
   );

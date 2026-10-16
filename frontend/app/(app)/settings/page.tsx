@@ -1,10 +1,23 @@
 "use client";
 
-import { ArrowLeft, Clock3, Palette, ShieldCheck, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Clock3,
+  KeyRound,
+  Palette,
+  ScrollText,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { ChangePasswordDialog } from "@/components/PasswordDialogs";
 
 export default function SettingsPage() {
   const router = useRouter();
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [notice, setNotice] = useState("");
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -42,6 +55,15 @@ export default function SettingsPage() {
                 inside FuneralOS.
               </p>
             </div>
+
+            {notice && (
+              <div
+                role="status"
+                className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+              >
+                {notice}
+              </div>
+            )}
 
             <div className="grid gap-6 md:grid-cols-2">
               {/* BUSINESS BRANDING */}
@@ -145,10 +167,68 @@ export default function SettingsPage() {
                   membership lapse rules and reinstatement policies.
                 </p>
               </button>
+
+              <button
+                type="button"
+                onClick={() => router.push("/audit")}
+                className="group rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    <ScrollText size={22} />
+                  </div>
+
+                  <span className="text-sm text-slate-400 transition group-hover:text-slate-700 dark:text-slate-500 dark:group-hover:text-slate-200">
+                    View →
+                  </span>
+                </div>
+
+                <h3 className="mt-5 text-lg font-semibold text-slate-900 dark:text-white">
+                  Audit Trail
+                </h3>
+
+                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  See who changed what and when, including sign-ins, exports and removals of personal details.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setChangingPassword(true)}
+                className="group rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    <KeyRound size={22} />
+                  </div>
+
+                  <span className="text-sm text-slate-400 transition group-hover:text-slate-700 dark:text-slate-500 dark:group-hover:text-slate-200">
+                    Change →
+                  </span>
+                </div>
+
+                <h3 className="mt-5 text-lg font-semibold text-slate-900 dark:text-white">
+                  Your Password
+                </h3>
+
+                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  Change the password you sign in with. You will be signed out on your other devices.
+                </p>
+              </button>
             </div>
           </div>
         </section>
       </div>
+
+      {changingPassword && (
+        <ChangePasswordDialog
+          onClose={() => setChangingPassword(false)}
+          onDone={(message) => {
+            setChangingPassword(false);
+            setNotice(message);
+          }}
+        />
+      )}
     </main>
   );
 }

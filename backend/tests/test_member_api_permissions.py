@@ -93,7 +93,7 @@ def create_member(db, business_id, prefix="MEM"):
         member_number=f"{prefix}-{uuid4().hex[:8].upper()}",
         first_name="Test",
         last_name="Member",
-        id_number="9001015009087",
+        id_number="9001015009086",
         date_of_birth=date(1990, 1, 1),
         phone="0712345678",
         email="member@example.com",
@@ -112,7 +112,7 @@ def member_payload(prefix="CREATE"):
         "member_number": f"{prefix}-{uuid4().hex[:8].upper()}",
         "first_name": "New",
         "last_name": "Member",
-        "id_number": "9101015009088",
+        "id_number": "9101015009084",
         "date_of_birth": "1991-01-01",
         "phone": "0723456789",
         "email": "newmember@example.com",
@@ -343,7 +343,7 @@ def test_staff_without_members_edit_cannot_update_member(
 # ---------------------------------------------------------------------------
 
 
-def test_staff_with_members_delete_can_delete_member(
+def test_staff_with_members_delete_can_archive_member(
     client,
     db,
     test_data,
@@ -368,13 +368,17 @@ def test_staff_with_members_delete_can_delete_member(
 
     assert response.status_code == 204
 
+    db.expire_all()
+
     remaining = (
         db.query(Member)
         .filter(Member.id == member.id)
         .first()
     )
 
-    assert remaining is None
+    # Archived, not deleted.
+    assert remaining is not None
+    assert remaining.archived_at is not None
 
 
 def test_staff_without_members_delete_cannot_delete_member(

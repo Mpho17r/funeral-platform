@@ -35,3 +35,22 @@ from app.models.staff_attendance_session import StaffAttendanceSession
 from app.models.staff_break_session import StaffBreakSession
 
 from app.models.group import Group, GroupMember
+
+from app.models.resource import Resource, ResourceBooking
+from app.models.membership_beneficiary import MembershipBeneficiary
+from app.models.membership_claim import MembershipClaim
+from app.models.financial_document import (
+    FinancialDocument,
+    FinancialDocumentLine,
+    PaymentReceipt,
+)
+from app.models.branch import Branch
+from app.models.inventory import InventoryItem, StockMovement, Supplier
+from app.models.arrangement import CaseCollection, FuneralArrangement
+from app.models.death_record import CasePaperworkItem, DeathRecord
+from app.models.mortuary import CustodyEvent, MortuaryLocation, RemainsRecord
+from app.models.communication import (
+    CommunicationMessage,
+    MemberCommunicationPreference,
+    MessageTemplate,
+)

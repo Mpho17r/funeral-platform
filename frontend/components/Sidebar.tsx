@@ -8,6 +8,7 @@ import {
   HeartHandshake,
   LayoutDashboard,
   LogOut,
+  ScrollText,
   Settings,
   Users,
   UserRound,
@@ -16,6 +17,15 @@ import {
   ShieldCheck,
   Receipt,
   UsersRound,
+  UserCheck,
+  ClipboardCheck,
+  Truck,
+  CalendarClock,
+  Building,
+  Boxes,
+  Store,
+  Snowflake,
+  MessageSquare,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -76,6 +86,36 @@ export default function Sidebar({
       icon: <HeartHandshake size={18} />,
       path: "/services",
     },
+    {
+      label: "Run sheet",
+      icon: <ClipboardList size={18} />,
+      path: "/run-sheet",
+    },
+    {
+      label: "Mortuary",
+      icon: <Snowflake size={18} />,
+      path: "/mortuary",
+    },
+    {
+      label: "Resources",
+      icon: <Truck size={18} />,
+      path: "/resources",
+    },
+    {
+      label: "Schedule",
+      icon: <CalendarClock size={18} />,
+      path: "/resource-bookings",
+    },
+    {
+      label: "Inventory",
+      icon: <Boxes size={18} />,
+      path: "/inventory",
+    },
+    {
+      label: "Suppliers",
+      icon: <Store size={18} />,
+      path: "/suppliers",
+    },
   ];
 
   const membership = [
@@ -95,6 +135,16 @@ export default function Sidebar({
       path: "/covered-dependents",
     },
     {
+      label: "Beneficiaries",
+      icon: <UserCheck size={18} />,
+      path: "/beneficiaries",
+    },
+    {
+      label: "Claims",
+      icon: <ClipboardCheck size={18} />,
+      path: "/claims",
+    },
+    {
       label: "Contributions",
       icon: <Receipt size={18} />,
       path: "/membership-contributions",
@@ -103,6 +153,11 @@ export default function Sidebar({
       label: "Payments",
       icon: <CreditCard size={18} />,
       path: "/membership-payments",
+    },
+    {
+      label: "Reminders",
+      icon: <MessageSquare size={18} />,
+      path: "/communications",
     },
   ];
 
@@ -135,6 +190,11 @@ export default function Sidebar({
       icon: <Users size={18} />,
       path: "/staff",
     },
+    {
+      label: "Branches",
+      icon: <Building size={18} />,
+      path: "/branches",
+    },
   ];
 
   const administration = [
@@ -147,6 +207,11 @@ export default function Sidebar({
       label: "Reports",
       icon: <Activity size={18} />,
       path: "/reports",
+    },
+    {
+      label: "Audit trail",
+      icon: <ScrollText size={18} />,
+      path: "/audit",
     },
     {
       label: "Settings",

@@ -2,11 +2,31 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import api from "@/lib/api";
+import { useBranches } from "@/lib/branches";
 import {
+  ALL_BRANCHES,
+  BranchBadge,
+  BranchFilter,
+  BranchSelect,
+  MoveButton,
+  TransferDialog,
+  matchesBranch,
+} from "@/components/BranchControls";
+import { ContactPreferencesDialog } from "@/components/ContactPreferencesDialog";
+import {
+  AnonymiseMemberDialog,
+  ArchiveMemberDialog,
+  downloadMemberData,
+} from "@/components/MemberPrivacy";
+import {
+  Archive,
+  Download,
   Edit,
+  MessageSquare,
   Plus,
+  RotateCcw,
   Search,
-  Trash2,
+  ShieldOff,
   Users,
   X,
 } from "lucide-react";
@@ -24,6 +44,9 @@ type Member = {
   address: string | null;
   join_date: string;
   status: string;
+  branch_id: string | null;
+  archived_at: string | null;
+  anonymised_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -98,12 +121,25 @@ export default function MembersPage() {
 
   const [error, setError] = useState("");
 
+  const branchData = useBranches();
+  const [branchFilter, setBranchFilter] = useState(ALL_BRANCHES);
+  const [newMemberBranch, setNewMemberBranch] = useState("");
+  const [moving, setMoving] = useState<Member | null>(null);
+  const [contactFor, setContactFor] = useState<Member | null>(null);
+  const [notice, setNotice] = useState("");
+
+  const [view, setView] = useState<"current" | "archived">("current");
+  const [archiving, setArchiving] = useState<Member | null>(null);
+  const [anonymising, setAnonymising] = useState<Member | null>(null);
+
   async function loadMembers() {
     try {
       setLoading(true);
       setError("");
 
-      const response = await api.get("/members");
+      const response = await api.get("/members", {
+        params: view === "archived" ? { archived: true } : undefined,
+      });
       setMembers(response.data);
     } catch (err: any) {
       console.error(err);
@@ -125,7 +161,8 @@ export default function MembersPage() {
 
   useEffect(() => {
     loadMembers();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   function openCreateModal() {
     setEditingMember(null);
@@ -133,6 +170,7 @@ export default function MembersPage() {
       ...emptyForm,
       join_date: new Date().toISOString().split("T")[0],
     });
+    setNewMemberBranch("");
     setError("");
     setShowModal(true);
   }
@@ -207,7 +245,13 @@ export default function MembersPage() {
           payload
         );
       } else {
-        await api.post("/members", payload);
+        await api.post("/members", {
+          ...payload,
+          // Left empty, the server uses the creator's own branch.
+          ...(newMemberBranch
+            ? { branch_id: newMemberBranch }
+            : {}),
+        });
       }
 
       closeModal();
@@ -237,30 +281,45 @@ export default function MembersPage() {
     }
   }
 
-  async function handleDelete(member: Member) {
-    const confirmed = window.confirm(
-      `Delete ${member.first_name} ${member.last_name} (${member.member_number})?\n\nThis cannot be undone.`
-    );
-
-    if (!confirmed) return;
-
+  async function handleRestore(member: Member) {
     try {
       setError("");
 
-      await api.delete(`/members/${member.id}`);
+      await api.post(`/members/${member.id}/restore`);
 
+      setNotice(
+        `${member.first_name} ${member.last_name} was restored.`,
+      );
       await loadMembers();
     } catch (err: any) {
-      console.error(err);
+      setError(
+        err.response?.data?.detail || "Failed to restore member.",
+      );
+    }
+  }
 
+  async function handleExport(member: Member) {
+    try {
+      setError("");
+
+      await downloadMemberData(member);
+
+      setNotice(
+        `Downloaded everything held about ${member.member_number}. The download is recorded in the audit trail.`,
+      );
+    } catch (err: any) {
       setError(
         err.response?.data?.detail ||
-          "Failed to delete member."
+          "Failed to download the member's data.",
       );
     }
   }
 
   const filteredMembers = members.filter((member) => {
+    if (!matchesBranch(branchFilter, member.branch_id)) {
+      return false;
+    }
+
     const query = search.toLowerCase().trim();
 
     if (!query) return true;
@@ -368,8 +427,8 @@ export default function MembersPage() {
           </div>
 
           {/* Search */}
-          <div className="mb-5">
-            <div className="relative max-w-md">
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            <div className="relative w-full max-w-md">
               <Search
                 size={18}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -385,7 +444,49 @@ export default function MembersPage() {
                 className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:border-gray-500"
               />
             </div>
+
+            {branchData.multiple && (
+              <BranchFilter
+                branches={branchData.branches}
+                value={branchFilter}
+                onChange={setBranchFilter}
+              />
+            )}
+
+            <div
+              role="tablist"
+              aria-label="Member list"
+              className="inline-flex rounded-lg border border-gray-300 bg-white p-1 text-sm"
+            >
+              {(["current", "archived"] as const).map((value) => (
+                <button
+                  key={value}
+                  role="tab"
+                  aria-selected={view === value}
+                  onClick={() => {
+                    setNotice("");
+                    setView(value);
+                  }}
+                  className={`rounded-md px-3 py-1.5 font-medium ${
+                    view === value
+                      ? "bg-gray-900 text-white"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  {value === "current" ? "Current" : "Archived"}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {notice && (
+            <div
+              role="status"
+              className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+            >
+              {notice}
+            </div>
+          )}
 
           {/* Members table */}
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -402,17 +503,21 @@ export default function MembersPage() {
 
                 <h2 className="text-lg font-semibold text-gray-900">
                   {members.length === 0
-                    ? "No members yet"
+                    ? view === "archived"
+                      ? "No archived members"
+                      : "No members yet"
                     : "No members found"}
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-500">
                   {members.length === 0
-                    ? "Create your first member to start building memberships."
+                    ? view === "archived"
+                      ? "Members you archive appear here, and can be restored."
+                      : "Create your first member to start building memberships."
                     : "Try a different search term."}
                 </p>
 
-                {members.length === 0 && (
+                {members.length === 0 && view === "current" && (
                   <button
                     onClick={openCreateModal}
                     className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800"
@@ -476,6 +581,15 @@ export default function MembersPage() {
 
                         <td className="px-6 py-4 text-sm text-gray-700">
                           {member.member_number}
+
+                          {branchData.multiple && (
+                            <div className="mt-1.5">
+                              <BranchBadge
+                                branchId={member.branch_id}
+                                byId={branchData.byId}
+                              />
+                            </div>
+                          )}
                         </td>
 
                         <td className="px-6 py-4">
@@ -495,36 +609,105 @@ export default function MembersPage() {
                         </td>
 
                         <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${statusClass(
-                              member.status
-                            )}`}
-                          >
-                            {statusLabel(member.status)}
-                          </span>
+                          {view === "archived" ? (
+                            <span className="inline-flex rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                              {member.anonymised_at
+                                ? "Details removed"
+                                : "Archived"}
+                            </span>
+                          ) : (
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${statusClass(
+                                member.status
+                              )}`}
+                            >
+                              {statusLabel(member.status)}
+                            </span>
+                          )}
                         </td>
 
                         <td className="px-6 py-4">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() =>
-                                openEditModal(member)
-                              }
-                              className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                              title="Edit member"
-                            >
-                              <Edit size={17} />
-                            </button>
+                          <div className="flex items-center justify-end gap-2">
+                            {branchData.multiple && (
+                              <MoveButton
+                                onClick={() =>
+                                  setMoving(member)
+                                }
+                              />
+                            )}
+
+                            {view === "current" && (
+                              <button
+                                onClick={() =>
+                                  setContactFor(member)
+                                }
+                                className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                title="Contact preferences"
+                                aria-label={`Contact preferences for ${member.first_name} ${member.last_name}`}
+                              >
+                                <MessageSquare size={17} />
+                              </button>
+                            )}
 
                             <button
-                              onClick={() =>
-                                handleDelete(member)
-                              }
-                              className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
-                              title="Delete member"
+                              onClick={() => handleExport(member)}
+                              className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                              title="Download this member's data"
+                              aria-label={`Download data for ${member.first_name} ${member.last_name}`}
                             >
-                              <Trash2 size={17} />
+                              <Download size={17} />
                             </button>
+
+                            {view === "current" ? (
+                              <>
+                                <button
+                                  onClick={() =>
+                                    openEditModal(member)
+                                  }
+                                  className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                  title="Edit member"
+                                >
+                                  <Edit size={17} />
+                                </button>
+
+                                <button
+                                  onClick={() =>
+                                    setArchiving(member)
+                                  }
+                                  className="rounded-lg p-2 text-gray-500 transition hover:bg-amber-50 hover:text-amber-700"
+                                  title="Archive member"
+                                  aria-label={`Archive ${member.first_name} ${member.last_name}`}
+                                >
+                                  <Archive size={17} />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() =>
+                                    handleRestore(member)
+                                  }
+                                  className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                  title="Restore member"
+                                  aria-label={`Restore ${member.first_name} ${member.last_name}`}
+                                >
+                                  <RotateCcw size={17} />
+                                </button>
+
+                                {!member.anonymised_at && (
+                                  <button
+                                    onClick={() =>
+                                      setAnonymising(member)
+                                    }
+                                    className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
+                                    title="Remove personal details"
+                                    aria-label={`Remove personal details of ${member.first_name} ${member.last_name}`}
+                                  >
+                                    <ShieldOff size={17} />
+                                  </button>
+                                )}
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -793,6 +976,18 @@ export default function MembersPage() {
                     className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500"
                   />
                 </div>
+
+                {/* Branch: chosen when creating; moved later with
+                    the Move action. */}
+                {branchData.multiple && !editingMember && (
+                  <div className="md:col-span-2">
+                    <BranchSelect
+                      branches={branchData.branches}
+                      value={newMemberBranch}
+                      onChange={setNewMemberBranch}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="mt-7 flex justify-end gap-3 border-t border-gray-200 pt-5">
@@ -820,6 +1015,59 @@ export default function MembersPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {moving && (
+        <TransferDialog
+          path={`/members/${moving.id}/transfer`}
+          subject={`${moving.first_name} ${moving.last_name}`}
+          currentBranchId={moving.branch_id}
+          branches={branchData.branches}
+          onClose={() => setMoving(null)}
+          onMoved={(message) => {
+            setMoving(null);
+            setNotice(message);
+            loadMembers();
+          }}
+        />
+      )}
+
+      {archiving && (
+        <ArchiveMemberDialog
+          member={archiving}
+          onClose={() => setArchiving(null)}
+          onDone={(message) => {
+            setArchiving(null);
+            setNotice(message);
+            loadMembers();
+          }}
+        />
+      )}
+
+      {anonymising && (
+        <AnonymiseMemberDialog
+          member={anonymising}
+          onClose={() => setAnonymising(null)}
+          onDone={(message) => {
+            setAnonymising(null);
+            setNotice(message);
+            loadMembers();
+          }}
+        />
+      )}
+
+      {contactFor && (
+        <ContactPreferencesDialog
+          memberId={contactFor.id}
+          memberName={`${contactFor.first_name} ${contactFor.last_name}`}
+          onClose={() => setContactFor(null)}
+          onSaved={() => {
+            setNotice(
+              `Contact preferences saved for ${contactFor.first_name} ${contactFor.last_name}.`,
+            );
+            setContactFor(null);
+          }}
+        />
       )}
     </main>
   );

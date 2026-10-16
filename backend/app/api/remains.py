@@ -1,0 +1,844 @@
+from datetime import datetime, timedelta, timezone
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.dependencies.roles import require_permission
+
+from app.models.death_record import CasePaperworkItem, DeathRecord
+from app.models.funeral_case import FuneralCase
+from app.models.mortuary import CustodyEvent, RemainsRecord
+from app.models.resource import Resource
+from app.schemas.mortuary import (
+    CustodyEventCreate,
+    RemainsCreate,
+    RemainsDetail,
+    RemainsUpdate,
+    ReleaseRequest,
+)
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+    snapshot_fields,
+)
+from app.services.mortuary import (
+    MortuaryError,
+    cooling_status,
+    default_tag,
+    get_placeable_location,
+    is_cold,
+    now_utc,
+    release_blockers,
+)
+from app.services.permission_service import has_permission
+
+
+router = APIRouter(
+    prefix="/cases",
+    tags=["Remains and custody"],
+)
+
+
+AUDITED_REMAINS_FIELDS = (
+    "received_from_type",
+    "received_from",
+    "collected_by_name",
+    "vehicle_resource_id",
+    "condition_notes",
+    "belongings",
+)
+
+# How far in the future a time may be before it is clearly a mistake.
+CLOCK_ALLOWANCE = timedelta(minutes=5)
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def get_business_id(current_user: dict) -> UUID:
+    business_id = current_user.get("business_id")
+
+    if not business_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not associated with a business",
+        )
+
+    return UUID(str(business_id))
+
+
+def get_user_id(current_user: dict) -> UUID:
+    return UUID(str(current_user["user_id"]))
+
+
+def get_case(
+    db: Session,
+    case_id: UUID,
+    business_id: UUID,
+    *,
+    for_change: bool = False,
+) -> FuneralCase:
+    query = db.query(FuneralCase).filter(
+        FuneralCase.id == case_id,
+        FuneralCase.business_id == business_id,
+    )
+
+    if for_change:
+        query = query.with_for_update()
+
+    case = query.first()
+
+    if case is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Funeral case not found",
+        )
+
+    if for_change and case.is_archived:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Archived cases cannot be changed. Restore it first.",
+        )
+
+    return case
+
+
+def get_remains(
+    db: Session,
+    case_id: UUID,
+    business_id: UUID,
+    *,
+    lock: bool = False,
+) -> RemainsRecord:
+    query = db.query(RemainsRecord).filter(
+        RemainsRecord.case_id == case_id,
+        RemainsRecord.business_id == business_id,
+    )
+
+    if lock:
+        query = query.with_for_update()
+
+    remains = query.first()
+
+    if remains is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No remains have been taken into care for this case",
+        )
+
+    return remains
+
+
+def get_open_remains(
+    db: Session,
+    case_id: UUID,
+    business_id: UUID,
+) -> RemainsRecord:
+    """The remains, locked, and still in our care."""
+
+    remains = get_remains(db, case_id, business_id, lock=True)
+
+    if remains.status == "released":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "These remains have been released. The custody log "
+                "is closed."
+            ),
+        )
+
+    return remains
+
+
+def raise_mortuary_error(db: Session, error: MortuaryError):
+    db.rollback()
+
+    raise HTTPException(
+        status_code=error.status_code,
+        detail=error.detail,
+    )
+
+
+def as_utc(value: datetime | None) -> datetime | None:
+    """A time with no zone is taken to be UTC."""
+
+    if value is None:
+        return None
+
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(timezone.utc)
+
+
+def check_time(
+    value: datetime | None,
+    *,
+    earliest: datetime | None = None,
+    label: str = "The time",
+) -> datetime:
+    """A usable time: given or now, never in the future, and never
+    before the remains arrived."""
+
+    value = as_utc(value) or now_utc()
+
+    if value > now_utc() + CLOCK_ALLOWANCE:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"{label} cannot be in the future",
+        )
+
+    if earliest is not None and value < earliest:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"{label} cannot be before the remains arrived",
+        )
+
+    return value
+
+
+def log_event(
+    db: Session,
+    *,
+    remains: RemainsRecord,
+    event_type: str,
+    occurred_at: datetime,
+    performed_by: UUID,
+    from_location_id: UUID | None = None,
+    to_location_id: UUID | None = None,
+    procedure: str | None = None,
+    temperature_c=None,
+    notes: str | None = None,
+) -> CustodyEvent:
+    event = CustodyEvent(
+        business_id=remains.business_id,
+        remains_id=remains.id,
+        event_type=event_type,
+        from_location_id=from_location_id,
+        to_location_id=to_location_id,
+        procedure=procedure,
+        temperature_c=temperature_c,
+        performed_by=performed_by,
+        occurred_at=occurred_at,
+        notes=notes,
+    )
+
+    db.add(event)
+
+    return event
+
+
+def audit_remains(
+    db: Session,
+    *,
+    remains: RemainsRecord,
+    case: FuneralCase,
+    current_user: dict,
+    action: str,
+    notes: str,
+    extra: dict | None = None,
+) -> None:
+    create_audit_log(
+        db,
+        business_id=remains.business_id,
+        user_id=get_user_id(current_user),
+        action=action,
+        entity_type="remains",
+        entity_id=remains.id,
+        details={
+            "case_id": str(case.id),
+            "case_number": case.case_number,
+            "tag_number": remains.tag_number,
+            **(extra or {}),
+        },
+        notes=notes,
+    )
+
+
+def build_detail(
+    db: Session,
+    remains: RemainsRecord,
+) -> dict:
+    events = (
+        db.query(CustodyEvent)
+        .filter(CustodyEvent.remains_id == remains.id)
+        .order_by(CustodyEvent.occurred_at, CustodyEvent.created_at)
+        .all()
+    )
+
+    blockers: list[str] = []
+
+    if remains.status == "in_custody":
+        death_record = (
+            db.query(DeathRecord)
+            .filter(DeathRecord.case_id == remains.case_id)
+            .first()
+        )
+
+        items = (
+            db.query(CasePaperworkItem)
+            .filter(CasePaperworkItem.case_id == remains.case_id)
+            .all()
+        )
+
+        blockers = release_blockers(
+            remains=remains,
+            death_record=death_record,
+            paperwork_items=items,
+        )
+
+    return {
+        "remains": remains,
+        "cooling": cooling_status(remains),
+        "release_blockers": blockers,
+        "events": events,
+    }
+
+
+# ============================================================
+# TAKE INTO CARE
+# ============================================================
+
+@router.post(
+    "/{case_id}/remains",
+    response_model=RemainsDetail,
+    status_code=status.HTTP_201_CREATED,
+)
+def take_into_care(
+    case_id: UUID,
+    data: RemainsCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("remains.manage")),
+):
+    business_id = get_business_id(current_user)
+    case = get_case(db, case_id, business_id, for_change=True)
+
+    existing = (
+        db.query(RemainsRecord.id)
+        .filter(RemainsRecord.case_id == case.id)
+        .first()
+    )
+
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This case already has a custody record",
+        )
+
+    received_at = check_time(data.received_at, label="The arrival time")
+
+    if data.vehicle_resource_id is not None:
+        vehicle = (
+            db.query(Resource.id)
+            .filter(
+                Resource.id == data.vehicle_resource_id,
+                Resource.business_id == business_id,
+                Resource.resource_type == "vehicle",
+            )
+            .first()
+        )
+
+        if vehicle is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Vehicle not found",
+            )
+
+    location = None
+
+    if data.location_id is not None:
+        try:
+            location = get_placeable_location(
+                db, business_id, data.location_id
+            )
+        except MortuaryError as error:
+            raise_mortuary_error(db, error)
+
+    remains = RemainsRecord(
+        business_id=business_id,
+        case_id=case.id,
+        tag_number=data.tag_number or default_tag(case.case_number),
+        status="in_custody",
+        received_at=received_at,
+        received_from_type=data.received_from_type,
+        received_from=data.received_from,
+        collected_by_name=data.collected_by_name,
+        vehicle_resource_id=data.vehicle_resource_id,
+        condition_notes=data.condition_notes,
+        belongings=data.belongings,
+        current_location_id=location.id if location else None,
+        cooled_at=received_at if is_cold(location) else None,
+        received_by=get_user_id(current_user),
+    )
+
+    db.add(remains)
+
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="That tag number is already in use",
+        )
+
+    log_event(
+        db,
+        remains=remains,
+        event_type="received",
+        occurred_at=received_at,
+        performed_by=get_user_id(current_user),
+        to_location_id=remains.current_location_id,
+    )
+
+    audit_remains(
+        db,
+        remains=remains,
+        case=case,
+        current_user=current_user,
+        action="remains.received",
+        notes="Remains were taken into care.",
+        extra={
+            "received_from_type": remains.received_from_type,
+            "location_id": (
+                str(location.id) if location else None
+            ),
+        },
+    )
+
+    db.commit()
+    db.refresh(remains)
+
+    return build_detail(db, remains)
+
+
+# ============================================================
+# READ
+# ============================================================
+
+@router.get(
+    "/{case_id}/remains",
+    response_model=RemainsDetail,
+)
+def read_remains(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("remains.view")),
+):
+    business_id = get_business_id(current_user)
+    case = get_case(db, case_id, business_id)
+
+    return build_detail(db, get_remains(db, case.id, business_id))
+
+
+# ============================================================
+# UPDATE THE RECORD
+# ============================================================
+
+@router.patch(
+    "/{case_id}/remains",
+    response_model=RemainsDetail,
+)
+def update_remains(
+    case_id: UUID,
+    data: RemainsUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("remains.manage")),
+):
+    business_id = get_business_id(current_user)
+    case = get_case(db, case_id, business_id, for_change=True)
+    remains = get_open_remains(db, case.id, business_id)
+
+    updates = data.model_dump(exclude_unset=True)
+
+    if updates.get("received_from_type", "") is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="received_from_type cannot be null",
+        )
+
+    vehicle_id = updates.get("vehicle_resource_id")
+
+    if vehicle_id is not None:
+        vehicle = (
+            db.query(Resource.id)
+            .filter(
+                Resource.id == vehicle_id,
+                Resource.business_id == business_id,
+                Resource.resource_type == "vehicle",
+            )
+            .first()
+        )
+
+        if vehicle is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Vehicle not found",
+            )
+
+    old_values = snapshot_fields(remains, AUDITED_REMAINS_FIELDS)
+
+    for field, value in updates.items():
+        setattr(remains, field, value)
+
+    changes = build_audit_changes(
+        old_values,
+        snapshot_fields(remains, AUDITED_REMAINS_FIELDS),
+    )
+
+    if changes:
+        audit_remains(
+            db,
+            remains=remains,
+            case=case,
+            current_user=current_user,
+            action="remains.updated",
+            notes="Remains record was updated.",
+            extra={"changes": changes},
+        )
+
+    db.commit()
+    db.refresh(remains)
+
+    return build_detail(db, remains)
+
+
+# ============================================================
+# CUSTODY EVENTS
+# ============================================================
+
+@router.post(
+    "/{case_id}/remains/events",
+    response_model=RemainsDetail,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_custody_event(
+    case_id: UUID,
+    data: CustodyEventCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("remains.manage")),
+):
+    business_id = get_business_id(current_user)
+    case = get_case(db, case_id, business_id, for_change=True)
+    remains = get_open_remains(db, case.id, business_id)
+
+    occurred_at = check_time(
+        data.occurred_at,
+        earliest=remains.received_at,
+    )
+
+    user_id = get_user_id(current_user)
+    kind = data.event_type
+    extra: dict = {}
+
+    if kind == "moved":
+        if data.to_location_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Choose where the remains are being moved to",
+            )
+
+        if remains.current_location_id == data.to_location_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The remains are already there",
+            )
+
+        try:
+            target = get_placeable_location(
+                db, business_id, data.to_location_id
+            )
+        except MortuaryError as error:
+            raise_mortuary_error(db, error)
+
+        previous = remains.current_location_id
+        remains.current_location_id = target.id
+
+        if remains.cooled_at is None and is_cold(target):
+            remains.cooled_at = occurred_at
+
+        log_event(
+            db,
+            remains=remains,
+            event_type="moved",
+            occurred_at=occurred_at,
+            performed_by=user_id,
+            from_location_id=previous,
+            to_location_id=target.id,
+            notes=data.notes,
+        )
+
+        action = "remains.moved"
+        text = "Remains were moved."
+        extra = {
+            "from_location_id": str(previous) if previous else None,
+            "to_location_id": str(target.id),
+        }
+
+    elif kind == "prepared":
+        if data.procedure is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Say what was done to the remains",
+            )
+
+        log_event(
+            db,
+            remains=remains,
+            event_type="prepared",
+            occurred_at=occurred_at,
+            performed_by=user_id,
+            procedure=data.procedure,
+            notes=data.notes,
+        )
+
+        action = "remains.prepared"
+        text = "Remains were prepared."
+        extra = {"procedure": data.procedure}
+
+    elif kind == "identified":
+        if not data.identified_by_name:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Say who identified the remains",
+            )
+
+        if remains.identified_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "The remains were already identified. Add a note "
+                    "if something needs correcting."
+                ),
+            )
+
+        remains.identified_at = occurred_at
+        remains.identified_by_name = data.identified_by_name
+        remains.identified_relationship = data.identified_relationship
+
+        log_event(
+            db,
+            remains=remains,
+            event_type="identified",
+            occurred_at=occurred_at,
+            performed_by=user_id,
+            notes=data.notes,
+        )
+
+        action = "remains.identified"
+        text = "Remains were formally identified."
+
+    elif kind == "temperature":
+        if data.temperature_c is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Enter the temperature",
+            )
+
+        log_event(
+            db,
+            remains=remains,
+            event_type="temperature",
+            occurred_at=occurred_at,
+            performed_by=user_id,
+            temperature_c=data.temperature_c,
+            notes=data.notes,
+        )
+
+        action = "remains.temperature_logged"
+        text = "A temperature was recorded."
+        extra = {"temperature_c": str(data.temperature_c)}
+
+    else:
+        if not data.notes:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Write the note",
+            )
+
+        log_event(
+            db,
+            remains=remains,
+            event_type="note",
+            occurred_at=occurred_at,
+            performed_by=user_id,
+            notes=data.notes,
+        )
+
+        action = "remains.note_added"
+        text = "A note was added to the custody log."
+
+    audit_remains(
+        db,
+        remains=remains,
+        case=case,
+        current_user=current_user,
+        action=action,
+        notes=text,
+        extra=extra,
+    )
+
+    db.commit()
+    db.refresh(remains)
+
+    return build_detail(db, remains)
+
+
+# ============================================================
+# RELEASE
+# ============================================================
+
+@router.post(
+    "/{case_id}/remains/release",
+    response_model=RemainsDetail,
+)
+def release_remains(
+    case_id: UUID,
+    data: ReleaseRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("remains.release")),
+):
+    business_id = get_business_id(current_user)
+    case = get_case(db, case_id, business_id, for_change=True)
+    remains = get_open_remains(db, case.id, business_id)
+
+    user_id = get_user_id(current_user)
+
+    # The tag is checked first and can never be overridden. A wrong
+    # tag is recorded, because a near-miss is worth knowing about.
+    if (
+        data.confirm_tag_number.strip().casefold()
+        != remains.tag_number.casefold()
+    ):
+        audit_remains(
+            db,
+            remains=remains,
+            case=case,
+            current_user=current_user,
+            action="remains.release_refused",
+            notes="Release was refused: the tag number did not match.",
+            extra={"reason": "tag_mismatch"},
+        )
+        db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                "That tag number does not match these remains. "
+                "Check you have the right remains."
+            ),
+        )
+
+    released_at = check_time(
+        data.released_at,
+        earliest=remains.received_at,
+        label="The release time",
+    )
+
+    death_record = (
+        db.query(DeathRecord)
+        .filter(DeathRecord.case_id == case.id)
+        .first()
+    )
+
+    items = (
+        db.query(CasePaperworkItem)
+        .filter(CasePaperworkItem.case_id == case.id)
+        .all()
+    )
+
+    blockers = release_blockers(
+        remains=remains,
+        death_record=death_record,
+        paperwork_items=items,
+    )
+
+    override_used = False
+
+    if blockers:
+        if not data.override_reason:
+            audit_remains(
+                db,
+                remains=remains,
+                case=case,
+                current_user=current_user,
+                action="remains.release_refused",
+                notes="Release was refused: requirements not met.",
+                extra={"reason": "requirements", "blockers": blockers},
+            )
+            db.commit()
+
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Cannot release yet: "
+                    + "; ".join(blockers)
+                    + ". A manager can override with a reason."
+                ),
+            )
+
+        allowed = has_permission(
+            db,
+            user_id=user_id,
+            role=current_user["role"],
+            permission_key="remains.release_override",
+        )
+
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission required: remains.release_override",
+            )
+
+        override_used = True
+
+    previous = remains.current_location_id
+
+    remains.status = "released"
+    remains.released_at = released_at
+    remains.released_by = user_id
+    remains.released_to_name = data.released_to_name
+    remains.released_to_id_number = data.released_to_id_number
+    remains.released_to_relationship = data.released_to_relationship
+    remains.release_override_reason = (
+        data.override_reason if override_used else None
+    )
+    remains.current_location_id = None
+
+    log_event(
+        db,
+        remains=remains,
+        event_type="released",
+        occurred_at=released_at,
+        performed_by=user_id,
+        from_location_id=previous,
+        notes=(
+            f"Released with override: {data.override_reason}"
+            if override_used
+            else None
+        ),
+    )
+
+    audit_remains(
+        db,
+        remains=remains,
+        case=case,
+        current_user=current_user,
+        action="remains.released",
+        notes="Remains were released.",
+        extra={
+            "from_location_id": str(previous) if previous else None,
+            "override_used": override_used,
+            "blockers_overridden": blockers if override_used else [],
+        },
+    )
+
+    db.commit()
+    db.refresh(remains)
+
+    return build_detail(db, remains)

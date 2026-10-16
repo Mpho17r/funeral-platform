@@ -7,6 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+    snapshot_fields,
+)
 
 from app.models.case_financial import CaseFinancial
 from app.models.case_payment import CasePayment
@@ -23,6 +28,21 @@ from app.schemas.case_financial import (
 router = APIRouter(
     prefix="/cases",
     tags=["Case Financials"],
+)
+
+
+# Fields whose changes are recorded in the audit trail. This includes
+# the calculated fields so the history shows how a balance moved.
+AUDITED_FINANCIAL_FIELDS = (
+    "subtotal",
+    "discount",
+    "tax",
+    "total",
+    "amount_paid",
+    "balance",
+    "credit",
+    "status",
+    "notes",
 )
 
 
@@ -310,6 +330,23 @@ def create_financial(
         financial=financial,
     )
 
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="case.financial_created",
+        entity_type="case_financial",
+        entity_id=financial.id,
+        details={
+            "case_id": str(case_id),
+            "subtotal": str(financial.subtotal),
+            "discount": str(financial.discount),
+            "tax": str(financial.tax),
+            "total": str(financial.total),
+        },
+        notes="Case financial record was created.",
+    )
+
     # --------------------------------------------------------
     # Commit
     # --------------------------------------------------------
@@ -459,6 +496,11 @@ def update_financial(
     updates.pop("balance", None)
     updates.pop("credit", None)
 
+    old_values = snapshot_fields(
+        financial,
+        AUDITED_FINANCIAL_FIELDS,
+    )
+
     for field, value in updates.items():
         setattr(financial, field, value)
 
@@ -470,6 +512,30 @@ def update_financial(
         db=db,
         financial=financial,
     )
+
+    # --------------------------------------------------------
+    # Audit
+    # --------------------------------------------------------
+
+    changes = build_audit_changes(
+        old_values,
+        snapshot_fields(financial, AUDITED_FINANCIAL_FIELDS),
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="case.financial_updated",
+            entity_type="case_financial",
+            entity_id=financial.id,
+            details={
+                "case_id": str(financial.case_id),
+                "changes": changes,
+            },
+            notes="Case financial record was updated.",
+        )
 
     # --------------------------------------------------------
     # Commit
@@ -556,6 +622,11 @@ def recalculate_case_financial(
         Decimal("0.00"),
     )
 
+    old_values = snapshot_fields(
+        financial,
+        AUDITED_FINANCIAL_FIELDS,
+    )
+
     financial.subtotal = subtotal.quantize(
         Decimal("0.01")
     )
@@ -568,6 +639,30 @@ def recalculate_case_financial(
         db=db,
         financial=financial,
     )
+
+    # --------------------------------------------------------
+    # Audit
+    # --------------------------------------------------------
+
+    changes = build_audit_changes(
+        old_values,
+        snapshot_fields(financial, AUDITED_FINANCIAL_FIELDS),
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="case.financial_recalculated",
+            entity_type="case_financial",
+            entity_id=financial.id,
+            details={
+                "case_id": str(case_id),
+                "changes": changes,
+            },
+            notes="Case financial record was recalculated from services.",
+        )
 
     # --------------------------------------------------------
     # Commit
@@ -609,6 +704,23 @@ def delete_financial(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Financial record not found",
         )
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="case.financial_deleted",
+        entity_type="case_financial",
+        entity_id=financial.id,
+        details={
+            "case_id": str(financial.case_id),
+            "total": str(financial.total),
+            "amount_paid": str(financial.amount_paid),
+            "balance": str(financial.balance),
+            "status": financial.status,
+        },
+        notes="Case financial record was deleted.",
+    )
 
     db.delete(financial)
     db.commit()

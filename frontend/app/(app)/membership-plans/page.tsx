@@ -19,6 +19,10 @@ type MembershipPlan = {
   description: string | null;
   monthly_contribution: string | number;
   is_active: boolean;
+  waiting_natural_months: number;
+  waiting_accidental_months: number;
+  waiting_suicide_months: number;
+  waiting_upgrade_months: number;
   created_at: string;
   updated_at: string;
 };
@@ -28,13 +32,71 @@ type PlanForm = {
   description: string;
   monthly_contribution: string;
   is_active: boolean;
+  waiting_natural_months: string;
+  waiting_accidental_months: string;
+  waiting_suicide_months: string;
+  waiting_upgrade_months: string;
 };
+
+const WAITING_FIELDS: {
+  key:
+    | "waiting_natural_months"
+    | "waiting_accidental_months"
+    | "waiting_suicide_months"
+    | "waiting_upgrade_months";
+  label: string;
+  hint: string;
+}[] = [
+  {
+    key: "waiting_natural_months",
+    label: "Natural death",
+    hint: "Months before a natural death is covered.",
+  },
+  {
+    key: "waiting_accidental_months",
+    label: "Accidental death",
+    hint: "Also used for a homicide. Often 0.",
+  },
+  {
+    key: "waiting_suicide_months",
+    label: "Suicide",
+    hint: "Often 12 months.",
+  },
+  {
+    key: "waiting_upgrade_months",
+    label: "After an upgrade",
+    hint: "Cover stays at the old plan's level for this long.",
+  },
+];
+
+function waitingSummary(plan: MembershipPlan) {
+  const parts = [
+    ["Natural", plan.waiting_natural_months],
+    ["Accidental", plan.waiting_accidental_months],
+    ["Suicide", plan.waiting_suicide_months],
+    ["Upgrade", plan.waiting_upgrade_months],
+  ] as const;
+
+  if (parts.every(([, months]) => !months)) {
+    return "No waiting periods";
+  }
+
+  return parts
+    .map(([label, months]) =>
+      `${label} ${months ? `${months} mo` : "none"}`
+    )
+    .join(" · ");
+}
 
 const emptyForm: PlanForm = {
   name: "",
   description: "",
   monthly_contribution: "",
   is_active: true,
+  waiting_natural_months: "0",
+  waiting_accidental_months: "0",
+  waiting_suicide_months: "0",
+  waiting_upgrade_months: "0",
 };
 
 export default function MembershipPlansPage() {
@@ -88,6 +150,10 @@ export default function MembershipPlansPage() {
       description: plan.description || "",
       monthly_contribution: String(plan.monthly_contribution),
       is_active: plan.is_active,
+      waiting_natural_months: String(plan.waiting_natural_months ?? 0),
+      waiting_accidental_months: String(plan.waiting_accidental_months ?? 0),
+      waiting_suicide_months: String(plan.waiting_suicide_months ?? 0),
+      waiting_upgrade_months: String(plan.waiting_upgrade_months ?? 0),
     });
     setFormError("");
     setShowForm(true);
@@ -126,6 +192,27 @@ export default function MembershipPlansPage() {
       return;
     }
 
+    const waiting: Record<string, number> = {};
+
+    for (const field of WAITING_FIELDS) {
+      const raw = form[field.key].trim();
+      const months = Number(raw);
+
+      if (
+        raw === "" ||
+        !Number.isInteger(months) ||
+        months < 0 ||
+        months > 60
+      ) {
+        setFormError(
+          `${field.label} waiting period must be a whole number of months from 0 to 60.`
+        );
+        return;
+      }
+
+      waiting[field.key] = months;
+    }
+
     try {
       setSaving(true);
 
@@ -134,6 +221,7 @@ export default function MembershipPlansPage() {
         description: form.description.trim() || null,
         monthly_contribution: monthlyContribution,
         is_active: form.is_active,
+        ...waiting,
       };
 
       if (editingPlan) {
@@ -372,6 +460,10 @@ export default function MembershipPlansPage() {
                       <p className="text-lg font-bold text-slate-900">
                         {formatCurrency(plan.monthly_contribution)}
                       </p>
+
+                      <p className="mt-2 text-xs text-slate-500">
+                        Waiting periods: {waitingSummary(plan)}
+                      </p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -510,6 +602,51 @@ export default function MembershipPlansPage() {
                     />
                   </div>
                 </div>
+
+                <fieldset>
+                  <legend className="mb-1 text-sm font-medium text-slate-700">
+                    Waiting periods (months)
+                  </legend>
+
+                  <p className="mb-3 text-xs text-slate-500">
+                    Counted from the date cover starts. Use 0 for no waiting
+                    period.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {WAITING_FIELDS.map((field) => (
+                      <div key={field.key}>
+                        <label
+                          htmlFor={field.key}
+                          className="mb-1 block text-xs font-medium text-slate-600"
+                        >
+                          {field.label}
+                        </label>
+
+                        <input
+                          id={field.key}
+                          type="number"
+                          min="0"
+                          max="60"
+                          step="1"
+                          value={form[field.key]}
+                          onChange={(event) =>
+                            setForm({
+                              ...form,
+                              [field.key]: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                          disabled={saving}
+                        />
+
+                        <p className="mt-1 text-xs text-slate-400">
+                          {field.hint}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </fieldset>
 
                 <label className="flex cursor-pointer items-center gap-3">
                   <input

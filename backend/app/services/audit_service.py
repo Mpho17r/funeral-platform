@@ -20,6 +20,37 @@ SENSITIVE_AUDIT_FIELDS = {
     "email",
     "address",
     "notes",
+    "description",
+    "title",
+    "cause_of_death",
+    "deceased_id_number",
+    "id_number",
+    "place_of_death",
+    "certifier_name",
+    "police_case_number",
+    "informant_name",
+    "informant_relationship",
+    "informant_phone",
+    "informant_id_number",
+    "reference_number",
+    "received_from",
+    "collected_by_name",
+    "condition_notes",
+    "belongings",
+    "identified_by_name",
+    "identified_relationship",
+    "released_to_name",
+    "released_to_id_number",
+    "released_to_relationship",
+    "wake_venue",
+    "wake_address",
+    "service_address",
+    "officiant",
+    "pickup_address",
+    "pickup_contact_name",
+    "pickup_contact_phone",
+    "cancel_reason",
+    "opt_out_reason",
 }
 
 
@@ -43,6 +74,27 @@ def _serialize_audit_value(value):
         return str(value)
 
     return value
+
+
+def serialize_snapshot(snapshot: dict) -> dict:
+    """
+    Make a snapshot_fields result JSON-safe, for audit entries that
+    record the whole record (such as on creation).
+    """
+    return {
+        field: _serialize_audit_value(value)
+        for field, value in snapshot.items()
+    }
+
+
+def snapshot_fields(instance, fields) -> dict:
+    """
+    Capture the current values of the given attributes.
+
+    Call once before and once after a change, then pass both
+    snapshots to build_audit_changes.
+    """
+    return {field: getattr(instance, field) for field in fields}
 
 
 def build_audit_changes(

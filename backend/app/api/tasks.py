@@ -6,6 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.services.audit_service import (
+    build_audit_changes,
+    create_audit_log,
+    snapshot_fields,
+)
 
 from app.models.case_task import CaseTask
 from app.models.funeral_case import FuneralCase
@@ -21,6 +26,17 @@ from app.schemas.case_task import (
 router = APIRouter(
     prefix="/cases",
     tags=["Case Tasks"],
+)
+
+
+# Fields whose changes are recorded in the audit trail.
+AUDITED_TASK_FIELDS = (
+    "title",
+    "description",
+    "status",
+    "due_date",
+    "assigned_to",
+    "completed_at",
 )
 
 
@@ -165,6 +181,27 @@ def create_task(
     )
 
     db.add(task)
+    db.flush()
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="case.task_created",
+        entity_type="case_task",
+        entity_id=task.id,
+        details={
+            "case_id": str(case_id),
+            "status": task.status,
+            "assigned_to": (
+                str(task.assigned_to)
+                if task.assigned_to
+                else None
+            ),
+        },
+        notes="Case task was created.",
+    )
+
     db.commit()
     db.refresh(task)
 
@@ -329,6 +366,11 @@ def update_task(
     # Apply updates
     # --------------------------------------------------------
 
+    old_values = snapshot_fields(
+        task,
+        AUDITED_TASK_FIELDS,
+    )
+
     for field, value in updates.items():
 
         setattr(
@@ -362,6 +404,30 @@ def update_task(
     task.updated_at = (
         datetime.now(timezone.utc)
     )
+
+    # --------------------------------------------------------
+    # Audit
+    # --------------------------------------------------------
+
+    changes = build_audit_changes(
+        old_values,
+        snapshot_fields(task, AUDITED_TASK_FIELDS),
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="case.task_updated",
+            entity_type="case_task",
+            entity_id=task.id,
+            details={
+                "case_id": str(task.case_id),
+                "changes": changes,
+            },
+            notes="Case task was updated.",
+        )
 
     db.commit()
     db.refresh(task)
@@ -411,8 +477,22 @@ def delete_task(
         )
 
     # --------------------------------------------------------
-    # Delete
+    # Audit, then delete
     # --------------------------------------------------------
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=UUID(str(current_user["user_id"])),
+        action="case.task_deleted",
+        entity_type="case_task",
+        entity_id=task.id,
+        details={
+            "case_id": str(task.case_id),
+            "status": task.status,
+        },
+        notes="Case task was deleted.",
+    )
 
     db.delete(task)
     db.commit()

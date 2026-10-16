@@ -9,12 +9,22 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.covered_dependent import CoveredDependent
+from app.models.death_record import DeathRecord
 from app.models.funeral_case import FuneralCase
 from app.models.membership import Membership
 from app.models.membership_plan import MembershipPlan
 from app.models.membership_plan_benefit import MembershipPlanBenefit
 from app.services.membership_status import (
     is_membership_covered,
+)
+from app.services.waiting_periods import (
+    CAUSE_PENDING,
+    IN_WAITING,
+    UpgradeWaitingResult,
+    WaitingPeriodResult,
+    cause_category,
+    evaluate_upgrade_waiting,
+    evaluate_waiting_period,
 )
 
 
@@ -40,6 +50,12 @@ class CoverageDecision:
     plan_id: UUID | None
     plan_name: str | None
     benefits: list[BenefitCoverage]
+    waiting_period: WaitingPeriodResult | None = None
+    upgrade_waiting: UpgradeWaitingResult | None = None
+    # The plan whose benefits apply. It differs from plan_id while an
+    # upgrade waiting period is running.
+    benefit_plan_id: UUID | None = None
+    benefit_plan_name: str | None = None
 
 
 def get_case_for_business(
@@ -111,6 +127,19 @@ def get_active_plan_benefits(
                 MembershipPlanBenefit.created_at.asc(),
             )
         ).all()
+    )
+
+
+def get_death_record_for_case(
+    db: Session,
+    case_id: UUID,
+    business_id: UUID,
+) -> DeathRecord | None:
+    return db.scalar(
+        select(DeathRecord).where(
+            DeathRecord.case_id == case_id,
+            DeathRecord.business_id == business_id,
+        )
     )
 
 
@@ -337,12 +366,76 @@ def calculate_case_coverage(
         )
 
     # ---------------------------------------------------------
+    # Waiting periods
+    # ---------------------------------------------------------
+
+    dependent = None
+
+    if case.covered_dependent_id is not None:
+        dependent = get_dependent_for_business(
+            db,
+            case.covered_dependent_id,
+            business_id,
+        )
+
+    record = get_death_record_for_case(db, case.id, business_id)
+
+    waiting = evaluate_waiting_period(
+        plan,
+        cover_start=(
+            dependent.cover_start_date
+            if dependent is not None
+            else membership.start_date
+        ),
+        coverage_date=coverage_date,
+        record=record,
+    )
+
+    if waiting.status == IN_WAITING:
+        return CoverageDecision(
+            case_id=case.id,
+            membership_id=membership.id,
+            covered_dependent_id=case.covered_dependent_id,
+            covered=False,
+            reason=waiting.message,
+            plan_id=plan.id,
+            plan_name=plan.name,
+            benefits=[],
+            waiting_period=waiting,
+        )
+
+    # ---------------------------------------------------------
+    # Upgrade waiting period: cover stays at the previous level
+    # ---------------------------------------------------------
+
+    upgrade = evaluate_upgrade_waiting(
+        membership,
+        plan,
+        coverage_date=coverage_date,
+        category=cause_category(record),
+    )
+
+    benefit_plan = plan
+
+    if upgrade.active:
+        previous_plan = get_plan_for_business(
+            db,
+            upgrade.previous_plan_id,
+            business_id,
+        )
+
+        if previous_plan is not None:
+            benefit_plan = previous_plan
+        else:
+            upgrade = UpgradeWaitingResult(False, None, None, None)
+
+    # ---------------------------------------------------------
     # Benefits
     # ---------------------------------------------------------
 
     benefits = get_active_plan_benefits(
         db,
-        plan.id,
+        benefit_plan.id,
         business_id,
     )
 
@@ -360,13 +453,25 @@ def calculate_case_coverage(
         for benefit in benefits
     ]
 
+    reason = "Membership and applicable dependent coverage are valid."
+
+    if waiting.status == CAUSE_PENDING:
+        reason = f"{reason} {waiting.message}"
+
+    if upgrade.active:
+        reason = f"{reason} {upgrade.message}"
+
     return CoverageDecision(
         case_id=case.id,
         membership_id=membership.id,
         covered_dependent_id=case.covered_dependent_id,
         covered=True,
-        reason="Membership and applicable dependent coverage are valid.",
+        reason=reason,
         plan_id=plan.id,
         plan_name=plan.name,
         benefits=benefit_results,
+        waiting_period=waiting,
+        upgrade_waiting=upgrade if upgrade.active else None,
+        benefit_plan_id=benefit_plan.id,
+        benefit_plan_name=benefit_plan.name,
     )

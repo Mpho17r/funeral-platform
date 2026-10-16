@@ -91,6 +91,20 @@ def db():
             "role_permissions",
             "permissions",
 
+            # Quotes, invoices and receipts
+            "payment_receipts",
+            "financial_document_lines",
+            "financial_documents",
+
+            # Claims and beneficiaries
+            "membership_claims",
+            "membership_beneficiaries",
+
+            # Communications
+            "communication_messages",
+            "message_templates",
+            "member_communication_preferences",
+
             # Membership system
             "membership_payments",
             "membership_contributions",
@@ -99,6 +113,24 @@ def db():
             "membership_plan_benefits",
             "members",
             "membership_plans",
+
+            # Inventory and suppliers
+            "stock_movements",
+            "inventory_items",
+            "suppliers",
+
+            # Resources
+            "resource_bookings",
+            "resources",
+
+            # Death records and paperwork
+            "case_collections",
+            "funeral_arrangements",
+            "custody_events",
+            "remains_records",
+            "mortuary_locations",
+            "case_paperwork_items",
+            "death_records",
 
             # Funeral case system
             "case_payments",
@@ -115,6 +147,9 @@ def db():
             # User groups
             "group_members",
             "groups",
+
+            # Branches
+            "branches",
 
             # Core application tables
             "users",

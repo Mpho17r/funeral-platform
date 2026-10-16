@@ -32,6 +32,17 @@ class Member(Base):
         index=True,
     )
 
+    # The branch this record belongs to. Nullable so records created
+    # outside the API are not rejected; the API always assigns one.
+    # No ON DELETE rule: a branch in use cannot be removed, while
+    # deleting a whole business still cascades cleanly.
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("branches.id"),
+        nullable=True,
+        index=True,
+    )
+
     member_number: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
@@ -83,6 +94,31 @@ class Member(Base):
         String(30),
         default="active",
         nullable=False,
+    )
+
+    # A member is never deleted outright: their policies, payments and
+    # claims must stay readable. Archiving hides them and can be undone.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+
+    archived_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    archive_reason: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    # Set when the personal details were permanently removed on request.
+    anonymised_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

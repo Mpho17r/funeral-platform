@@ -14,6 +14,10 @@ class MembershipPlanCreate(BaseModel):
         max_digits=12,
     )
     is_active: bool = True
+    waiting_natural_months: int = Field(default=0, ge=0, le=60)
+    waiting_accidental_months: int = Field(default=0, ge=0, le=60)
+    waiting_suicide_months: int = Field(default=0, ge=0, le=60)
+    waiting_upgrade_months: int = Field(default=0, ge=0, le=60)
 
 
 class MembershipPlanUpdate(BaseModel):
@@ -26,6 +30,12 @@ class MembershipPlanUpdate(BaseModel):
         max_digits=12,
     )
     is_active: bool | None = None
+    waiting_natural_months: int | None = Field(default=None, ge=0, le=60)
+    waiting_accidental_months: int | None = Field(
+        default=None, ge=0, le=60
+    )
+    waiting_suicide_months: int | None = Field(default=None, ge=0, le=60)
+    waiting_upgrade_months: int | None = Field(default=None, ge=0, le=60)
 
 
 class MembershipPlanResponse(BaseModel):
@@ -37,5 +47,9 @@ class MembershipPlanResponse(BaseModel):
     description: str | None
     monthly_contribution: Decimal
     is_active: bool
+    waiting_natural_months: int
+    waiting_accidental_months: int
+    waiting_suicide_months: int
+    waiting_upgrade_months: int
     created_at: datetime
     updated_at: datetime
