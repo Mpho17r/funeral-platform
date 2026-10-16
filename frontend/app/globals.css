@@ -2,114 +2,182 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --input: #ffffff;
-}
+/* ============================================================
+   FuneralOS design system
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+   Direction: calm, dignified, easy to read through a long day.
+   - Neutrals are a green-tinted "mist" scale instead of cold blue-grey.
+   - Figtree for everything you read or tap; Newsreader only for
+     page titles and dates, where a little gravity helps.
+   - Tenant branding (--brand-primary / --brand-secondary) is layered
+     on top of this base and never replaced by it.
+
+   Every page in the app uses Tailwind's slate/gray utilities, so the
+   scales below retune the whole product in one place.
+   ============================================================ */
+
+@theme {
+  /* Type */
+  --font-sans:
+    "Figtree Variable", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-serif:
+    "Newsreader Variable", ui-serif, Georgia, "Times New Roman", serif;
+
+  /* Mist neutrals: slate and gray share one scale */
+  --color-slate-50: #f5f7f6;
+  --color-slate-100: #edf1ef;
+  --color-slate-200: #dce3e0;
+  --color-slate-300: #c3cec9;
+  --color-slate-400: #8e9d97;
+  --color-slate-500: #667772;
+  --color-slate-600: #4d5e59;
+  --color-slate-700: #384742;
+  --color-slate-800: #25322e;
+  --color-slate-900: #162620;
+  --color-slate-950: #0c1512;
+
+  --color-gray-50: #f5f7f6;
+  --color-gray-100: #edf1ef;
+  --color-gray-200: #dce3e0;
+  --color-gray-300: #c3cec9;
+  --color-gray-400: #8e9d97;
+  --color-gray-500: #667772;
+  --color-gray-600: #4d5e59;
+  --color-gray-700: #384742;
+  --color-gray-800: #25322e;
+  --color-gray-900: #162620;
+  --color-gray-950: #0c1512;
+
+  --color-zinc-50: #f5f7f6;
+
+  /* Slightly tighter, more refined corners */
+  --radius-md: 0.4rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.7rem;
+  --radius-2xl: 0.95rem;
+  --radius-3xl: 1.25rem;
+
+  /* Soft, green-tinted shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(12 30 24 / 0.05);
+  --shadow-md:
+    0 4px 10px -2px rgb(12 30 24 / 0.08), 0 2px 4px -2px rgb(12 30 24 / 0.05);
+  --shadow-lg:
+    0 12px 24px -6px rgb(12 30 24 / 0.12), 0 4px 8px -4px rgb(12 30 24 / 0.06);
+  --shadow-xl:
+    0 20px 40px -12px rgb(12 30 24 / 0.18), 0 8px 16px -8px rgb(12 30 24 / 0.08);
+  --shadow-2xl: 0 28px 60px -16px rgb(12 30 24 / 0.28);
 }
 
 * {
   box-sizing: border-box;
 }
 
-html {
-  background: var(--background);
+/* Tailwind v4 draws bare `border` classes in currentColor (near-black here).
+   Default them to the soft theme border; explicit border-* colours still win. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop {
+    border-color: var(--fos-border);
+  }
 }
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-/* ============================================================
-   FuneralOS Design System
-   ============================================================ */
 
 :root {
   color-scheme: light;
 
-  --fos-page: #f8fafc;
+  --fos-page: #f2f5f3;
   --fos-surface: #ffffff;
-  --fos-surface-muted: #f1f5f9;
-  --fos-border: #e2e8f0;
+  --fos-surface-muted: #edf1ef;
+  --fos-border: #dce3e0;
 
-  --fos-text: #0f172a;
-  --fos-text-secondary: #475569;
-  --fos-text-muted: #64748b;
+  --fos-text: #162620;
+  --fos-text-secondary: #4d5e59;
+  --fos-text-muted: #667772;
 
-  --fos-primary: #0f172a;
-  --fos-primary-hover: #1e293b;
+  --fos-primary: #162620;
+  --fos-primary-hover: #25322e;
 
-  --fos-success-bg: #f0fdf4;
-  --fos-success-text: #15803d;
+  --fos-focus: #2f8a73;
 
-  --fos-warning-bg: #fffbeb;
-  --fos-warning-text: #b45309;
+  --fos-success-bg: #ecf8f1;
+  --fos-success-text: #17714a;
 
-  --fos-danger-bg: #fef2f2;
-  --fos-danger-text: #b91c1c;
+  --fos-warning-bg: #fff7e6;
+  --fos-warning-text: #9a5b0a;
 
-  --fos-info-bg: #eff6ff;
-  --fos-info-text: #1d4ed8;
+  --fos-danger-bg: #fdf0ef;
+  --fos-danger-text: #b4261f;
+
+  --fos-info-bg: #edf4fb;
+  --fos-info-text: #1d5a96;
+
+  /* Tenant branding defaults, overridden at runtime */
+  --brand-primary: #162620;
+  --brand-secondary: #5e8077;
+  --brand-watermark-opacity: 0.05;
 }
 
 html.dark {
   color-scheme: dark;
 
-  --fos-page: #0f172a;
-  --fos-surface: #1e293b;
-  --fos-surface-muted: #273449;
-  --fos-border: #334155;
+  --fos-page: #0c1512;
+  --fos-surface: #162620;
+  --fos-surface-muted: #1d3029;
+  --fos-border: #2a3d36;
 
-  --fos-text: #f8fafc;
-  --fos-text-secondary: #cbd5e1;
-  --fos-text-muted: #94a3b8;
+  --fos-text: #f2f6f4;
+  --fos-text-secondary: #c3cec9;
+  --fos-text-muted: #8e9d97;
 
-  --fos-primary: #f8fafc;
-  --fos-primary-hover: #e2e8f0;
+  --fos-primary: #f2f6f4;
+  --fos-primary-hover: #dce3e0;
 
-  --fos-success-bg: #052e16;
-  --fos-success-text: #86efac;
+  --fos-focus: #5fc4a8;
 
-  --fos-warning-bg: #451a03;
-  --fos-warning-text: #fcd34d;
+  --fos-success-bg: #0b2a1c;
+  --fos-success-text: #86e0b0;
 
-  --fos-danger-bg: #450a0a;
-  --fos-danger-text: #fca5a5;
+  --fos-warning-bg: #35230a;
+  --fos-warning-text: #f5c36b;
 
-  --fos-info-bg: #172554;
-  --fos-info-text: #93c5fd;
+  --fos-danger-bg: #3a1513;
+  --fos-danger-text: #f6a8a2;
+
+  --fos-info-bg: #12263b;
+  --fos-info-text: #9ac6f0;
 }
 
 html,
 body {
+  min-height: 100%;
+  background: var(--fos-page);
+  color: var(--fos-text);
   transition:
     background-color 150ms ease,
     color 150ms ease;
 }
 
 body {
-  background: var(--fos-page);
-  color: var(--fos-text);
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Page titles and ceremonial dates use the serif */
+.font-display {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 /* ============================================================
-   FuneralOS Form Controls
-   Keep typed text readable in every theme.
+   Form controls
+   Typed text stays readable in every theme.
    ============================================================ */
 
 input,
@@ -139,26 +207,62 @@ option {
 }
 
 /* ============================================================
-   FUNERALOS TENANT BRANDING
+   Focus, always visible for keyboard users
+   (unlayered so it wins over per-page utility classes)
    ============================================================ */
 
-:root {
-  --brand-primary: #0f172a;
-  --brand-secondary: #64748b;
-  --brand-watermark-opacity: 0.05;
+:focus-visible {
+  outline: 2px solid var(--fos-focus);
+  outline-offset: 2px;
 }
 
-/* Primary brand utility */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: var(--fos-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fos-focus) 28%, transparent);
+}
+
+button,
+[role="button"],
+a,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled),
+[role="button"] {
+  cursor: pointer;
+}
+
+/* Table headers read as quiet labels, not shouting caps */
+thead th {
+  letter-spacing: 0.01em;
+  text-transform: none !important;
+  font-size: 0.78rem;
+}
+
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--fos-focus) 30%, transparent);
+}
+
+/* ============================================================
+   Tenant branding helpers
+   ============================================================ */
+
 .brand-primary {
   background-color: var(--brand-primary);
 }
 
-/* Secondary brand utility */
 .brand-secondary {
   background-color: var(--brand-secondary);
 }
 
-/* Brand text */
 .brand-primary-text {
   color: var(--brand-primary);
 }
@@ -167,56 +271,10 @@ option {
   color: var(--brand-secondary);
 }
 
-/* Brand border */
 .brand-primary-border {
   border-color: var(--brand-primary);
 }
 
-/* Global watermark */
-.brand-watermark {
-  position: relative;
-}
-
-.brand-watermark::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-
-  background-image: var(--brand-watermark-url);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: min(55vw, 650px);
-
-  opacity: var(--brand-watermark-opacity);
-
-  pointer-events: none;
-
-  z-index: 0;
-}
-
-.brand-watermark > * {
-  position: relative;
-  z-index: 1;
-}
-/* ============================================================
-   GLOBAL FUNERALOS THEME SURFACE
-   ============================================================ */
-
-html,
-body {
-  min-height: 100%;
-}
-
-html {
-  background: var(--fos-page);
-}
-
-body {
-  background: var(--fos-page);
-  color: var(--fos-text);
-}
-
-/* Brand-aware interactive elements */
 .brand-primary-button {
   background-color: var(--brand-primary);
   color: #ffffff;
@@ -235,7 +293,6 @@ body {
   opacity: 0.9;
 }
 
-/* Brand gradient */
 .brand-gradient {
   background: linear-gradient(
     90deg,
@@ -244,22 +301,81 @@ body {
   );
 }
 
-/* Brand focus ring */
 .brand-focus:focus {
   outline: none;
-  box-shadow:
-    0 0 0 3px
-    color-mix(
-      in srgb,
-      var(--brand-primary) 20%,
-      transparent
-    );
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--brand-primary) 20%, transparent);
+}
+
+.brand-watermark {
+  position: relative;
+}
+
+.brand-watermark::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: var(--brand-watermark-url);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: min(55vw, 650px);
+  opacity: var(--brand-watermark-opacity);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.brand-watermark > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   Motion
+   One considered entrance on the dashboard; everything else
+   responds to what the person does.
+   ============================================================ */
+
+@keyframes fos-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fos-rise {
+  animation: fos-rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes fos-drawer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.fos-drawer {
+  animation: fos-drawer 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Consistent scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color:
-    var(--fos-border)
-    transparent;
+  scrollbar-color: var(--fos-border) transparent;
 }

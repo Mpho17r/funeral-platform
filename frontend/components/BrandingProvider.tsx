@@ -299,6 +299,9 @@ export function BrandingProvider({
    * Load branding when the provider mounts.
    */
   useEffect(() => {
+    // Intentionally start the asynchronous initial branding load.
+    // The refresh function manages API requests and loading state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshBranding();
   }, [refreshBranding]);
 

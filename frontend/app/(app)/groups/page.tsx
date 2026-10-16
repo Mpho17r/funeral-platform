@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   AlertCircle,
@@ -25,6 +25,28 @@ type Group = {
   updated_at: string;
 };
 
+function getApiErrorMessage(
+  error: unknown,
+  fallback: string,
+): string {
+  if (error !== null && typeof error === "object") {
+    const errorRecord = error as Record<string, unknown>;
+    const response = errorRecord.response;
+
+    if (response !== null && typeof response === "object") {
+      const responseRecord = response as Record<string, unknown>;
+      const data = responseRecord.data;
+
+      if (data !== null && typeof data === "object") {
+        const detail = (data as Record<string, unknown>).detail;
+        if (typeof detail === "string") return detail;
+      }
+    }
+  }
+
+  return fallback;
+}
+
 export default function GroupsPage() {
   const router = useRouter();
 
@@ -38,29 +60,32 @@ export default function GroupsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
-  useEffect(() => {
-    loadGroups();
-  }, []);
-
-  async function loadGroups() {
+  const loadGroups = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-
       const response = await api.get<Group[]>("/groups");
       setGroups(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to load groups:", err);
-
-      const message =
-        err?.response?.data?.detail ||
-        "Unable to load groups. Please try again.";
-
-      setError(message);
+      setError(
+        getApiErrorMessage(
+          err,
+          "Unable to load groups. Please try again.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    async function initializeGroups() {
+      await loadGroups();
+    }
+
+    void initializeGroups();
+  }, [loadGroups]);
 
   function openCreateModal() {
     setName("");
@@ -106,14 +131,14 @@ export default function GroupsPage() {
       setDescription("");
 
       router.push(`/groups/${response.data.id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to create group:", err);
-
-      const message =
-        err?.response?.data?.detail ||
-        "Unable to create the group. Please try again.";
-
-      setError(message);
+      setError(
+        getApiErrorMessage(
+          err,
+          "Unable to create the group. Please try again.",
+        ),
+      );
     } finally {
       setCreating(false);
     }
