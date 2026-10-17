@@ -65,14 +65,14 @@ export function getApiErrorMessage(
 }
 
 export function formatMoney(value: string | number | null) {
-  return Number(value || 0).toLocaleString("en-ZA", {
+  return Number(value || 0).toLocaleString("en-GB", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
 export function formatPercent(value: string | number) {
-  return `${Number(value).toLocaleString("en-ZA", {
+  return `${Number(value).toLocaleString("en-GB", {
     maximumFractionDigits: 2,
   })}%`;
 }

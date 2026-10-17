@@ -16,6 +16,7 @@ from app.services.login_security import (
     record_success,
 )
 from app.database import get_db
+from app.models.branch import Branch
 from app.models.user import User
 from app.models.business import Business
 from app.schemas.auth import (
@@ -380,5 +381,23 @@ def change_password(
 )
 def get_me(
     current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return current_user
+    """Who is signed in: the token details plus the name, job title and
+    branch the app shows beside their work."""
+
+    user = db.get(User, current_user["user_id"])
+    branch = (
+        db.get(Branch, user.branch_id)
+        if user is not None and user.branch_id is not None
+        else None
+    )
+
+    return {
+        **current_user,
+        "full_name": user.full_name if user else None,
+        "email": user.email if user else None,
+        "job_title": user.job_title if user else None,
+        "branch_id": user.branch_id if user else None,
+        "branch_name": branch.name if branch else None,
+    }

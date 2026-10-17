@@ -12,9 +12,29 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 
 import api from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
+
+
+type ApiErrorResponse = {
+  detail?: string;
+};
+
+function getApiError(err: unknown): {
+  status?: number;
+  detail?: string;
+} {
+  if (!axios.isAxiosError<ApiErrorResponse>(err)) {
+    return {};
+  }
+
+  return {
+    status: err.response?.status,
+    detail: err.response?.data?.detail,
+  };
+}
 
 type PresenceStatus =
   | "online"
@@ -96,7 +116,7 @@ function getStatusClasses(status: PresenceStatus) {
       return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300";
 
     default:
-      return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
+      return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)] dark:bg-slate-800 dark:text-slate-300";
   }
 }
 
@@ -215,15 +235,16 @@ export default function StaffWorkspacePage() {
 
         setAttendance(attendanceResponse.data);
         setPresence(presenceResponse.data);
-      } catch (err: any) {
-        if (err?.response?.status === 401) {
+      } catch (err: unknown) {
+        const apiError = getApiError(err);
+        if (apiError.status === 401) {
           router.push("/login");
           return;
         }
 
         if (mountedRef.current) {
           setError(
-            err?.response?.data?.detail ||
+            apiError.detail ||
               "Unable to load staff workspace."
           );
         }
@@ -248,14 +269,15 @@ export default function StaffWorkspacePage() {
       try {
         await request();
         await loadWorkspace(true);
-      } catch (err: any) {
-        if (err?.response?.status === 401) {
+      } catch (err: unknown) {
+        const apiError = getApiError(err);
+        if (apiError.status === 401) {
           router.push("/login");
           return;
         }
 
         setError(
-          err?.response?.data?.detail ||
+          apiError.detail ||
             "Unable to complete that action."
         );
       } finally {
@@ -309,13 +331,14 @@ export default function StaffWorkspacePage() {
       if (mountedRef.current) {
         setAttendance(response.data);
       }
-    } catch (err: any) {
-      if (err?.response?.status === 401) {
+    } catch (err: unknown) {
+        const apiError = getApiError(err);
+      if (apiError.status === 401) {
         router.push("/login");
         return;
       }
 
-      if (err?.response?.status === 409) {
+      if (apiError.status === 409) {
         await loadWorkspace();
       }
     }
@@ -329,6 +352,8 @@ export default function StaffWorkspacePage() {
       return;
     }
 
+    // The initial workspace fetch belongs in this authentication effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadWorkspace();
 
     return () => {
@@ -399,7 +424,6 @@ export default function StaffWorkspacePage() {
       person.status === "away"
   ).length;
 
-  const breakCount = currentBreak ? 1 : 0;
   const breakExpiresAt = attendance?.break_expires_at ?? null;
   const breakWarningActive =
     attendance?.break_warning_active ?? false;
@@ -411,11 +435,11 @@ export default function StaffWorkspacePage() {
     <main className="space-y-6 p-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-950 dark:text-white">
+          <h1 className="text-2xl font-bold text-[var(--fos-text)] dark:text-white">
             Staff Workspace
           </h1>
 
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
             Manage your attendance and see your team&apos;s current availability.
           </p>
         </div>
@@ -424,7 +448,7 @@ export default function StaffWorkspacePage() {
           type="button"
           onClick={() => loadWorkspace(true)}
           disabled={refreshing}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           <RefreshCw
             size={16}
@@ -441,21 +465,21 @@ export default function StaffWorkspacePage() {
       )}
 
       {/* MY ATTENDANCE */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2">
               <UserCheck
                 size={20}
-                className="text-slate-500"
+                className="text-[var(--fos-text-muted)]"
               />
 
-              <h2 className="font-semibold text-slate-950 dark:text-white">
+              <h2 className="font-semibold text-[var(--fos-text)] dark:text-white">
                 My Attendance
               </h2>
             </div>
 
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
               Check in when you start work and check out when your workday ends.
             </p>
 
@@ -478,11 +502,11 @@ export default function StaffWorkspacePage() {
             {attendance?.attendance && (
               <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                     Checked in
                   </p>
 
-                  <p className="font-medium text-slate-900 dark:text-white">
+                  <p className="font-medium text-[var(--fos-text)] dark:text-white">
                     {formatDateTime(
                       attendance.attendance.checked_in_at
                     )}
@@ -490,11 +514,11 @@ export default function StaffWorkspacePage() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                     Current session
                   </p>
 
-                  <p className="font-medium text-slate-900 dark:text-white">
+                  <p className="font-medium text-[var(--fos-text)] dark:text-white">
                     {formatElapsed(
                       attendance.attendance.checked_in_at
                     )}
@@ -559,7 +583,7 @@ export default function StaffWorkspacePage() {
                           fill="none"
                           stroke="currentColor"
                           strokeWidth="7"
-                          className="text-slate-200 dark:text-slate-800"
+                          className="text-slate-200 dark:text-[var(--fos-text)]"
                         />
 
                         <circle
@@ -591,7 +615,7 @@ export default function StaffWorkspacePage() {
                           {remainingBreakTime}
                         </p>
 
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                           remaining
                         </p>
                       </div>
@@ -607,7 +631,7 @@ export default function StaffWorkspacePage() {
                 type="button"
                 onClick={checkIn}
                 disabled={action !== null || loading}
-                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[var(--fos-surface)] dark:text-[var(--fos-text)] dark:hover:bg-[var(--fos-border)]"
               >
                 {action === "check-in" ? (
                   <RefreshCw
@@ -627,7 +651,7 @@ export default function StaffWorkspacePage() {
                       type="button"
                       onClick={() => startBreak("tea")}
                       disabled={action !== null}
-                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                      className="inline-flex items-center gap-2 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                       {action === "tea" ? (
                         <RefreshCw
@@ -644,7 +668,7 @@ export default function StaffWorkspacePage() {
                       type="button"
                       onClick={() => startBreak("lunch")}
                       disabled={action !== null}
-                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                      className="inline-flex items-center gap-2 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                       {action === "lunch" ? (
                         <RefreshCw
@@ -703,72 +727,72 @@ export default function StaffWorkspacePage() {
 
       {/* SUMMARY */}
       <section className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-2.5 dark:bg-slate-800">
+            <div className="rounded-xl bg-[var(--fos-surface-muted)] p-2.5 dark:bg-slate-800">
               <Users size={19} />
             </div>
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                 Team
               </p>
 
-              <p className="text-2xl font-bold text-slate-950 dark:text-white">
+              <p className="text-2xl font-bold text-[var(--fos-text)] dark:text-white">
                 {loading ? "—" : presence.length}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-emerald-100 p-2.5 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
               <UserCheck size={19} />
             </div>
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                 Online
               </p>
 
-              <p className="text-2xl font-bold text-slate-950 dark:text-white">
+              <p className="text-2xl font-bold text-[var(--fos-text)] dark:text-white">
                 {loading ? "—" : onlineCount}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-blue-100 p-2.5 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
               <Clock3 size={19} />
             </div>
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                 At work
               </p>
 
-              <p className="text-2xl font-bold text-slate-950 dark:text-white">
+              <p className="text-2xl font-bold text-[var(--fos-text)] dark:text-white">
                 {loading ? "—" : checkedInCount}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-amber-100 p-2.5 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
               <Clock3 size={19} />
             </div>
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                 Away
               </p>
 
-              <p className="text-2xl font-bold text-slate-950 dark:text-white">
+              <p className="text-2xl font-bold text-[var(--fos-text)] dark:text-white">
                 {loading ? "—" : awayCount}
               </p>
             </div>
@@ -798,29 +822,29 @@ export default function StaffWorkspacePage() {
       )}
 
       {/* TEAM PRESENCE */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-          <h2 className="font-semibold text-slate-950 dark:text-white">
+      <section className="overflow-hidden rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="border-b border-[var(--fos-border)] px-5 py-4 dark:border-slate-800">
+          <h2 className="font-semibold text-[var(--fos-text)] dark:text-white">
             Team Presence
           </h2>
 
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
             Current availability across this funeral business.
           </p>
         </div>
 
         {loading ? (
-          <div className="px-5 py-10 text-center text-sm text-slate-500">
+          <div className="px-5 py-10 text-center text-sm text-[var(--fos-text-muted)]">
             Loading staff presence...
           </div>
         ) : presence.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-slate-500">
+          <div className="px-5 py-10 text-center text-sm text-[var(--fos-text-muted)]">
             No staff presence records found.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/40">
+              <thead className="bg-[var(--fos-page)] text-xs uppercase tracking-wide text-[var(--fos-text-muted)] dark:bg-slate-950/40">
                 <tr>
                   <th className="px-5 py-3 font-medium">
                     Staff member
@@ -844,13 +868,13 @@ export default function StaffWorkspacePage() {
                 {presence.map((person) => (
                   <tr
                     key={person.id}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="hover:bg-[var(--fos-page)] dark:hover:bg-slate-800/40"
                   >
-                    <td className="px-5 py-4 font-medium text-slate-950 dark:text-white">
+                    <td className="px-5 py-4 font-medium text-[var(--fos-text)] dark:text-white">
                       {person.user_name}
                     </td>
 
-                    <td className="px-5 py-4 capitalize text-slate-600 dark:text-slate-300">
+                    <td className="px-5 py-4 capitalize text-[var(--fos-text-secondary)] dark:text-slate-300">
                       {person.role.replaceAll("_", " ")}
                     </td>
 
@@ -864,7 +888,7 @@ export default function StaffWorkspacePage() {
                       </span>
                     </td>
 
-                    <td className="px-5 py-4 text-slate-500 dark:text-slate-400">
+                    <td className="px-5 py-4 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                       {formatDateTime(person.last_seen_at)}
                     </td>
                   </tr>
@@ -875,7 +899,7 @@ export default function StaffWorkspacePage() {
         )}
       </section>
 
-      <div className="flex items-center gap-2 text-xs text-slate-400">
+      <div className="flex items-center gap-2 text-xs text-[var(--fos-text-muted)]">
         <Clock3 size={14} />
         <span>
           Attendance status is updated automatically from your activity.

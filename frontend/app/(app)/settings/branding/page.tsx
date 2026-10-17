@@ -3,6 +3,7 @@
 import {
   ChangeEvent,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -20,6 +21,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import { useBranding } from "@/components/BrandingProvider";
+import { useTheme } from "@/components/ThemeProvider";
 import api from "@/lib/api";
 
 type Business = {
@@ -35,10 +37,33 @@ type Business = {
 };
 
 function getErrorMessage(
-  error: any,
+  error: unknown,
   fallback: string,
-) {
-  const detail = error?.response?.data?.detail;
+): string {
+  type ValidationItem = {
+    msg?: unknown;
+    loc?: unknown;
+  };
+
+  type ErrorPayload = {
+    detail?: unknown;
+    message?: unknown;
+  };
+
+  type ErrorShape = {
+    response?: {
+      data?: ErrorPayload;
+    };
+    message?: unknown;
+  };
+
+  const candidate =
+    typeof error === "object" && error !== null
+      ? (error as ErrorShape)
+      : undefined;
+
+  const detail =
+    candidate?.response?.data?.detail;
 
   if (typeof detail === "string") {
     return detail;
@@ -46,48 +71,64 @@ function getErrorMessage(
 
   if (Array.isArray(detail)) {
     return detail
-      .map((item: any) => {
-        if (typeof item === "string") {
-          return item;
+      .map((value: unknown) => {
+        if (typeof value === "string") {
+          return value;
         }
 
-        if (item?.msg) {
-          const location = Array.isArray(item.loc)
-            ? item.loc.join(".")
-            : "";
-
-          return location
-            ? `${location}: ${item.msg}`
-            : item.msg;
+        if (typeof value !== "object" || value === null) {
+          return null;
         }
 
-        return null;
+        const item = value as ValidationItem;
+        if (typeof item.msg !== "string") {
+          return null;
+        }
+
+        const location = Array.isArray(item.loc)
+          ? item.loc
+              .filter((part): part is string | number =>
+                typeof part === "string" ||
+                typeof part === "number"
+              )
+              .join(".")
+          : "";
+
+        return location
+          ? `${location}: ${item.msg}`
+          : item.msg;
       })
-      .filter(Boolean)
-      .join(" | ");
+      .filter((value): value is string =>
+        typeof value === "string" && value.length > 0
+      )
+      .join(" | ") || fallback;
   }
 
-  if (
-    detail &&
-    typeof detail === "object" &&
-    typeof detail.msg === "string"
-  ) {
-    return detail.msg;
+  if (typeof detail === "object" && detail !== null) {
+    const item = detail as ValidationItem;
+    if (typeof item.msg === "string") {
+      return item.msg;
+    }
   }
 
-  if (typeof error?.message === "string") {
-    return error.message;
+  const responseMessage = candidate?.response?.data?.message;
+  if (typeof responseMessage === "string") {
+    return responseMessage;
+  }
+
+  if (typeof candidate?.message === "string") {
+    return candidate.message;
   }
 
   return fallback;
 }
-
 export default function BrandingPage() {
   const router = useRouter();
 
   const {
     refreshBranding,
   } = useBranding();
+  const { setTheme } = useTheme();
 
   const [business, setBusiness] =
     useState<Business | null>(null);
@@ -97,6 +138,8 @@ export default function BrandingPage() {
 
   const [watermarkPreview, setWatermarkPreview] =
     useState<string | null>(null);
+  const logoPreviewRef = useRef<string | null>(null);
+  const watermarkPreviewRef = useRef<string | null>(null);
 
   const [primaryColor, setPrimaryColor] =
     useState("#000000");
@@ -217,20 +260,18 @@ export default function BrandingPage() {
         ),
       ]);
 
-      setLogoPreview(
-        (previous) => {
-          revokeUrl(previous);
-          return newLogoPreview;
-        },
-      );
+      setLogoPreview((previous) => {
+        revokeUrl(previous);
+        logoPreviewRef.current = newLogoPreview;
+        return newLogoPreview;
+      });
 
-      setWatermarkPreview(
-        (previous) => {
-          revokeUrl(previous);
-          return newWatermarkPreview;
-        },
-      );
-    } catch (err: any) {
+      setWatermarkPreview((previous) => {
+        revokeUrl(previous);
+        watermarkPreviewRef.current = newWatermarkPreview;
+        return newWatermarkPreview;
+      });
+    } catch (err: unknown) {
       setError(
         getErrorMessage(
           err,
@@ -243,7 +284,9 @@ export default function BrandingPage() {
   }
 
   useEffect(() => {
-    loadBusiness();
+    window.setTimeout(() => {
+      void loadBusiness();
+    }, 0);
 
     return () => {
       revokeUrl(logoPreview);
@@ -334,12 +377,11 @@ export default function BrandingPage() {
             updatedBusiness.logo_url,
           );
 
-        setLogoPreview(
-          (previous) => {
-            revokeUrl(previous);
-            return newPreview;
-          },
-        );
+        setLogoPreview((previous) => {
+          revokeUrl(previous);
+          logoPreviewRef.current = newPreview;
+          return newPreview;
+        });
 
         setMessage(
           "Business logo uploaded successfully.",
@@ -350,12 +392,11 @@ export default function BrandingPage() {
             updatedBusiness.watermark_url,
           );
 
-        setWatermarkPreview(
-          (previous) => {
-            revokeUrl(previous);
-            return newPreview;
-          },
-        );
+        setWatermarkPreview((previous) => {
+          revokeUrl(previous);
+          watermarkPreviewRef.current = newPreview;
+          return newPreview;
+        });
 
         setMessage(
           "Background watermark uploaded successfully.",
@@ -363,7 +404,7 @@ export default function BrandingPage() {
       }
 
       await refreshBranding();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(
         getErrorMessage(
           err,
@@ -461,7 +502,7 @@ export default function BrandingPage() {
       setMessage(
         "Branding settings saved successfully.",
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(
         getErrorMessage(
           err,
@@ -871,14 +912,15 @@ export default function BrandingPage() {
 
               <select
                 value={themePreference}
-                onChange={(e) =>
-                  setThemePreference(
-                    e.target.value as
-                      | "light"
-                      | "dark"
-                      | "system",
-                  )
-                }
+                onChange={(e) => {
+                  const nextTheme = e.target.value as
+                    | "light"
+                    | "dark"
+                    | "system";
+
+                  setThemePreference(nextTheme);
+                  setTheme(nextTheme);
+                }}
                 className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-3 text-sm text-[var(--fos-text)] outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
               >
                 <option value="system">

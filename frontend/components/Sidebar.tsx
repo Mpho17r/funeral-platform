@@ -1,11 +1,11 @@
 "use client";
 
+import { useState } from "react";
+
 import {
-  Activity,
   CalendarDays,
   CreditCard,
   FileText,
-  HeartHandshake,
   LayoutDashboard,
   LogOut,
   ScrollText,
@@ -13,7 +13,6 @@ import {
   Users,
   UserRound,
   ClipboardList,
-  FolderOpen,
   ShieldCheck,
   Receipt,
   UsersRound,
@@ -26,23 +25,140 @@ import {
   Store,
   Snowflake,
   MessageSquare,
+  Activity,
+  HeartHandshake,
 } from "lucide-react";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 import { removeToken } from "@/lib/auth";
 import { useBranding } from "@/components/BrandingProvider";
+import {
+  initialsOf,
+  titleOf,
+  useCurrentUser,
+} from "@/components/CurrentUserProvider";
+import { ProfileDialog } from "@/components/ProfileDialog";
 import { useTheme } from "@/components/ThemeProvider";
 
 type SidebarProps = {
   onLogout?: () => void;
+  onNavigate?: () => void;
 };
+
+function isSidebarPathActive(
+  pathname: string,
+  path: string,
+) {
+  if (path === "/dashboard") {
+    return pathname === "/dashboard";
+  }
+
+  return (
+    pathname === path ||
+    pathname.startsWith(`${path}/`)
+  );
+}
+
+function NavItem({
+  label,
+  icon,
+  path,
+  onNavigate,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  path: string;
+  onNavigate?: () => void;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { branding } = useBranding();
+  const { resolvedTheme } = useTheme();
+
+  const active = isSidebarPathActive(pathname, path);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        router.push(path);
+        onNavigate?.();
+      }}
+      className={`
+        group flex w-full items-center gap-3 rounded-xl
+        px-3 py-3 text-sm font-medium
+        transition-all duration-150
+        ${
+          active
+            ? "text-white shadow-sm"
+            : resolvedTheme === "dark"
+              ? "text-slate-300 hover:bg-white/10 hover:text-white"
+              : "text-slate-600 hover:bg-black/5 hover:text-slate-950"
+        }
+      `}
+      style={
+        active
+          ? {
+              backgroundColor:
+                branding?.primary_color ||
+                "#0f172a",
+            }
+          : undefined
+      }
+    >
+      <span
+        className="shrink-0"
+        style={
+          active
+            ? {
+                color: "#ffffff",
+              }
+            : {
+                color:
+                  branding?.secondary_color ||
+                  "currentColor",
+              }
+        }
+      >
+        {icon}
+      </span>
+      <span className="truncate">
+        {label}
+      </span>
+    </button>
+  );
+}
+
+function SectionTitle({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { resolvedTheme } = useTheme();
+
+  return (
+    <p
+      className={`
+        px-3 pb-2 pt-5 text-[10px]
+        font-semibold uppercase tracking-[0.14em]
+        ${
+          resolvedTheme === "dark"
+            ? "text-slate-500"
+            : "text-slate-400"
+        }
+      `}
+    >
+      {children}
+    </p>
+  );
+}
 
 export default function Sidebar({
   onLogout,
+  onNavigate,
 }: SidebarProps) {
   const router = useRouter();
-  const pathname = usePathname();
 
   const {
     branding,
@@ -54,6 +170,9 @@ export default function Sidebar({
   function navigate(path: string) {
     router.push(path);
   }
+
+  const { user: currentUser } = useCurrentUser();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   function handleLogout() {
     removeToken();
@@ -168,11 +287,6 @@ export default function Sidebar({
       path: "/contacts",
     },
     {
-      label: "Documents",
-      icon: <FolderOpen size={18} />,
-      path: "/documents",
-    },
-    {
       label: "Tasks",
       icon: <ClipboardList size={18} />,
       path: "/tasks",
@@ -219,100 +333,6 @@ export default function Sidebar({
       path: "/settings",
     },
   ];
-
-  function isActive(path: string) {
-    if (path === "/dashboard") {
-      return pathname === "/dashboard";
-    }
-
-    return (
-      pathname === path ||
-      pathname.startsWith(`${path}/`)
-    );
-  }
-
-  function NavItem({
-    label,
-    icon,
-    path,
-  }: {
-    label: string;
-    icon: React.ReactNode;
-    path: string;
-  }) {
-    const active = isActive(path);
-
-    return (
-      <button
-        type="button"
-        onClick={() => navigate(path)}
-        className={`
-          group flex w-full items-center gap-3 rounded-xl
-          px-3 py-3 text-sm font-medium
-          transition-all duration-150
-          ${
-            active
-              ? "text-white shadow-sm"
-              : resolvedTheme === "dark"
-                ? "text-slate-300 hover:bg-white/10 hover:text-white"
-                : "text-slate-600 hover:bg-black/5 hover:text-slate-950"
-          }
-        `}
-        style={
-          active
-            ? {
-                backgroundColor:
-                  branding?.primary_color ||
-                  "#0f172a",
-              }
-            : undefined
-        }
-      >
-        <span
-          className="shrink-0"
-          style={
-            active
-              ? {
-                  color: "#ffffff",
-                }
-              : {
-                  color:
-                    branding?.secondary_color ||
-                    "currentColor",
-                }
-          }
-        >
-          {icon}
-        </span>
-
-        <span className="truncate">
-          {label}
-        </span>
-      </button>
-    );
-  }
-
-  function SectionTitle({
-    children,
-  }: {
-    children: React.ReactNode;
-  }) {
-    return (
-      <p
-        className={`
-          px-3 pb-2 pt-5 text-[10px]
-          font-semibold uppercase tracking-[0.14em]
-          ${
-            resolvedTheme === "dark"
-              ? "text-slate-500"
-              : "text-slate-400"
-          }
-        `}
-      >
-        {children}
-      </p>
-    );
-  }
 
   const businessName =
     branding?.name || "FuneralOS";
@@ -410,6 +430,7 @@ export default function Sidebar({
           label="Dashboard"
           icon={<LayoutDashboard size={18} />}
           path="/dashboard"
+          onNavigate={onNavigate}
         />
 
         <SectionTitle>
@@ -422,6 +443,7 @@ export default function Sidebar({
             label={item.label}
             icon={item.icon}
             path={item.path}
+            onNavigate={onNavigate}
           />
         ))}
 
@@ -435,6 +457,7 @@ export default function Sidebar({
             label={item.label}
             icon={item.icon}
             path={item.path}
+            onNavigate={onNavigate}
           />
         ))}
 
@@ -448,6 +471,7 @@ export default function Sidebar({
             label={item.label}
             icon={item.icon}
             path={item.path}
+            onNavigate={onNavigate}
           />
         ))}
 
@@ -461,6 +485,7 @@ export default function Sidebar({
             label={item.label}
             icon={item.icon}
             path={item.path}
+            onNavigate={onNavigate}
           />
         ))}
 
@@ -474,6 +499,7 @@ export default function Sidebar({
             label={item.label}
             icon={item.icon}
             path={item.path}
+            onNavigate={onNavigate}
           />
         ))}
       </nav>
@@ -502,6 +528,54 @@ export default function Sidebar({
               : "rgba(15,23,42,0.08)",
         }}
       >
+        {currentUser && (
+          <button
+            type="button"
+            onClick={() => setProfileOpen(true)}
+            aria-label="Edit your profile"
+            title={currentUser.email ?? "Edit your profile"}
+            className={`mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+              resolvedTheme === "dark"
+                ? "hover:bg-white/10"
+                : "hover:bg-black/5"
+            }`}
+          >
+            <div
+              aria-hidden="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+              style={{ backgroundColor: primary }}
+            >
+              {initialsOf(currentUser.full_name)}
+            </div>
+
+            <div className="min-w-0">
+              <p
+                className={`truncate text-sm font-semibold ${
+                  resolvedTheme === "dark"
+                    ? "text-white"
+                    : "text-slate-900"
+                }`}
+              >
+                {currentUser.full_name ?? "Signed in"}
+              </p>
+
+              <p
+                className={`truncate text-xs ${
+                  resolvedTheme === "dark"
+                    ? "text-slate-400"
+                    : "text-slate-500"
+                }`}
+              >
+                {titleOf(currentUser)}
+              </p>
+            </div>
+          </button>
+        )}
+
+        {profileOpen && (
+          <ProfileDialog onClose={() => setProfileOpen(false)} />
+        )}
+
         <button
           type="button"
           onClick={handleLogout}

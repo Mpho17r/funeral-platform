@@ -1,14 +1,20 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AlertCircle,
+  CalendarDays,
+  CheckCircle2,
   Edit3,
+  Heart,
   Plus,
   Search,
   Trash2,
+  UserRound,
   Users,
   X,
 } from "lucide-react";
+
 import api from "@/lib/api";
 
 type Member = {
@@ -91,6 +97,182 @@ const relationships = [
 
 const statuses = ["active", "removed", "deceased"];
 
+const inputClassName =
+  "w-full rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm text-[var(--fos-text)] outline-none transition placeholder:text-[var(--fos-text-muted)] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 disabled:bg-[var(--fos-page)] disabled:text-[var(--fos-text-muted)]";
+
+function formatDate(value: string | null) {
+  if (!value) return "—";
+
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-ZA", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function statusLabel(status: string) {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function relationshipLabel(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function statusClass(status: string) {
+  switch (status) {
+    case "active":
+      return "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/15";
+    case "removed":
+      return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)] ring-1 ring-inset ring-slate-500/10";
+    case "deceased":
+      return "bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/15";
+    default:
+      return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)] ring-1 ring-inset ring-slate-500/10";
+  }
+}
+
+function initials(firstName: string, lastName: string) {
+  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+}
+
+function StatCard({
+  label,
+  value,
+  detail,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+  icon: React.ReactNode;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--fos-border)]/80 bg-[var(--fos-surface)] p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-[var(--fos-text-muted)]">{label}</p>
+
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-[var(--fos-text)]">
+            {value}
+          </p>
+
+          <p className="mt-1 text-xs text-[var(--fos-text-muted)]">{detail}</p>
+        </div>
+
+        <div className={`rounded-xl p-3 ${tone}`}>{icon}</div>
+      </div>
+    </div>
+  );
+}
+
+function FormField({
+  label,
+  required,
+  children,
+  hint,
+  className = "",
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+  hint?: string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
+        {label}
+        {required && <span className="ml-1 text-emerald-600">*</span>}
+      </label>
+
+      {children}
+
+      {hint && <p className="mt-1.5 text-xs text-[var(--fos-text-muted)]">{hint}</p>}
+    </div>
+  );
+}
+
+function EmptyState({
+  hasFilters,
+  onClear,
+  onCreate,
+}: {
+  hasFilters: boolean;
+  onClear: () => void;
+  onCreate: () => void;
+}) {
+  return (
+    <div className="px-6 py-16 text-center">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+        <Users size={26} />
+      </div>
+
+      <h2 className="mt-5 text-lg font-semibold text-[var(--fos-text)]">
+        {hasFilters
+          ? "No covered dependents found"
+          : "No covered dependents yet"}
+      </h2>
+
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--fos-text-muted)]">
+        {hasFilters
+          ? "Try adjusting your search or membership filter."
+          : "Add people covered under your members' funeral plans to keep family cover records organised."}
+      </p>
+
+      <div className="mt-6 flex flex-wrap justify-center gap-2">
+        {hasFilters && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded-xl border border-[var(--fos-border)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)]"
+          >
+            Clear filters
+          </button>
+        )}
+
+        {!hasFilters && (
+          <button
+            type="button"
+            onClick={onCreate}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800"
+          >
+            <Plus size={17} />
+            Add dependent
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function getApiErrorDetails(error: unknown): {
+  status?: number;
+  detail?: string;
+} {
+  if (error === null || typeof error !== "object") return {};
+
+  const errorRecord = error as Record<string, unknown>;
+  const response = errorRecord.response;
+  if (response === null || typeof response !== "object") return {};
+
+  const responseRecord = response as Record<string, unknown>;
+  const data = responseRecord.data;
+  const detail =
+    data !== null && typeof data === "object"
+      ? (data as Record<string, unknown>).detail
+      : undefined;
+
+  return {
+    status:
+      typeof responseRecord.status === "number"
+        ? responseRecord.status
+        : undefined,
+    detail: typeof detail === "string" ? detail : undefined,
+  };
+}
+
 export default function CoveredDependentsPage() {
   const [dependents, setDependents] = useState<CoveredDependent[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -109,7 +291,7 @@ export default function CoveredDependentsPage() {
   const [form, setForm] = useState<DependentForm>(emptyForm);
   const [error, setError] = useState("");
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -130,91 +312,90 @@ export default function CoveredDependentsPage() {
       setMembers(membersResponse.data);
       setPlans(plansResponse.data);
       setMemberships(membershipsResponse.data);
-    } catch (err: any) {
-      if (err?.response?.status === 401) {
+    } catch (err: unknown) {
+      const { status, detail } = getApiErrorDetails(err);
+
+      if (status === 401) {
         setError("Your session has expired. Please log in again.");
+      } else if (status === 403) {
+        setError("You do not have permission to view covered dependents.");
       } else {
-        setError(
-          err?.response?.data?.detail ||
-            "Failed to load covered dependents."
-        );
+        setError(detail || "Failed to load covered dependents.");
       }
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadData();
   }, []);
 
-  const memberMap = useMemo(() => {
-    return new Map(members.map((member) => [member.id, member]));
-  }, [members]);
+  useEffect(() => {
+    async function initializeData() {
+      await loadData();
+    }
 
-  const planMap = useMemo(() => {
-    return new Map(plans.map((plan) => [plan.id, plan]));
-  }, [plans]);
+    void initializeData();
+  }, [loadData]);
 
-  const membershipMap = useMemo(() => {
-    return new Map(
-      memberships.map((membership) => [membership.id, membership])
-    );
-  }, [memberships]);
+  const memberMap = useMemo(
+    () => new Map(members.map((member) => [member.id, member])),
+    [members]
+  );
 
-  const getMemberName = (membershipId: string) => {
+  const planMap = useMemo(
+    () => new Map(plans.map((plan) => [plan.id, plan])),
+    [plans]
+  );
+
+  const membershipMap = useMemo(
+    () =>
+      new Map(
+        memberships.map((membership) => [membership.id, membership])
+      ),
+    [memberships]
+  );
+
+  const getMemberName = useCallback(
+    (membershipId: string) => {
+      const membership = membershipMap.get(membershipId);
+
+      if (!membership) return "Unknown member";
+
+      const member = memberMap.get(membership.member_id);
+
+      if (!member) return membership.membership_number;
+
+      return `${member.first_name} ${member.last_name}`;
+    },
+    [memberMap, membershipMap]
+  );
+
+  function getMembershipLabel(membershipId: string) {
     const membership = membershipMap.get(membershipId);
 
-    if (!membership) {
-      return "Unknown member";
-    }
+    if (!membership) return "Unknown membership";
 
-    const member = memberMap.get(membership.member_id);
+    return `${getMemberName(membershipId)} — ${membership.membership_number}`;
+  }
 
-    if (!member) {
-      return membership.membership_number;
-    }
-
-    return `${member.first_name} ${member.last_name}`;
-  };
-
-  const getMembershipLabel = (membershipId: string) => {
+  function getPlanName(membershipId: string) {
     const membership = membershipMap.get(membershipId);
 
-    if (!membership) {
-      return "Unknown membership";
-    }
-
-    const memberName = getMemberName(membershipId);
-
-    return `${memberName} — ${membership.membership_number}`;
-  };
-
-  const getPlanName = (membershipId: string) => {
-    const membership = membershipMap.get(membershipId);
-
-    if (!membership) {
-      return "—";
-    }
+    if (!membership) return "—";
 
     return planMap.get(membership.plan_id)?.name || "—";
-  };
+  }
 
   const filteredDependents = useMemo(() => {
     const term = search.trim().toLowerCase();
 
     return dependents.filter((dependent) => {
-      const matchesMembership =
-        !membershipFilter ||
-        dependent.membership_id === membershipFilter;
-
-      if (!matchesMembership) {
+      if (
+        membershipFilter &&
+        dependent.membership_id !== membershipFilter
+      ) {
         return false;
       }
 
-      if (!term) {
-        return true;
-      }
+      if (!term) return true;
 
       const memberName = getMemberName(dependent.membership_id);
       const membership = membershipMap.get(dependent.membership_id);
@@ -239,8 +420,10 @@ export default function CoveredDependentsPage() {
     search,
     membershipFilter,
     membershipMap,
-    memberMap,
+    getMemberName,
   ]);
+
+  const totalCount = dependents.length;
 
   const activeCount = dependents.filter(
     (dependent) => dependent.status === "active"
@@ -254,7 +437,14 @@ export default function CoveredDependentsPage() {
     (dependent) => dependent.status === "deceased"
   ).length;
 
-  const openCreateForm = () => {
+  const hasFilters = Boolean(search.trim() || membershipFilter);
+
+  function clearFilters() {
+    setSearch("");
+    setMembershipFilter("");
+  }
+
+  function openCreateForm() {
     setEditingId(null);
     setForm({
       ...emptyForm,
@@ -262,9 +452,9 @@ export default function CoveredDependentsPage() {
     });
     setError("");
     setShowForm(true);
-  };
+  }
 
-  const openEditForm = (dependent: CoveredDependent) => {
+  function openEditForm(dependent: CoveredDependent) {
     setEditingId(dependent.id);
 
     setForm({
@@ -282,20 +472,18 @@ export default function CoveredDependentsPage() {
 
     setError("");
     setShowForm(true);
-  };
+  }
 
-  const closeForm = () => {
-    if (saving) {
-      return;
-    }
+  function closeForm() {
+    if (saving) return;
 
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm);
     setError("");
-  };
+  }
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!form.membership_id) {
@@ -335,188 +523,142 @@ export default function CoveredDependentsPage() {
       };
 
       if (editingId) {
-        await api.patch(
-          `/covered-dependents/${editingId}`,
-          payload
-        );
+        await api.patch(`/covered-dependents/${editingId}`, payload);
       } else {
         await api.post("/covered-dependents", payload);
       }
 
       await loadData();
       closeForm();
-    } catch (err: any) {
-      if (err?.response?.status === 401) {
+    } catch (err: unknown) {
+      const { status, detail } = getApiErrorDetails(err);
+
+      if (status === 401) {
         setError("Your session has expired. Please log in again.");
-      } else if (err?.response?.status === 409) {
-        setError(
-          err?.response?.data?.detail ||
-            "This covered dependent already exists."
-        );
+      } else if (status === 403) {
+        setError("You do not have permission to manage covered dependents.");
+      } else if (status === 409) {
+        setError(detail || "This covered dependent already exists.");
       } else {
-        setError(
-          err?.response?.data?.detail ||
-            "Failed to save covered dependent."
-        );
+        setError(detail || "Failed to save covered dependent.");
       }
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const handleDelete = async (dependent: CoveredDependent) => {
+  async function handleDelete(dependent: CoveredDependent) {
     const confirmed = window.confirm(
       `Remove ${dependent.first_name} ${dependent.last_name} from this membership?`
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     try {
       setError("");
-
       await api.delete(`/covered-dependents/${dependent.id}`);
-
       await loadData();
-    } catch (err: any) {
-      if (err?.response?.status === 401) {
+    } catch (err: unknown) {
+      const { status, detail } = getApiErrorDetails(err);
+
+      if (status === 401) {
         setError("Your session has expired. Please log in again.");
+      } else if (status === 403) {
+        setError("You do not have permission to delete covered dependents.");
       } else {
-        setError(
-          err?.response?.data?.detail ||
-            "Failed to delete covered dependent."
-        );
+        setError(detail || "Failed to delete covered dependent.");
       }
     }
-  };
-
-  const formatDate = (value: string | null) => {
-    if (!value) {
-      return "—";
-    }
-
-    const date = new Date(`${value}T00:00:00`);
-
-    return date.toLocaleDateString("en-ZA", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const statusClass = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-700";
-      case "removed":
-        return "bg-gray-100 text-gray-700";
-      case "deceased":
-        return "bg-red-100 text-red-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Covered Dependents
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+            Customers & Membership
+          </p>
+
+          <h1 className="mt-2 font-[family-name:var(--font-newsreader)] text-4xl leading-none tracking-tight text-[var(--fos-text)] sm:text-[42px]">
+            Covered dependents
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage people covered under member funeral plans.
+
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fos-text-muted)]">
+            Manage the people covered under your members&apos; funeral plans
+            and keep their family cover records accurate.
           </p>
         </div>
 
         <button
           type="button"
           onClick={openCreateForm}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800"
         >
           <Plus size={18} />
-          Add Dependent
+          Add dependent
         </button>
       </div>
 
       {/* Error */}
-      {error && (
-        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <span>{error}</span>
+      {error && !showForm && (
+        <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm text-red-700">
+          <AlertCircle size={18} className="mt-0.5 shrink-0" />
+
+          <span className="flex-1">{error}</span>
 
           <button
             type="button"
             onClick={() => setError("")}
-            className="ml-4"
+            className="rounded-lg p-1 transition hover:bg-red-100"
           >
-            <X size={18} />
+            <X size={17} />
           </button>
         </div>
       )}
 
-      {/* Summary */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">
-                Active Dependents
-              </p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {activeCount}
-              </p>
-            </div>
+      {/* Stats */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Total dependents"
+          value={totalCount}
+          detail="All recorded covered people"
+          icon={<Users size={21} />}
+          tone="bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]"
+        />
 
-            <div className="rounded-lg bg-green-50 p-3 text-green-600">
-              <Users size={22} />
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Active"
+          value={activeCount}
+          detail="Currently recorded as covered"
+          icon={<CheckCircle2 size={21} />}
+          tone="bg-emerald-50 text-emerald-600"
+        />
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">
-                Removed
-              </p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {removedCount}
-              </p>
-            </div>
+        <StatCard
+          label="Removed"
+          value={removedCount}
+          detail="No longer active on cover"
+          icon={<Users size={21} />}
+          tone="bg-[var(--fos-surface-muted)] text-[var(--fos-text-muted)]"
+        />
 
-            <div className="rounded-lg bg-gray-100 p-3 text-gray-600">
-              <Users size={22} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">
-                Deceased
-              </p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {deceasedCount}
-              </p>
-            </div>
-
-            <div className="rounded-lg bg-red-50 p-3 text-red-600">
-              <Users size={22} />
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Deceased"
+          value={deceasedCount}
+          detail="Recorded as deceased"
+          icon={<Heart size={21} />}
+          tone="bg-purple-50 text-purple-600"
+        />
       </div>
 
       {/* Filters */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-[var(--fos-border)]/80 bg-[var(--fos-surface)] p-4 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
         <div className="flex flex-col gap-3 lg:flex-row">
           <div className="relative flex-1">
             <Search
               size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--fos-text-muted)]"
             />
 
             <input
@@ -524,173 +666,170 @@ export default function CoveredDependentsPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search dependent, member or membership number..."
-              className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+              className={`${inputClassName} pl-10`}
             />
           </div>
 
           <select
             value={membershipFilter}
             onChange={(event) => setMembershipFilter(event.target.value)}
-            className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+            className={`${inputClassName} lg:w-[340px]`}
           >
             <option value="">All memberships</option>
 
             {memberships.map((membership) => (
-              <option
-                key={membership.id}
-                value={membership.id}
-              >
+              <option key={membership.id} value={membership.id}>
                 {getMembershipLabel(membership.id)}
               </option>
             ))}
           </select>
         </div>
+
+        {hasFilters && (
+          <div className="mt-3 flex items-center justify-between border-t border-[var(--fos-border)] pt-3">
+            <p className="text-xs text-[var(--fos-text-muted)]">
+              Showing {filteredDependents.length} of {dependents.length}{" "}
+              dependents
+            </p>
+
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs font-semibold text-emerald-700 hover:underline"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      {/* Desktop table */}
+      <div className="hidden overflow-hidden rounded-2xl border border-[var(--fos-border)]/80 bg-[var(--fos-surface)] shadow-[0_2px_12px_rgba(15,23,42,0.04)] lg:block">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px]">
-            <thead className="border-b border-gray-200 bg-gray-50">
+          <table className="w-full min-w-[1120px]">
+            <thead className="border-b border-[var(--fos-border)] bg-[var(--fos-page)]/70">
               <tr>
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Dependent
-                </th>
-
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Member
-                </th>
-
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Relationship
-                </th>
-
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Date of Birth
-                </th>
-
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Cover
-                </th>
-
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Status
-                </th>
-
-                <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Actions
-                </th>
+                {[
+                  "Dependent",
+                  "Member / membership",
+                  "Relationship",
+                  "Date of birth",
+                  "Cover period",
+                  "Status",
+                  "Actions",
+                ].map((heading) => (
+                  <th
+                    key={heading}
+                    className={`px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--fos-text-muted)] ${
+                      heading === "Actions" ? "text-right" : ""
+                    }`}
+                  >
+                    {heading}
+                  </th>
+                ))}
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
                   <td
                     colSpan={7}
-                    className="px-5 py-12 text-center text-sm text-gray-500"
+                    className="px-5 py-14 text-center text-sm text-[var(--fos-text-muted)]"
                   >
                     Loading covered dependents...
                   </td>
                 </tr>
               ) : filteredDependents.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="px-5 py-12 text-center"
-                  >
-                    <Users
-                      size={36}
-                      className="mx-auto text-gray-300"
+                  <td colSpan={7}>
+                    <EmptyState
+                      hasFilters={hasFilters}
+                      onClear={clearFilters}
+                      onCreate={openCreateForm}
                     />
-
-                    <p className="mt-3 text-sm font-medium text-gray-700">
-                      No covered dependents found
-                    </p>
-
-                    <p className="mt-1 text-sm text-gray-500">
-                      Add a dependent to a membership to get started.
-                    </p>
                   </td>
                 </tr>
               ) : (
                 filteredDependents.map((dependent) => (
                   <tr
                     key={dependent.id}
-                    className="hover:bg-gray-50"
+                    className="transition hover:bg-[var(--fos-page)]/60"
                   >
                     <td className="px-5 py-4">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {dependent.first_name}{" "}
-                          {dependent.last_name}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-xs font-bold text-emerald-700">
+                          {initials(
+                            dependent.first_name,
+                            dependent.last_name
+                          )}
+                        </div>
 
-                        {dependent.id_number && (
-                          <p className="mt-1 text-xs text-gray-500">
-                            ID: {dependent.id_number}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[var(--fos-text)]">
+                            {dependent.first_name} {dependent.last_name}
                           </p>
-                        )}
+
+                          {dependent.id_number && (
+                            <p className="mt-0.5 text-xs text-[var(--fos-text-muted)]">
+                              ID: {dependent.id_number}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </td>
 
                     <td className="px-5 py-4">
-                      <p className="font-medium text-gray-900">
+                      <p className="text-sm font-medium text-[var(--fos-text)]">
                         {getMemberName(dependent.membership_id)}
                       </p>
 
-                      <p className="mt-1 text-xs text-gray-500">
-                        {membershipMap.get(
-                          dependent.membership_id
-                        )?.membership_number || "—"}
+                      <p className="mt-0.5 text-xs text-[var(--fos-text-muted)]">
+                        {membershipMap.get(dependent.membership_id)
+                          ?.membership_number || "—"}
                       </p>
                     </td>
 
                     <td className="px-5 py-4">
-                      <div className="space-y-1">
-                        <p className="text-sm capitalize text-gray-900">
-                          {dependent.relationship}
-                        </p>
+                      <p className="text-sm text-[var(--fos-text)]">
+                        {relationshipLabel(dependent.relationship)}
+                      </p>
 
-                        <p className="text-xs text-gray-500">
-                          {getPlanName(dependent.membership_id)}
-                        </p>
-                      </div>
+                      <p className="mt-0.5 text-xs text-[var(--fos-text-muted)]">
+                        {getPlanName(dependent.membership_id)}
+                      </p>
                     </td>
 
-                    <td className="px-5 py-4 text-sm text-gray-700">
+                    <td className="px-5 py-4 text-sm text-[var(--fos-text-secondary)]">
                       {formatDate(dependent.date_of_birth)}
                     </td>
 
                     <td className="px-5 py-4">
-                      <p className="text-sm text-gray-700">
+                      <p className="text-sm text-[var(--fos-text-secondary)]">
                         {formatDate(dependent.cover_start_date)}
                       </p>
 
-                      <p className="mt-1 text-xs text-gray-500">
-                        to{" "}
-                        {formatDate(dependent.cover_end_date)}
+                      <p className="mt-0.5 text-xs text-[var(--fos-text-muted)]">
+                        Until {formatDate(dependent.cover_end_date)}
                       </p>
                     </td>
 
                     <td className="px-5 py-4">
                       <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClass(
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(
                           dependent.status
                         )}`}
                       >
-                        {dependent.status}
+                        {statusLabel(dependent.status)}
                       </span>
                     </td>
 
                     <td className="px-5 py-4">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1.5">
                         <button
                           type="button"
-                          onClick={() =>
-                            openEditForm(dependent)
-                          }
-                          className="rounded-lg border border-gray-200 p-2 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                          onClick={() => openEditForm(dependent)}
+                          className="rounded-xl p-2 text-[var(--fos-text-muted)] transition hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text)]"
                           title="Edit dependent"
                         >
                           <Edit3 size={16} />
@@ -698,10 +837,8 @@ export default function CoveredDependentsPage() {
 
                         <button
                           type="button"
-                          onClick={() =>
-                            handleDelete(dependent)
-                          }
-                          className="rounded-lg border border-red-200 p-2 text-red-600 transition hover:bg-red-50"
+                          onClick={() => handleDelete(dependent)}
+                          className="rounded-xl p-2 text-red-500 transition hover:bg-red-50 hover:text-red-700"
                           title="Delete dependent"
                         >
                           <Trash2 size={16} />
@@ -716,278 +853,404 @@ export default function CoveredDependentsPage() {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Mobile / tablet */}
+      <div className="space-y-3 lg:hidden">
+        {loading ? (
+          <div className="rounded-2xl border border-[var(--fos-border)]/80 bg-[var(--fos-surface)] px-5 py-14 text-center text-sm text-[var(--fos-text-muted)]">
+            Loading covered dependents...
+          </div>
+        ) : filteredDependents.length === 0 ? (
+          <div className="rounded-2xl border border-[var(--fos-border)]/80 bg-[var(--fos-surface)]">
+            <EmptyState
+              hasFilters={hasFilters}
+              onClear={clearFilters}
+              onCreate={openCreateForm}
+            />
+          </div>
+        ) : (
+          filteredDependents.map((dependent) => (
+            <div
+              key={dependent.id}
+              className="rounded-2xl border border-[var(--fos-border)]/80 bg-[var(--fos-surface)] p-4 shadow-[0_2px_12px_rgba(15,23,42,0.04)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-xs font-bold text-emerald-700">
+                    {initials(
+                      dependent.first_name,
+                      dependent.last_name
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[var(--fos-text)]">
+                      {dependent.first_name} {dependent.last_name}
+                    </p>
+
+                    <p className="mt-0.5 text-xs text-[var(--fos-text-muted)]">
+                      {relationshipLabel(dependent.relationship)}
+                    </p>
+                  </div>
+                </div>
+
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(
+                    dependent.status
+                  )}`}
+                >
+                  {statusLabel(dependent.status)}
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[var(--fos-border)] pt-4">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
+                    Member
+                  </p>
+
+                  <p className="mt-1 text-sm font-medium text-[var(--fos-text)]">
+                    {getMemberName(dependent.membership_id)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
+                    Membership
+                  </p>
+
+                  <p className="mt-1 text-sm text-[var(--fos-text-secondary)]">
+                    {membershipMap.get(dependent.membership_id)
+                      ?.membership_number || "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
+                    Date of birth
+                  </p>
+
+                  <p className="mt-1 text-sm text-[var(--fos-text-secondary)]">
+                    {formatDate(dependent.date_of_birth)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
+                    Plan
+                  </p>
+
+                  <p className="mt-1 text-sm text-[var(--fos-text-secondary)]">
+                    {getPlanName(dependent.membership_id)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl bg-[var(--fos-page)] p-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-[var(--fos-text-muted)]">
+                  <CalendarDays size={14} />
+                  Cover period
+                </div>
+
+                <p className="mt-1 text-sm text-[var(--fos-text)]">
+                  {formatDate(dependent.cover_start_date)}
+                  {" — "}
+                  {formatDate(dependent.cover_end_date)}
+                </p>
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEditForm(dependent)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--fos-border)] px-3.5 py-2 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)]"
+                >
+                  <Edit3 size={15} />
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDelete(dependent)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3.5 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                >
+                  <Trash2 size={15} />
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Form modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-5">
+          <div className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-[var(--fos-surface)] shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--fos-border)] px-5 py-5 sm:px-7">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <UserRound size={19} />
+                </div>
+
+                <h2 className="font-[family-name:var(--font-newsreader)] text-2xl text-[var(--fos-text)]">
                   {editingId
-                    ? "Edit Covered Dependent"
-                    : "Add Covered Dependent"}
+                    ? "Edit covered dependent"
+                    : "Add covered dependent"}
                 </h2>
 
-                <p className="mt-1 text-sm text-gray-500">
-                  Add a person covered under a membership.
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
+                  Keep the dependent&apos;s membership and cover information
+                  accurate.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={closeForm}
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                disabled={saving}
+                className="rounded-xl p-2 text-[var(--fos-text-muted)] transition hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text-secondary)] disabled:opacity-50"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-5 p-6"
-            >
-              {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {error}
-                </div>
-              )}
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Membership
-                </label>
-
-                <select
-                  value={form.membership_id}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      membership_id: event.target.value,
-                    })
-                  }
-                  disabled={!!editingId}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
-                >
-                  <option value="">
-                    Select membership
-                  </option>
-
-                  {memberships.map((membership) => (
-                    <option
-                      key={membership.id}
-                      value={membership.id}
-                    >
-                      {getMembershipLabel(membership.id)}
-                    </option>
-                  ))}
-                </select>
-
-                {form.membership_id && (
-                  <p className="mt-1.5 text-xs text-gray-500">
-                    Plan:{" "}
-                    {getPlanName(form.membership_id)}
-                  </p>
+            <form onSubmit={handleSubmit} className="overflow-y-auto">
+              <div className="space-y-7 px-5 py-6 sm:px-7">
+                {error && (
+                  <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm text-red-700">
+                    <AlertCircle size={17} className="mt-0.5 shrink-0" />
+                    <span>{error}</span>
+                  </div>
                 )}
-              </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    First Name
-                  </label>
+                <section>
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-[var(--fos-text)]">
+                      Membership
+                    </h3>
 
-                  <input
-                    type="text"
-                    value={form.first_name}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        first_name: event.target.value,
-                      })
-                    }
+                    <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
+                      Choose the membership responsible for this dependent&apos;s
+                      cover.
+                    </p>
+                  </div>
+
+                  <FormField
+                    label="Membership"
                     required
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Last Name
-                  </label>
-
-                  <input
-                    type="text"
-                    value={form.last_name}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        last_name: event.target.value,
-                      })
+                    hint={
+                      form.membership_id
+                        ? `Plan: ${getPlanName(form.membership_id)}`
+                        : undefined
                     }
-                    required
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Relationship
-                  </label>
-
-                  <select
-                    value={form.relationship}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        relationship: event.target.value,
-                      })
-                    }
-                    required
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm capitalize outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
                   >
-                    {relationships.map((relationship) => (
-                      <option
-                        key={relationship}
-                        value={relationship}
+                    <select
+                      value={form.membership_id}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          membership_id: event.target.value,
+                        })
+                      }
+                      disabled={!!editingId}
+                      required
+                      className={inputClassName}
+                    >
+                      <option value="">Select membership</option>
+
+                      {memberships.map((membership) => (
+                        <option key={membership.id} value={membership.id}>
+                          {getMembershipLabel(membership.id)}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                </section>
+
+                <section className="border-t border-[var(--fos-border)] pt-7">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-[var(--fos-text)]">
+                      Personal details
+                    </h3>
+
+                    <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
+                      Basic information for the person covered by the plan.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField label="First name" required>
+                      <input
+                        type="text"
+                        value={form.first_name}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            first_name: event.target.value,
+                          })
+                        }
+                        required
+                        className={inputClassName}
+                        placeholder="First name"
+                      />
+                    </FormField>
+
+                    <FormField label="Last name" required>
+                      <input
+                        type="text"
+                        value={form.last_name}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            last_name: event.target.value,
+                          })
+                        }
+                        required
+                        className={inputClassName}
+                        placeholder="Last name"
+                      />
+                    </FormField>
+
+                    <FormField label="Relationship" required>
+                      <select
+                        value={form.relationship}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            relationship: event.target.value,
+                          })
+                        }
+                        required
+                        className={inputClassName}
                       >
-                        {relationship}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                        {relationships.map((relationship) => (
+                          <option key={relationship} value={relationship}>
+                            {relationshipLabel(relationship)}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
 
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Status
-                  </label>
-
-                  <select
-                    value={form.status}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        status: event.target.value,
-                      })
-                    }
-                    required
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm capitalize outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                  >
-                    {statuses.map((status) => (
-                      <option
-                        key={status}
-                        value={status}
+                    <FormField label="Status" required>
+                      <select
+                        value={form.status}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            status: event.target.value,
+                          })
+                        }
+                        required
+                        className={inputClassName}
                       >
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                        {statuses.map((status) => (
+                          <option key={status} value={status}>
+                            {statusLabel(status)}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+
+                    <FormField label="ID number">
+                      <input
+                        type="text"
+                        value={form.id_number}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            id_number: event.target.value,
+                          })
+                        }
+                        className={inputClassName}
+                        placeholder="Optional"
+                      />
+                    </FormField>
+
+                    <FormField label="Phone">
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            phone: event.target.value,
+                          })
+                        }
+                        className={inputClassName}
+                        placeholder="Optional"
+                      />
+                    </FormField>
+
+                    <FormField label="Date of birth">
+                      <input
+                        type="date"
+                        value={form.date_of_birth}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            date_of_birth: event.target.value,
+                          })
+                        }
+                        className={inputClassName}
+                      />
+                    </FormField>
+                  </div>
+                </section>
+
+                <section className="border-t border-[var(--fos-border)] pt-7">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-[var(--fos-text)]">
+                      Cover period
+                    </h3>
+
+                    <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
+                      Record when this dependent&apos;s cover starts and, if
+                      applicable, ends.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField label="Cover start date" required>
+                      <input
+                        type="date"
+                        value={form.cover_start_date}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            cover_start_date: event.target.value,
+                          })
+                        }
+                        required
+                        className={inputClassName}
+                      />
+                    </FormField>
+
+                    <FormField
+                      label="Cover end date"
+                      hint="Leave blank if the cover has no recorded end date."
+                    >
+                      <input
+                        type="date"
+                        value={form.cover_end_date}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            cover_end_date: event.target.value,
+                          })
+                        }
+                        className={inputClassName}
+                      />
+                    </FormField>
+                  </div>
+                </section>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    ID Number
-                  </label>
-
-                  <input
-                    type="text"
-                    value={form.id_number}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        id_number: event.target.value,
-                      })
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Phone
-                  </label>
-
-                  <input
-                    type="tel"
-                    value={form.phone}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        phone: event.target.value,
-                      })
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Date of Birth
-                  </label>
-
-                  <input
-                    type="date"
-                    value={form.date_of_birth}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        date_of_birth: event.target.value,
-                      })
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Cover Start
-                  </label>
-
-                  <input
-                    type="date"
-                    value={form.cover_start_date}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        cover_start_date: event.target.value,
-                      })
-                    }
-                    required
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Cover End
-                  </label>
-
-                  <input
-                    type="date"
-                    value={form.cover_end_date}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        cover_end_date: event.target.value,
-                      })
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 border-t border-gray-200 pt-5">
+              <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-5 py-4 backdrop-blur sm:px-7">
                 <button
                   type="button"
                   onClick={closeForm}
                   disabled={saving}
-                  className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-xl border border-[var(--fos-border)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)] disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -995,13 +1258,21 @@ export default function CoveredDependentsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {saving
-                    ? "Saving..."
-                    : editingId
-                      ? "Save Changes"
-                      : "Add Dependent"}
+                  {saving ? (
+                    "Saving..."
+                  ) : editingId ? (
+                    <>
+                      <CheckCircle2 size={16} />
+                      Save changes
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} />
+                      Add dependent
+                    </>
+                  )}
                 </button>
               </div>
             </form>

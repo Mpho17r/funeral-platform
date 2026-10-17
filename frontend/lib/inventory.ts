@@ -72,7 +72,7 @@ export const MOVEMENT_LABELS: Record<string, string> = {
 
 /** Quantities arrive as decimal strings ("3.00"); show them plainly. */
 export function formatQty(value: string | number): string {
-  return Number(value).toLocaleString("en-ZA", {
+  return Number(value).toLocaleString("en-GB", {
     maximumFractionDigits: 2,
   });
 }

@@ -1,13 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
   Edit3,
   Plus,
   X,
-  XCircle,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -55,6 +54,25 @@ type MembershipForm = {
   next_due_date: string;
 };
 
+function asRecord(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function getApiErrorDetails(error: unknown) {
+  const errorRecord = asRecord(error);
+  const responseRecord = asRecord(errorRecord?.response);
+  const dataRecord = asRecord(responseRecord?.data);
+
+  return {
+    status: responseRecord?.status,
+    detail: dataRecord?.detail,
+  };
+}
+
 const emptyForm: MembershipForm = {
   member_id: "",
   plan_id: "",
@@ -88,7 +106,7 @@ export default function MembershipsPage() {
 
   const [form, setForm] = useState<MembershipForm>(emptyForm);
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -103,25 +121,31 @@ export default function MembershipsPage() {
       setMembers(membersResponse.data);
       setPlans(plansResponse.data);
       setMemberships(membershipsResponse.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to load membership data:", err);
+      const { status, detail } = getApiErrorDetails(err);
 
-      if (err.response?.status === 401) {
+      if (status === 401) {
         setError("Your session has expired. Please log in again.");
       } else {
         setError(
-          err.response?.data?.detail ||
-            "Unable to load membership information."
+          typeof detail === "string"
+            ? detail
+            : "Unable to load membership information."
         );
       }
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    async function initializeMemberships() {
+      await loadData();
+    }
+
+    void initializeMemberships();
+  }, [loadData]);
 
   function openCreateForm() {
     setEditingMembership(null);
@@ -228,17 +252,19 @@ export default function MembershipsPage() {
       }
 
       closeForm();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to save membership:", err);
+      const { status, detail } = getApiErrorDetails(err);
 
-      if (err.response?.status === 401) {
+      if (status === 401) {
         setFormError(
           "You are not authorized to manage memberships. Main Admin access is required."
         );
       } else {
         setFormError(
-          err.response?.data?.detail ||
-            "Unable to save membership."
+          typeof detail === "string"
+            ? detail
+            : "Unable to save membership."
         );
       }
     } finally {
@@ -255,7 +281,7 @@ export default function MembershipsPage() {
   }
 
   function formatCurrency(value: string | number) {
-    return new Intl.NumberFormat("en-ZA", {
+    return new Intl.NumberFormat("en-GB", {
       style: "currency",
       currency: "ZAR",
       minimumFractionDigits: 2,
@@ -286,25 +312,25 @@ export default function MembershipsPage() {
         return "bg-red-50 text-red-700";
 
       case "cancelled":
-        return "bg-slate-100 text-slate-500";
+        return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-muted)]";
 
       default:
-        return "bg-slate-100 text-slate-600";
+        return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]";
     }
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-screen bg-[var(--fos-surface-muted)]">
 
       <main className="min-w-0 flex-1">
-        <div className="border-b border-slate-200 bg-white">
+        <div className="border-b border-[var(--fos-border)] bg-[var(--fos-surface)]">
           <div className="flex items-center justify-between px-6 py-5">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">
+              <h1 className="text-2xl font-bold text-[var(--fos-text)]">
                 Memberships
               </h1>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                 Manage member funeral-cover memberships and their status.
               </p>
             </div>
@@ -312,7 +338,7 @@ export default function MembershipsPage() {
             <button
               type="button"
               onClick={openCreateForm}
-              className="flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+              className="flex items-center gap-2 rounded-lg bg-[var(--primary-color)] px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
             >
               <Plus size={18} />
               Add Membership
@@ -328,18 +354,18 @@ export default function MembershipsPage() {
           )}
 
           <div className="mb-6 grid gap-4 md:grid-cols-4">
-            <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-              <p className="text-sm text-slate-500">
+            <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+              <p className="text-sm text-[var(--fos-text-muted)]">
                 Total Memberships
               </p>
 
-              <p className="mt-2 text-2xl font-bold text-slate-900">
+              <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                 {memberships.length}
               </p>
             </div>
 
-            <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-              <p className="text-sm text-slate-500">
+            <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+              <p className="text-sm text-[var(--fos-text-muted)]">
                 Active
               </p>
 
@@ -353,8 +379,8 @@ export default function MembershipsPage() {
               </p>
             </div>
 
-            <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-              <p className="text-sm text-slate-500">
+            <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+              <p className="text-sm text-[var(--fos-text-muted)]">
                 In Arrears
               </p>
 
@@ -368,8 +394,8 @@ export default function MembershipsPage() {
               </p>
             </div>
 
-            <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-              <p className="text-sm text-slate-500">
+            <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+              <p className="text-sm text-[var(--fos-text-muted)]">
                 Lapsed
               </p>
 
@@ -384,28 +410,28 @@ export default function MembershipsPage() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
-            <div className="border-b border-slate-200 px-6 py-4">
-              <h2 className="font-semibold text-slate-900">
+          <div className="overflow-hidden rounded-xl bg-[var(--fos-surface)] ring-1 ring-slate-200">
+            <div className="border-b border-[var(--fos-border)] px-6 py-4">
+              <h2 className="font-semibold text-[var(--fos-text)]">
                 Member Cover
               </h2>
             </div>
 
             {loading ? (
-              <div className="p-10 text-center text-sm text-slate-500">
+              <div className="p-10 text-center text-sm text-[var(--fos-text-muted)]">
                 Loading memberships...
               </div>
             ) : memberships.length === 0 ? (
               <div className="p-12 text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-                  <Plus size={22} className="text-slate-500" />
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--fos-surface-muted)]">
+                  <Plus size={22} className="text-[var(--fos-text-muted)]" />
                 </div>
 
-                <h3 className="mt-4 font-semibold text-slate-900">
+                <h3 className="mt-4 font-semibold text-[var(--fos-text)]">
                   No memberships yet
                 </h3>
 
-                <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+                <p className="mx-auto mt-1 max-w-md text-sm text-[var(--fos-text-muted)]">
                   Assign a member to an active funeral-cover plan to
                   create their membership.
                 </p>
@@ -413,7 +439,7 @@ export default function MembershipsPage() {
                 <button
                   type="button"
                   onClick={openCreateForm}
-                  className="mt-5 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+                  className="mt-5 rounded-lg bg-[var(--primary-color)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
                 >
                   Create Membership
                 </button>
@@ -432,7 +458,7 @@ export default function MembershipsPage() {
                       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-3">
-                            <h3 className="font-semibold text-slate-900">
+                            <h3 className="font-semibold text-[var(--fos-text)]">
                               {member
                                 ? `${member.first_name} ${member.last_name}`
                                 : "Unknown Member"}
@@ -447,17 +473,17 @@ export default function MembershipsPage() {
                             </span>
                           </div>
 
-                          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-500">
+                          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-[var(--fos-text-muted)]">
                             <span>
                               Member No:{" "}
-                              <strong className="font-medium text-slate-700">
+                              <strong className="font-medium text-[var(--fos-text-secondary)]">
                                 {member?.member_number || "—"}
                               </strong>
                             </span>
 
                             <span>
                               Membership No:{" "}
-                              <strong className="font-medium text-slate-700">
+                              <strong className="font-medium text-[var(--fos-text-secondary)]">
                                 {membership.membership_number}
                               </strong>
                             </span>
@@ -465,16 +491,16 @@ export default function MembershipsPage() {
 
                           <div className="mt-4 grid gap-4 sm:grid-cols-3">
                             <div>
-                              <p className="text-xs uppercase tracking-wide text-slate-400">
+                              <p className="text-xs uppercase tracking-wide text-[var(--fos-text-muted)]">
                                 Plan
                               </p>
 
-                              <p className="mt-1 text-sm font-medium text-slate-800">
+                              <p className="mt-1 text-sm font-medium text-[var(--fos-text)]">
                                 {plan?.name || "Unknown Plan"}
                               </p>
 
                               {plan && (
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-[var(--fos-text-muted)]">
                                   {formatCurrency(
                                     plan.monthly_contribution
                                   )}
@@ -484,11 +510,11 @@ export default function MembershipsPage() {
                             </div>
 
                             <div>
-                              <p className="text-xs uppercase tracking-wide text-slate-400">
+                              <p className="text-xs uppercase tracking-wide text-[var(--fos-text-muted)]">
                                 Start Date
                               </p>
 
-                              <p className="mt-1 text-sm font-medium text-slate-800">
+                              <p className="mt-1 text-sm font-medium text-[var(--fos-text)]">
                                 {formatDate(
                                   membership.start_date
                                 )}
@@ -496,11 +522,11 @@ export default function MembershipsPage() {
                             </div>
 
                             <div>
-                              <p className="text-xs uppercase tracking-wide text-slate-400">
+                              <p className="text-xs uppercase tracking-wide text-[var(--fos-text-muted)]">
                                 Next Due
                               </p>
 
-                              <p className="mt-1 flex items-center gap-1 text-sm font-medium text-slate-800">
+                              <p className="mt-1 flex items-center gap-1 text-sm font-medium text-[var(--fos-text)]">
                                 <CalendarDays size={15} />
                                 {formatDate(
                                   membership.next_due_date
@@ -515,7 +541,7 @@ export default function MembershipsPage() {
                           onClick={() =>
                             openEditForm(membership)
                           }
-                          className="flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                          className="flex shrink-0 items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
                         >
                           <Edit3 size={16} />
                           Edit
@@ -532,16 +558,16 @@ export default function MembershipsPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div className="w-full max-w-lg rounded-2xl bg-[var(--fos-surface)] shadow-xl">
+            <div className="flex items-center justify-between border-b border-[var(--fos-border)] px-6 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="text-lg font-semibold text-[var(--fos-text)]">
                   {editingMembership
                     ? "Edit Membership"
                     : "Create Membership"}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                   Connect a member to a funeral-cover plan.
                 </p>
               </div>
@@ -550,7 +576,7 @@ export default function MembershipsPage() {
                 type="button"
                 onClick={closeForm}
                 disabled={saving}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text-secondary)] disabled:opacity-50"
               >
                 <X size={20} />
               </button>
@@ -569,7 +595,7 @@ export default function MembershipsPage() {
               <div className="space-y-5">
                 {!editingMembership && (
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    <label className="mb-1.5 block text-sm font-medium text-[var(--fos-text-secondary)]">
                       Member
                     </label>
 
@@ -582,7 +608,7 @@ export default function MembershipsPage() {
                         })
                       }
                       disabled={saving}
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                     >
                       <option value="">
                         Select a member
@@ -615,7 +641,7 @@ export default function MembershipsPage() {
                 )}
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Membership Plan
                   </label>
 
@@ -628,7 +654,7 @@ export default function MembershipsPage() {
                       })
                     }
                     disabled={saving}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   >
                     <option value="">
                       Select an active plan
@@ -660,7 +686,7 @@ export default function MembershipsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Membership Number
                   </label>
 
@@ -676,13 +702,13 @@ export default function MembershipsPage() {
                     }
                     placeholder="e.g. MBR-0001"
                     disabled={saving}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   />
                 </div>
 
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    <label className="mb-1.5 block text-sm font-medium text-[var(--fos-text-secondary)]">
                       Start Date
                     </label>
 
@@ -696,12 +722,12 @@ export default function MembershipsPage() {
                         })
                       }
                       disabled={saving}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    <label className="mb-1.5 block text-sm font-medium text-[var(--fos-text-secondary)]">
                       Next Due Date
                     </label>
 
@@ -715,17 +741,17 @@ export default function MembershipsPage() {
                         })
                       }
                       disabled={saving}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                     />
 
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
                       Leave blank to let the backend calculate it.
                     </p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Status
                   </label>
 
@@ -738,7 +764,7 @@ export default function MembershipsPage() {
                       })
                     }
                     disabled={saving}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm capitalize outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm capitalize outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   >
                     {statuses.map((status) => (
                       <option key={status} value={status}>
@@ -748,11 +774,11 @@ export default function MembershipsPage() {
                   </select>
                 </div>
 
-                <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+                <div className="rounded-lg bg-[var(--fos-page)] p-4 text-sm text-[var(--fos-text-secondary)]">
                   <div className="flex gap-3">
                     <CheckCircle2
                       size={18}
-                      className="mt-0.5 shrink-0 text-slate-500"
+                      className="mt-0.5 shrink-0 text-[var(--fos-text-muted)]"
                     />
 
                     <p>
@@ -770,7 +796,7 @@ export default function MembershipsPage() {
                   type="button"
                   onClick={closeForm}
                   disabled={saving}
-                  className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-[var(--fos-border)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)] disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -778,7 +804,7 @@ export default function MembershipsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-[var(--primary-color)] px-5 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving
                     ? "Saving..."

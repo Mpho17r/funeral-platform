@@ -36,7 +36,7 @@ router = APIRouter(
     tags=["Users"],
 )
 
-AUDITED_USER_FIELDS = ("full_name", "role", "is_active")
+AUDITED_USER_FIELDS = ("full_name", "role", "is_active", "job_title")
 
 
 def audit_user_change(
@@ -192,6 +192,7 @@ def create_user(
         email=data.email,
         password_hash=hash_password(data.password),
         role=data.role,
+        job_title=data.job_title,
         is_active=True,
     )
 
@@ -261,6 +262,9 @@ def update_user(
         if data.full_name is not None:
             user.full_name = data.full_name
 
+        if "job_title" in data.model_fields_set:
+            user.job_title = data.job_title
+
         audit_user_change(
             db,
             user=user,
@@ -298,6 +302,9 @@ def update_user(
 
     if data.full_name is not None:
         user.full_name = data.full_name
+
+    if "job_title" in data.model_fields_set:
+        user.job_title = data.job_title
 
     if data.is_active is not None:
         user.is_active = data.is_active

@@ -54,6 +54,9 @@ export function ThemeProvider({
       savedTheme === "dark" ||
       savedTheme === "system"
     ) {
+      // This effect synchronizes React state with the persisted
+      // preference after hydration; keep the update intentional.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setThemeState(savedTheme);
     }
   }, []);

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Pencil,
@@ -62,7 +62,7 @@ const PAYMENT_METHODS = [
 ];
 
 function formatCurrency(value: string | number) {
-  return new Intl.NumberFormat("en-ZA", {
+  return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "ZAR",
   }).format(Number(value || 0));
@@ -90,11 +90,26 @@ function getStatusClasses(status: string) {
       return "bg-red-100 text-red-700";
 
     case "waived":
-      return "bg-slate-100 text-slate-600";
+      return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]";
 
     default:
       return "bg-blue-100 text-blue-700";
   }
+}
+
+function getApiErrorDetail(error: unknown): string | undefined {
+  if (error === null || typeof error !== "object") return undefined;
+
+  const errorRecord = error as Record<string, unknown>;
+  const response = errorRecord.response;
+  if (response === null || typeof response !== "object") return undefined;
+
+  const responseRecord = response as Record<string, unknown>;
+  const data = responseRecord.data;
+  if (data === null || typeof data !== "object") return undefined;
+
+  const detail = (data as Record<string, unknown>).detail;
+  return typeof detail === "string" ? detail : undefined;
 }
 
 export default function MembershipPaymentsPage() {
@@ -123,7 +138,7 @@ export default function MembershipPaymentsPage() {
   );
   const [notes, setNotes] = useState("");
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -144,21 +159,24 @@ export default function MembershipPaymentsPage() {
       setMemberships(membershipsResponse.data);
       setContributions(contributionsResponse.data);
       setMembers(membersResponse.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-
       setError(
-        err?.response?.data?.detail ||
+        getApiErrorDetail(err) ||
           "Unable to load membership payment data.",
       );
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    async function initializeData() {
+      await loadData();
+    }
+
+    void initializeData();
+  }, [loadData]);
 
   function getMemberName(membershipIdValue: string) {
     const membership = memberships.find(
@@ -293,11 +311,11 @@ export default function MembershipPaymentsPage() {
       );
 
       await loadData();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
 
       setError(
-        err?.response?.data?.detail ||
+        getApiErrorDetail(err) ||
           "Unable to delete the membership payment.",
       );
     } finally {
@@ -354,11 +372,11 @@ export default function MembershipPaymentsPage() {
       resetForm();
 
       await loadData();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
 
       setError(
-        err?.response?.data?.detail ||
+        getApiErrorDetail(err) ||
           "Unable to save the membership payment.",
       );
     } finally {
@@ -430,17 +448,17 @@ export default function MembershipPaymentsPage() {
   ).length;
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-[var(--fos-surface-muted)]">
       <div className="flex min-h-screen">
         <div className="min-w-0 flex-1">
-          <div className="border-b border-slate-200 bg-white">
+          <div className="border-b border-[var(--fos-border)] bg-[var(--fos-surface)]">
             <div className="flex items-center justify-between px-6 py-5">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">
+                <h1 className="text-2xl font-bold text-[var(--fos-text)]">
                   Membership Payments
                 </h1>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                   Record and manage member contribution payments.
                 </p>
               </div>
@@ -463,53 +481,53 @@ export default function MembershipPaymentsPage() {
             )}
 
             <div className="grid gap-4 md:grid-cols-4">
-              <div className="rounded-xl border border-slate-200 bg-white p-5">
-                <p className="text-sm text-slate-500">
+              <div className="rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5">
+                <p className="text-sm text-[var(--fos-text-muted)]">
                   Total Payments
                 </p>
 
-                <p className="mt-2 text-2xl font-bold text-slate-900">
+                <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                   {formatCurrency(totalPayments)}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-5">
-                <p className="text-sm text-slate-500">
+              <div className="rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5">
+                <p className="text-sm text-[var(--fos-text-muted)]">
                   This Month
                 </p>
 
-                <p className="mt-2 text-2xl font-bold text-slate-900">
+                <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                   {formatCurrency(monthlyPayments)}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-5">
-                <p className="text-sm text-slate-500">
+              <div className="rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5">
+                <p className="text-sm text-[var(--fos-text-muted)]">
                   Linked Payments
                 </p>
 
-                <p className="mt-2 text-2xl font-bold text-slate-900">
+                <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                   {linkedPayments}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-5">
-                <p className="text-sm text-slate-500">
+              <div className="rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5">
+                <p className="text-sm text-[var(--fos-text-muted)]">
                   Unallocated
                 </p>
 
-                <p className="mt-2 text-2xl font-bold text-slate-900">
+                <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                   {unallocatedPayments}
                 </p>
               </div>
             </div>
 
-            <div className="mt-6 rounded-xl border border-slate-200 bg-white">
-              <div className="border-b border-slate-200 p-4">
+            <div className="mt-6 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)]">
+              <div className="border-b border-[var(--fos-border)] p-4">
                 <div className="relative max-w-md">
                   <Search
                     size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--fos-text-muted)]"
                   />
 
                   <input
@@ -518,55 +536,55 @@ export default function MembershipPaymentsPage() {
                       setSearch(event.target.value)
                     }
                     placeholder="Search payments..."
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-slate-500"
+                    className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-slate-500"
                   />
                 </div>
               </div>
 
               {loading ? (
-                <div className="p-8 text-center text-sm text-slate-500">
+                <div className="p-8 text-center text-sm text-[var(--fos-text-muted)]">
                   Loading membership payments...
                 </div>
               ) : filteredPayments.length === 0 ? (
                 <div className="p-10 text-center">
-                  <p className="font-medium text-slate-700">
+                  <p className="font-medium text-[var(--fos-text-secondary)]">
                     No membership payments found.
                   </p>
 
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                     Record a payment to see it here.
                   </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[1000px] text-left">
-                    <thead className="border-b border-slate-200 bg-slate-50">
+                    <thead className="border-b border-[var(--fos-border)] bg-[var(--fos-page)]">
                       <tr>
-                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                           Member
                         </th>
 
-                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                           Contribution
                         </th>
 
-                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                           Amount
                         </th>
 
-                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                           Method
                         </th>
 
-                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                           Reference
                         </th>
 
-                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                           Date
                         </th>
 
-                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                           Action
                         </th>
                       </tr>
@@ -582,16 +600,16 @@ export default function MembershipPaymentsPage() {
                         return (
                           <tr
                             key={payment.id}
-                            className="transition hover:bg-slate-50"
+                            className="transition hover:bg-[var(--fos-page)]"
                           >
                             <td className="px-5 py-4">
-                              <div className="font-medium text-slate-900">
+                              <div className="font-medium text-[var(--fos-text)]">
                                 {getMemberName(
                                   payment.membership_id,
                                 )}
                               </div>
 
-                              <div className="text-xs text-slate-500">
+                              <div className="text-xs text-[var(--fos-text-muted)]">
                                 {getMembershipNumber(
                                   payment.membership_id,
                                 )}
@@ -601,7 +619,7 @@ export default function MembershipPaymentsPage() {
                             <td className="px-5 py-4">
                               {contribution ? (
                                 <>
-                                  <div className="font-medium text-slate-800">
+                                  <div className="font-medium text-[var(--fos-text)]">
                                     {formatDate(
                                       contribution.contribution_period,
                                     )}
@@ -619,30 +637,30 @@ export default function MembershipPaymentsPage() {
                                   </span>
                                 </>
                               ) : (
-                                <span className="text-sm text-slate-400">
+                                <span className="text-sm text-[var(--fos-text-muted)]">
                                   Unallocated
                                 </span>
                               )}
                             </td>
 
-                            <td className="px-5 py-4 font-semibold text-slate-900">
+                            <td className="px-5 py-4 font-semibold text-[var(--fos-text)]">
                               {formatCurrency(
                                 payment.amount,
                               )}
                             </td>
 
-                            <td className="px-5 py-4 text-sm capitalize text-slate-700">
+                            <td className="px-5 py-4 text-sm capitalize text-[var(--fos-text-secondary)]">
                               {payment.payment_method.replace(
                                 "_",
                                 " ",
                               )}
                             </td>
 
-                            <td className="px-5 py-4 text-sm text-slate-600">
+                            <td className="px-5 py-4 text-sm text-[var(--fos-text-secondary)]">
                               {payment.reference || "—"}
                             </td>
 
-                            <td className="px-5 py-4 text-sm text-slate-600">
+                            <td className="px-5 py-4 text-sm text-[var(--fos-text-secondary)]">
                               {formatDate(
                                 payment.payment_date,
                               )}
@@ -655,7 +673,7 @@ export default function MembershipPaymentsPage() {
                                     openEditModal(payment)
                                   }
                                   disabled={saving}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--fos-border)] px-3 py-2 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-surface-muted)] disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                   <Pencil size={15} />
                                   Edit
@@ -687,16 +705,16 @@ export default function MembershipPaymentsPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-xl">
+            <div className="flex items-center justify-between border-b border-[var(--fos-border)] px-6 py-5">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">
+                <h2 className="text-xl font-bold text-[var(--fos-text)]">
                   {editingPayment
                     ? "Edit Membership Payment"
                     : "Record Membership Payment"}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                   {editingPayment
                     ? "Update the payment details."
                     : "Record a contribution payment for a member."}
@@ -705,7 +723,7 @@ export default function MembershipPaymentsPage() {
 
               <button
                 onClick={closeModal}
-                className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
+                className="rounded-lg p-2 text-[var(--fos-text-muted)] transition hover:bg-[var(--fos-surface-muted)]"
               >
                 <X size={20} />
               </button>
@@ -723,7 +741,7 @@ export default function MembershipPaymentsPage() {
 
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Membership
                   </label>
 
@@ -735,7 +753,7 @@ export default function MembershipPaymentsPage() {
                       )
                     }
                     disabled={!!editingPayment}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-500 disabled:bg-slate-100"
+                    className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 disabled:bg-[var(--fos-surface-muted)]"
                   >
                     <option value="">
                       Select membership
@@ -758,7 +776,7 @@ export default function MembershipPaymentsPage() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Contribution
                   </label>
 
@@ -773,7 +791,7 @@ export default function MembershipPaymentsPage() {
                       !!editingPayment ||
                       !membershipId
                     }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-500 disabled:bg-slate-100"
+                    className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 disabled:bg-[var(--fos-surface-muted)]"
                   >
                     <option value="">
                       {membershipId
@@ -818,7 +836,7 @@ export default function MembershipPaymentsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Amount
                   </label>
 
@@ -833,12 +851,12 @@ export default function MembershipPaymentsPage() {
                       )
                     }
                     placeholder="0.00"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                    className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Payment Method
                   </label>
 
@@ -849,7 +867,7 @@ export default function MembershipPaymentsPage() {
                         event.target.value,
                       )
                     }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                    className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500"
                   >
                     {PAYMENT_METHODS.map(
                       (method) => (
@@ -865,7 +883,7 @@ export default function MembershipPaymentsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Payment Date
                   </label>
 
@@ -877,12 +895,12 @@ export default function MembershipPaymentsPage() {
                         event.target.value,
                       )
                     }
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                    className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Reference
                   </label>
 
@@ -895,12 +913,12 @@ export default function MembershipPaymentsPage() {
                       )
                     }
                     placeholder="e.g. EFT-2026-001"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                    className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Notes
                   </label>
 
@@ -911,17 +929,17 @@ export default function MembershipPaymentsPage() {
                     }
                     rows={3}
                     placeholder="Optional payment notes..."
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                    className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500"
                   />
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-5">
+              <div className="mt-6 flex justify-end gap-3 border-t border-[var(--fos-border)] pt-5">
                 <button
                   type="button"
                   onClick={closeModal}
                   disabled={saving}
-                  className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-[var(--fos-border)] px-4 py-2.5 text-sm font-semibold text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)] disabled:opacity-50"
                 >
                   Cancel
                 </button>
