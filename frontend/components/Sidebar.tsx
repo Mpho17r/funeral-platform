@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import {
   CalendarDays,
   CreditCard,
@@ -31,6 +33,12 @@ import { useRouter, usePathname } from "next/navigation";
 
 import { removeToken } from "@/lib/auth";
 import { useBranding } from "@/components/BrandingProvider";
+import {
+  initialsOf,
+  titleOf,
+  useCurrentUser,
+} from "@/components/CurrentUserProvider";
+import { ProfileDialog } from "@/components/ProfileDialog";
 import { useTheme } from "@/components/ThemeProvider";
 
 type SidebarProps = {
@@ -162,6 +170,9 @@ export default function Sidebar({
   function navigate(path: string) {
     router.push(path);
   }
+
+  const { user: currentUser } = useCurrentUser();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   function handleLogout() {
     removeToken();
@@ -517,6 +528,54 @@ export default function Sidebar({
               : "rgba(15,23,42,0.08)",
         }}
       >
+        {currentUser && (
+          <button
+            type="button"
+            onClick={() => setProfileOpen(true)}
+            aria-label="Edit your profile"
+            title={currentUser.email ?? "Edit your profile"}
+            className={`mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+              resolvedTheme === "dark"
+                ? "hover:bg-white/10"
+                : "hover:bg-black/5"
+            }`}
+          >
+            <div
+              aria-hidden="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+              style={{ backgroundColor: primary }}
+            >
+              {initialsOf(currentUser.full_name)}
+            </div>
+
+            <div className="min-w-0">
+              <p
+                className={`truncate text-sm font-semibold ${
+                  resolvedTheme === "dark"
+                    ? "text-white"
+                    : "text-slate-900"
+                }`}
+              >
+                {currentUser.full_name ?? "Signed in"}
+              </p>
+
+              <p
+                className={`truncate text-xs ${
+                  resolvedTheme === "dark"
+                    ? "text-slate-400"
+                    : "text-slate-500"
+                }`}
+              >
+                {titleOf(currentUser)}
+              </p>
+            </div>
+          </button>
+        )}
+
+        {profileOpen && (
+          <ProfileDialog onClose={() => setProfileOpen(false)} />
+        )}
+
         <button
           type="button"
           onClick={handleLogout}

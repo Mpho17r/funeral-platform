@@ -15,6 +15,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import api from "@/lib/api";
+import {
+  titleOf,
+  useCurrentUser,
+} from "@/components/CurrentUserProvider";
 import { removeToken } from "@/lib/auth";
 
 type RecentCase = {
@@ -272,6 +276,9 @@ export default function DashboardPage() {
     };
   }, [router]);
 
+  const { user: currentUser } = useCurrentUser();
+  const firstName = currentUser?.full_name?.trim().split(/\s+/)[0];
+
   const today = new Date().toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
@@ -290,9 +297,18 @@ export default function DashboardPage() {
         <div>
           <h1 className="font-display text-3xl text-[var(--fos-text)] sm:text-4xl dark:text-white">
             {greeting()}
+            {firstName ? `, ${firstName}` : ""}
           </h1>
 
           <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
+            {currentUser ? (
+              <>
+                <span className="font-medium text-[var(--fos-text-secondary)]">
+                  {titleOf(currentUser)}
+                </span>
+                <span aria-hidden="true"> · </span>
+              </>
+            ) : null}
             {today}
           </p>
         </div>

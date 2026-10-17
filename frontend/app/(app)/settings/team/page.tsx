@@ -34,6 +34,7 @@ type User = {
   full_name: string;
   email: string;
   role: string;
+  job_title?: string | null;
   is_active: boolean;
   branch_id: string | null;
   locked_until: string | null;
@@ -45,6 +46,7 @@ type UserForm = {
   email: string;
   password: string;
   role: string;
+  job_title: string;
   is_active: boolean;
 };
 
@@ -72,6 +74,7 @@ const emptyForm: UserForm = {
   email: "",
   password: "",
   role: "staff",
+  job_title: "",
   is_active: true,
 };
 
@@ -166,6 +169,7 @@ export default function TeamPage() {
       email: user.email,
       password: "",
       role: user.role,
+      job_title: user.job_title ?? "",
       is_active: user.is_active,
     });
 
@@ -263,10 +267,12 @@ export default function TeamPage() {
         const payload: {
           full_name?: string;
           role?: string;
+          job_title?: string | null;
           is_active?: boolean;
         } = {
           full_name: fullName,
           role: form.role,
+          job_title: form.job_title.trim() || null,
           is_active: form.is_active,
         };
 
@@ -286,6 +292,9 @@ export default function TeamPage() {
           email,
           password: form.password,
           role: form.role,
+          ...(form.job_title.trim()
+            ? { job_title: form.job_title.trim() }
+            : {}),
           // Left empty, the server uses the creator's own branch.
           ...(newUserBranch ? { branch_id: newUserBranch } : {}),
         });
@@ -594,6 +603,12 @@ export default function TeamPage() {
                               )}
                             </div>
 
+                            {user.job_title && (
+                              <p className="truncate text-sm font-medium text-[var(--fos-text-secondary)]">
+                                {user.job_title}
+                              </p>
+                            )}
+
                             <p className="truncate text-sm text-[var(--fos-text-muted)]">
                               {user.email}
                             </p>
@@ -774,6 +789,35 @@ export default function TeamPage() {
                   placeholder="e.g. John Mokoena"
                   disabled={saving}
                 />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
+                  Job title{" "}
+                  <span className="font-normal text-[var(--fos-text-muted)]">
+                    (optional)
+                  </span>
+                </label>
+
+                <input
+                  type="text"
+                  value={form.job_title}
+                  maxLength={100}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      job_title: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  placeholder="e.g. Operations Manager"
+                  disabled={saving}
+                />
+
+                <p className="mt-1.5 text-xs text-[var(--fos-text-muted)]">
+                  Shown beside their name. What they can do is set by the
+                  role below.
+                </p>
               </div>
 
               {!editingUser && (

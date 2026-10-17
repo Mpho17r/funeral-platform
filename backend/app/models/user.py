@@ -58,6 +58,13 @@ class User(Base):
         nullable=False,
     )
 
+    # What the person does at this business ("Operations Manager"), shown
+    # beside their name. It is a label only; what they may do is the role.
+    job_title: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
