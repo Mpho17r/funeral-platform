@@ -17,6 +17,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "families.manage",
         "contacts.view",
         "contacts.manage",
+        "imports.run",
         "members.view",
         "members.create",
         "members.edit",

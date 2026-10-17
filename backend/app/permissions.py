@@ -39,6 +39,9 @@ PERMISSIONS = {
     ),
     "members.delete": "Archive members (they can be restored)",
 
+    # Importing existing records
+    "imports.run": "Import members and policies from a spreadsheet",
+
     # Membership plans
     "membership_plans.view": "View membership plans",
     "membership_plans.manage": "Manage membership plans",
