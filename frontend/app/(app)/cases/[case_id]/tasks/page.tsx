@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { useParams, useRouter } from "next/navigation";
+import axios from "axios";
 
 import api from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
@@ -58,37 +59,41 @@ type TaskForm = {
    HELPERS
 ============================================================ */
 
-function getApiErrorMessage(
-  err: any,
-  fallback: string
-): string {
-  const detail = err?.response?.data?.detail;
+function getApiErrorStatus(err: unknown): number | undefined {
+  return axios.isAxiosError(err) ? err.response?.status : undefined;
+}
 
-  if (typeof detail === "string") {
-    return detail;
-  }
+function getApiErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError<{ detail?: unknown }>(err)) {
+    const detail = err.response?.data?.detail;
 
-  if (Array.isArray(detail)) {
-    return detail
-      .map((item: any) => {
+    if (typeof detail === "string") {
+      return detail;
+    }
+
+    if (Array.isArray(detail)) {
+      const messages = detail.map((item: unknown) => {
         if (typeof item === "string") {
           return item;
         }
 
-        if (item?.msg) {
+        if (
+          item !== null &&
+          typeof item === "object" &&
+          "msg" in item &&
+          typeof item.msg === "string"
+        ) {
           return item.msg;
         }
 
         return "Invalid request.";
-      })
-      .join(" ");
+      });
+
+      return messages.join(" ");
+    }
   }
 
-  if (typeof err?.message === "string") {
-    return err.message;
-  }
-
-  return fallback;
+  return err instanceof Error ? err.message : fallback;
 }
 
 function formatStatus(status: string) {
@@ -181,35 +186,7 @@ export default function TasksPage() {
      AUTH + INITIAL LOAD
   ========================================================== */
 
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-
-    if (!caseId) {
-      setPageError("Case ID is missing from the URL.");
-      setLoading(false);
-      return;
-    }
-
-    if (!isValidUuid(caseId)) {
-      setPageError(
-        "Invalid case ID. Please open Tasks from an actual funeral case."
-      );
-      setLoading(false);
-      return;
-    }
-
-    loadTasks();
-    loadUsers();
-  }, [caseId, router]);
-
-  /* ==========================================================
-     LOAD TASKS
-  ========================================================== */
-
-  async function loadTasks() {
+  const loadTasks = useCallback(async () => {
     try {
       setLoading(true);
       setPageError("");
@@ -219,30 +196,24 @@ export default function TasksPage() {
       );
 
       setTasks(response.data);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
 
       setPageError(
-        getApiErrorMessage(
-          err,
-          "Unable to load case tasks."
-        )
+        getApiErrorMessage(err, "Unable to load case tasks.")
       );
     } finally {
       setLoading(false);
     }
-  }
+  }, [caseId, router]);
 
-  /* ==========================================================
-     LOAD USERS
-  ========================================================== */
-
-  async function loadUsers() {
+  const loadUsers = useCallback(async () => {
     try {
       const response = await api.get<User[]>("/users");
+
       setUsers(
         response.data.filter(
           (user) =>
@@ -250,14 +221,42 @@ export default function TasksPage() {
             (user.role === "manager" || user.role === "staff")
         )
       );
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
+
       setUsers([]);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    async function initializeCaseTasks() {
+      if (!isAuthenticated()) {
+        router.push("/login");
+        return;
+      }
+
+      if (!caseId) {
+        setPageError("Case ID is missing from the URL.");
+        setLoading(false);
+        return;
+      }
+
+      if (!isValidUuid(caseId)) {
+        setPageError(
+          "Invalid case ID. Please open Tasks from an actual funeral case."
+        );
+        setLoading(false);
+        return;
+      }
+
+      await Promise.all([loadTasks(), loadUsers()]);
+    }
+
+    void initializeCaseTasks();
+  }, [caseId, router, loadTasks, loadUsers]);
 
   /* ==========================================================
      FORM HELPERS
@@ -366,8 +365,8 @@ export default function TasksPage() {
 
       setShowForm(false);
       resetForm();
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -407,8 +406,8 @@ export default function TasksPage() {
       setTasks((current) =>
         current.filter((task) => task.id !== taskId)
       );
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -457,8 +456,8 @@ export default function TasksPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="flex items-center gap-3 text-sm text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-[var(--fos-surface-muted)]">
+        <div className="flex items-center gap-3 text-sm text-[var(--fos-text-muted)]">
           <Loader2
             size={20}
             className="animate-spin"
@@ -474,17 +473,17 @@ export default function TasksPage() {
   ========================================================== */
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-[var(--fos-surface-muted)]">
       {/* HEADER */}
 
-      <header className="border-b bg-white">
+      <header className="border-b bg-[var(--fos-surface)]">
         <div className="mx-auto max-w-7xl px-6 py-5 md:px-8">
           <button
             type="button"
             onClick={() =>
               router.push(`/cases/${caseId}`)
             }
-            className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+            className="mb-5 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-muted)] hover:text-[var(--fos-text)]"
           >
             <ArrowLeft size={17} />
             Back to Case
@@ -497,11 +496,11 @@ export default function TasksPage() {
               </div>
 
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">
+                <h1 className="text-2xl font-bold text-[var(--fos-text)]">
                   Tasks
                 </h1>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                   Manage tasks and follow-ups for this
                   funeral case.
                 </p>
@@ -512,7 +511,7 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={loadTasks}
-                className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
               >
                 <RefreshCw size={16} />
                 Refresh
@@ -576,13 +575,13 @@ export default function TasksPage() {
 
         {/* TASK LIST */}
 
-        <div className="mt-8 rounded-2xl border bg-white shadow-sm">
+        <div className="mt-8 rounded-2xl border bg-[var(--fos-surface)] shadow-sm">
           <div className="border-b px-6 py-5">
-            <h2 className="text-lg font-bold text-slate-900">
+            <h2 className="text-lg font-bold text-[var(--fos-text)]">
               Case Tasks
             </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
               Tasks and follow-ups associated with this
               case.
             </p>
@@ -590,15 +589,15 @@ export default function TasksPage() {
 
           {tasks.length === 0 ? (
             <div className="px-6 py-16 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--fos-surface-muted)] text-[var(--fos-text-muted)]">
                 <ClipboardList size={25} />
               </div>
 
-              <h3 className="mt-5 text-base font-semibold text-slate-900">
+              <h3 className="mt-5 text-base font-semibold text-[var(--fos-text)]">
                 No tasks yet
               </h3>
 
-              <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+              <p className="mx-auto mt-2 max-w-md text-sm text-[var(--fos-text-muted)]">
                 Add tasks and follow-ups required for
                 this case.
               </p>
@@ -622,7 +621,7 @@ export default function TasksPage() {
                   <div className="flex flex-col justify-between gap-5 lg:flex-row">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="text-base font-bold text-slate-900">
+                        <h3 className="text-base font-bold text-[var(--fos-text)]">
                           {task.title}
                         </h3>
 
@@ -636,7 +635,7 @@ export default function TasksPage() {
                       </div>
 
                       {task.description && (
-                        <p className="mt-3 text-sm text-slate-600">
+                        <p className="mt-3 text-sm text-[var(--fos-text-secondary)]">
                           {task.description}
                         </p>
                       )}
@@ -690,7 +689,7 @@ export default function TasksPage() {
                         onClick={() =>
                           openEditForm(task)
                         }
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        className="inline-flex items-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
                       >
                         <Pencil size={15} />
                         Edit
@@ -704,7 +703,7 @@ export default function TasksPage() {
                         onClick={() =>
                           handleDeleteTask(task.id)
                         }
-                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-[var(--fos-surface)] px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {deletingId === task.id ? (
                           <Loader2
@@ -729,16 +728,16 @@ export default function TasksPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+          <div className="w-full max-w-2xl rounded-2xl bg-[var(--fos-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-5">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">
+                <h2 className="text-lg font-bold text-[var(--fos-text)]">
                   {editingTask
                     ? "Edit Task"
                     : "Add Task"}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                   {editingTask
                     ? "Update the task details."
                     : "Create a task for this funeral case."}
@@ -749,7 +748,7 @@ export default function TasksPage() {
                 type="button"
                 onClick={closeForm}
                 disabled={saving}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text-secondary)]"
               >
                 <X size={20} />
               </button>
@@ -768,7 +767,7 @@ export default function TasksPage() {
               )}
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                   Task Title
                 </label>
 
@@ -784,12 +783,12 @@ export default function TasksPage() {
                   placeholder="e.g. Confirm burial date"
                   maxLength={200}
                   required
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                   Description
                 </label>
 
@@ -803,13 +802,13 @@ export default function TasksPage() {
                   }
                   placeholder="Add any details about this task..."
                   rows={4}
-                  className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="w-full resize-none rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 />
               </div>
 
               <div className="grid gap-5 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Status
                   </label>
 
@@ -821,7 +820,7 @@ export default function TasksPage() {
                         event.target.value
                       )
                     }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   >
                     <option value="pending">
                       Pending
@@ -838,7 +837,7 @@ export default function TasksPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Due Date
                   </label>
 
@@ -851,13 +850,13 @@ export default function TasksPage() {
                         event.target.value
                       )
                     }
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                   Assigned To
                 </label>
                 <select
@@ -868,7 +867,7 @@ export default function TasksPage() {
                       event.target.value
                     )
                   }
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 >
                   <option value="">
                     Unassigned
@@ -879,7 +878,7 @@ export default function TasksPage() {
                     </option>
                   ))}
                 </select>
-                <p className="mt-1.5 text-xs text-slate-400">
+                <p className="mt-1.5 text-xs text-[var(--fos-text-muted)]">
                   Assign this task to an active manager or staff member.
                 </p>
               </div>
@@ -888,7 +887,7 @@ export default function TasksPage() {
                   type="button"
                   onClick={closeForm}
                   disabled={saving}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)] disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -934,23 +933,23 @@ function SummaryCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border bg-[var(--fos-surface)] p-5 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-medium text-slate-500">
+          <p className="text-sm font-medium text-[var(--fos-text-muted)]">
             {title}
           </p>
 
-          <p className="mt-2 text-2xl font-bold text-slate-900">
+          <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
             {value}
           </p>
 
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
             {description}
           </p>
         </div>
 
-        <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
+        <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3 text-[var(--fos-text-secondary)]">
           {icon}
         </div>
       </div>
@@ -967,11 +966,11 @@ function InfoItem({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
         {label}
       </p>
 
-      <p className="mt-1 text-sm font-medium text-slate-700">
+      <p className="mt-1 text-sm font-medium text-[var(--fos-text-secondary)]">
         {value}
       </p>
     </div>

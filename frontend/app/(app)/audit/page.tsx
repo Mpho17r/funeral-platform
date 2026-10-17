@@ -111,7 +111,11 @@ export default function AuditTrailPage() {
   }, [action, entityType, dateFrom, dateTo, offset]);
 
   useEffect(() => {
-    void load();
+    async function initialize() {
+      await load();
+    }
+
+    void initialize();
   }, [load]);
 
   function changeFilter(update: () => void) {

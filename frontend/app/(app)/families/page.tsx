@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { removeToken } from "@/lib/auth";
@@ -35,6 +35,37 @@ type FamilyGroup = {
   members: FamilyMember[];
 };
 
+function getApiErrorDetails(error: unknown): {
+  status?: number;
+  detail?: string;
+} {
+  if (error === null || typeof error !== "object") {
+    return {};
+  }
+
+  const errorRecord = error as Record<string, unknown>;
+  const response = errorRecord.response;
+
+  if (response === null || typeof response !== "object") {
+    return {};
+  }
+
+  const responseRecord = response as Record<string, unknown>;
+  const data = responseRecord.data;
+  const detail =
+    data !== null && typeof data === "object"
+      ? (data as Record<string, unknown>).detail
+      : undefined;
+
+  return {
+    status:
+      typeof responseRecord.status === "number"
+        ? responseRecord.status
+        : undefined,
+    detail: typeof detail === "string" ? detail : undefined,
+  };
+}
+
 export default function FamiliesPage() {
   const router = useRouter();
 
@@ -43,35 +74,35 @@ export default function FamiliesPage() {
   const [error, setError] = useState("");
   const [expandedCase, setExpandedCase] = useState<string | null>(null);
 
-  async function loadFamilies() {
+  const loadFamilies = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-
       const response = await api.get<FamilyGroup[]>("/families");
-
       setFamilies(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Families error:", err);
+      const { status, detail } = getApiErrorDetails(err);
 
-      if (err?.response?.status === 401) {
+      if (status === 401) {
         removeToken();
         router.push("/login");
         return;
       }
 
-      setError(
-        err?.response?.data?.detail ||
-          "Unable to load family information."
-      );
+      setError(detail || "Unable to load family information.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
 
   useEffect(() => {
-    loadFamilies();
-  }, []);
+    async function initializeFamilies() {
+      await loadFamilies();
+    }
+
+    void initializeFamilies();
+  }, [loadFamilies]);
 
   function toggleFamily(caseId: string) {
     setExpandedCase((current) =>
@@ -92,17 +123,17 @@ export default function FamiliesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-[var(--fos-surface-muted)]">
       <div className="flex min-h-screen">
 
         <div className="min-w-0 flex-1">
       {/* HEADER */}
-      <header className="border-b bg-white">
+      <header className="border-b bg-[var(--fos-surface)]">
         <div className="mx-auto max-w-7xl px-6 py-5 md:px-8">
           <button
             type="button"
             onClick={() => router.push("/dashboard")}
-            className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+            className="mb-5 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-muted)] transition hover:text-[var(--fos-text)]"
           >
             <ArrowLeft size={17} />
             Back to Dashboard
@@ -115,11 +146,11 @@ export default function FamiliesPage() {
               </div>
 
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">
+                <h1 className="text-2xl font-bold text-[var(--fos-text)]">
                   Families
                 </h1>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                   Manage family members grouped by funeral case.
                 </p>
               </div>
@@ -128,7 +159,7 @@ export default function FamiliesPage() {
             <button
               type="button"
               onClick={loadFamilies}
-              className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              className="flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)]"
             >
               <RefreshCw size={16} />
               Refresh
@@ -152,32 +183,32 @@ export default function FamiliesPage() {
         {/* SUMMARY */}
         {!loading && (
           <div className="mb-8 grid gap-5 md:grid-cols-3">
-            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border bg-[var(--fos-surface)] p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-[var(--fos-text-muted)]">
                     Family Cases
                   </p>
 
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
+                  <p className="mt-2 text-3xl font-bold text-[var(--fos-text)]">
                     {families.length}
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
+                <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3 text-[var(--fos-text-secondary)]">
                   <Users size={21} />
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border bg-[var(--fos-surface)] p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-[var(--fos-text-muted)]">
                     Family Members
                   </p>
 
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
+                  <p className="mt-2 text-3xl font-bold text-[var(--fos-text)]">
                     {families.reduce(
                       (sum, family) =>
                         sum + family.member_count,
@@ -186,19 +217,19 @@ export default function FamiliesPage() {
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
+                <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3 text-[var(--fos-text-secondary)]">
                   <Users size={21} />
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border bg-[var(--fos-surface)] p-6 shadow-sm">
               <div>
-                <p className="text-sm font-medium text-slate-500">
+                <p className="text-sm font-medium text-[var(--fos-text-muted)]">
                   Average Members per Case
                 </p>
 
-                <p className="mt-2 text-3xl font-bold text-slate-900">
+                <p className="mt-2 text-3xl font-bold text-[var(--fos-text)]">
                   {families.length > 0
                     ? (
                         families.reduce(
@@ -216,13 +247,13 @@ export default function FamiliesPage() {
 
         {/* LOADING */}
         {loading && (
-          <div className="rounded-2xl border bg-white px-6 py-16 text-center shadow-sm">
+          <div className="rounded-2xl border bg-[var(--fos-surface)] px-6 py-16 text-center shadow-sm">
             <RefreshCw
               size={24}
-              className="mx-auto animate-spin text-slate-500"
+              className="mx-auto animate-spin text-[var(--fos-text-muted)]"
             />
 
-            <p className="mt-4 text-sm text-slate-500">
+            <p className="mt-4 text-sm text-[var(--fos-text-muted)]">
               Loading families...
             </p>
           </div>
@@ -230,16 +261,16 @@ export default function FamiliesPage() {
 
         {/* EMPTY */}
         {!loading && !error && families.length === 0 && (
-          <div className="rounded-2xl border bg-white px-6 py-16 text-center shadow-sm">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+          <div className="rounded-2xl border bg-[var(--fos-surface)] px-6 py-16 text-center shadow-sm">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--fos-surface-muted)] text-[var(--fos-text-muted)]">
               <Users size={25} />
             </div>
 
-            <h2 className="mt-5 text-base font-semibold text-slate-900">
+            <h2 className="mt-5 text-base font-semibold text-[var(--fos-text)]">
               No families found
             </h2>
 
-            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+            <p className="mx-auto mt-2 max-w-md text-sm text-[var(--fos-text-muted)]">
               Family members added to funeral cases will
               appear here grouped by case.
             </p>
@@ -256,7 +287,7 @@ export default function FamiliesPage() {
               return (
                 <div
                   key={family.case_id}
-                  className="overflow-hidden rounded-2xl border bg-white shadow-sm"
+                  className="overflow-hidden rounded-2xl border bg-[var(--fos-surface)] shadow-sm"
                 >
                   {/* CASE HEADER */}
                   <button
@@ -264,20 +295,20 @@ export default function FamiliesPage() {
                     onClick={() =>
                       toggleFamily(family.case_id)
                     }
-                    className="flex w-full items-center justify-between p-6 text-left transition hover:bg-slate-50"
+                    className="flex w-full items-center justify-between p-6 text-left transition hover:bg-[var(--fos-page)]"
                   >
                     <div className="flex min-w-0 items-center gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]">
                         <Users size={21} />
                       </div>
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-3">
-                          <h2 className="font-bold text-slate-900">
+                          <h2 className="font-bold text-[var(--fos-text)]">
                             {family.case_number}
                           </h2>
 
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                          <span className="rounded-full bg-[var(--fos-surface-muted)] px-3 py-1 text-xs font-medium text-[var(--fos-text-secondary)]">
                             {family.member_count}{" "}
                             {family.member_count === 1
                               ? "member"
@@ -285,16 +316,16 @@ export default function FamiliesPage() {
                           </span>
                         </div>
 
-                        <p className="mt-1 text-sm text-slate-500">
+                        <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                           Family of{" "}
-                          <span className="font-medium text-slate-700">
+                          <span className="font-medium text-[var(--fos-text-secondary)]">
                             {family.deceased_full_name}
                           </span>
                         </p>
                       </div>
                     </div>
 
-                    <div className="ml-4 shrink-0 text-slate-500">
+                    <div className="ml-4 shrink-0 text-[var(--fos-text-muted)]">
                       {expanded ? (
                         <ChevronUp size={20} />
                       ) : (
@@ -305,7 +336,7 @@ export default function FamiliesPage() {
 
                   {/* MEMBERS */}
                   {expanded && (
-                    <div className="border-t bg-slate-50">
+                    <div className="border-t bg-[var(--fos-page)]">
                       <div className="divide-y">
                         {family.members.map((member) => (
                           <div
@@ -315,11 +346,11 @@ export default function FamiliesPage() {
                             <div className="flex flex-col justify-between gap-5 lg:flex-row">
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-3">
-                                  <h3 className="text-base font-bold text-slate-900">
+                                  <h3 className="text-base font-bold text-[var(--fos-text)]">
                                     {member.full_name}
                                   </h3>
 
-                                  <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+                                  <span className="rounded-full bg-[var(--fos-surface)] px-3 py-1 text-xs font-medium text-[var(--fos-text-secondary)] ring-1 ring-slate-200">
                                     {formatRelationship(
                                       member.relationship
                                     )}
@@ -329,11 +360,11 @@ export default function FamiliesPage() {
                                 <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                   {member.phone && (
                                     <div>
-                                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                                      <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                                         Phone
                                       </p>
 
-                                      <div className="mt-1 flex items-center gap-2 text-sm font-medium text-slate-700">
+                                      <div className="mt-1 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-secondary)]">
                                         <Phone size={15} />
                                         {member.phone}
                                       </div>
@@ -342,11 +373,11 @@ export default function FamiliesPage() {
 
                                   {member.email && (
                                     <div>
-                                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                                      <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                                         Email
                                       </p>
 
-                                      <div className="mt-1 flex items-center gap-2 break-all text-sm font-medium text-slate-700">
+                                      <div className="mt-1 flex items-center gap-2 break-all text-sm font-medium text-[var(--fos-text-secondary)]">
                                         <Mail size={15} />
                                         {member.email}
                                       </div>
@@ -355,11 +386,11 @@ export default function FamiliesPage() {
 
                                   {member.organization && (
                                     <div>
-                                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                                      <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                                         Organization
                                       </p>
 
-                                      <p className="mt-1 text-sm font-medium text-slate-700">
+                                      <p className="mt-1 text-sm font-medium text-[var(--fos-text-secondary)]">
                                         {member.organization}
                                       </p>
                                     </div>
@@ -368,23 +399,23 @@ export default function FamiliesPage() {
 
                                 {member.address && (
                                   <div className="mt-4">
-                                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                                       Address
                                     </p>
 
-                                    <p className="mt-1 text-sm text-slate-600">
+                                    <p className="mt-1 text-sm text-[var(--fos-text-secondary)]">
                                       {member.address}
                                     </p>
                                   </div>
                                 )}
 
                                 {member.notes && (
-                                  <div className="mt-4 rounded-lg bg-white p-4 ring-1 ring-slate-200">
-                                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                                  <div className="mt-4 rounded-lg bg-[var(--fos-surface)] p-4 ring-1 ring-slate-200">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                                       Notes
                                     </p>
 
-                                    <p className="mt-1 text-sm text-slate-600">
+                                    <p className="mt-1 text-sm text-[var(--fos-text-secondary)]">
                                       {member.notes}
                                     </p>
                                   </div>

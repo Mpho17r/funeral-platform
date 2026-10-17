@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
   Edit3,
@@ -99,6 +99,33 @@ const emptyForm: PlanForm = {
   waiting_upgrade_months: "0",
 };
 
+function getApiErrorDetails(error: unknown): {
+  status?: number;
+  detail?: string;
+} {
+  if (error === null || typeof error !== "object") return {};
+
+  const errorRecord = error as Record<string, unknown>;
+  const response = errorRecord.response;
+
+  if (response === null || typeof response !== "object") return {};
+
+  const responseRecord = response as Record<string, unknown>;
+  const data = responseRecord.data;
+  const detail =
+    data !== null && typeof data === "object"
+      ? (data as Record<string, unknown>).detail
+      : undefined;
+
+  return {
+    status:
+      typeof responseRecord.status === "number"
+        ? responseRecord.status
+        : undefined,
+    detail: typeof detail === "string" ? detail : undefined,
+  };
+}
+
 export default function MembershipPlansPage() {
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,32 +136,32 @@ export default function MembershipPlansPage() {
   const [editingPlan, setEditingPlan] = useState<MembershipPlan | null>(null);
   const [form, setForm] = useState<PlanForm>(emptyForm);
 
-  async function loadPlans() {
+  const loadPlans = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
       const response = await api.get<MembershipPlan[]>("/membership-plans");
       setPlans(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to load membership plans:", err);
 
-      if (err.response?.status === 401) {
+      const details = getApiErrorDetails(err);
+      if (details.status === 401) {
         setError("Your session has expired. Please log in again.");
       } else {
-        setError(
-          err.response?.data?.detail ||
-            "Unable to load membership plans."
-        );
+        setError(details.detail || "Unable to load membership plans.");
       }
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    loadPlans();
   }, []);
+  useEffect(() => {
+    async function initializePlans() {
+      await loadPlans();
+    }
+    void initializePlans();
+  }, [loadPlans]);
 
   function openCreateForm() {
     setEditingPlan(null);
@@ -245,18 +272,15 @@ export default function MembershipPlansPage() {
       }
 
       closeForm();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to save membership plan:", err);
-
-      if (err.response?.status === 401) {
+      const details = getApiErrorDetails(err);
+      if (details.status === 401 || details.status === 403) {
         setFormError(
           "You are not authorized to manage membership plans. Main Admin access is required."
         );
       } else {
-        setFormError(
-          err.response?.data?.detail ||
-            "Unable to save membership plan."
-        );
+        setFormError(details.detail || "Unable to save membership plan.");
       }
     } finally {
       setSaving(false);
@@ -277,13 +301,10 @@ export default function MembershipPlansPage() {
           item.id === plan.id ? response.data : item
         )
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to update plan status:", err);
-
-      setError(
-        err.response?.data?.detail ||
-          "Unable to update membership plan status."
-      );
+      const details = getApiErrorDetails(err);
+      setError(details.detail || "Unable to update membership plan status.");
     }
   }
 
@@ -302,13 +323,10 @@ export default function MembershipPlansPage() {
       setPlans((current) =>
         current.filter((item) => item.id !== plan.id)
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to delete membership plan:", err);
-
-      setError(
-        err.response?.data?.detail ||
-          "Unable to delete membership plan."
-      );
+      const details = getApiErrorDetails(err);
+      setError(details.detail || "Unable to delete membership plan.");
     }
   }
 
@@ -323,16 +341,16 @@ export default function MembershipPlansPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-screen bg-[var(--fos-surface-muted)]">
 
       <main className="min-w-0 flex-1">
-        <div className="border-b border-slate-200 bg-white">
+        <div className="border-b border-[var(--fos-border)] bg-[var(--fos-surface)]">
           <div className="flex items-center justify-between px-6 py-5">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">
+              <h1 className="text-2xl font-bold text-[var(--fos-text)]">
                 Membership Plans
               </h1>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                 Manage funeral cover plans and monthly contribution prices.
               </p>
             </div>
@@ -365,50 +383,50 @@ export default function MembershipPlansPage() {
           )}
 
           <div className="mb-6 grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-              <p className="text-sm text-slate-500">Total Plans</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">
+            <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+              <p className="text-sm text-[var(--fos-text-muted)]">Total Plans</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                 {plans.length}
               </p>
             </div>
 
-            <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-              <p className="text-sm text-slate-500">Active Plans</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">
+            <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+              <p className="text-sm text-[var(--fos-text-muted)]">Active Plans</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                 {plans.filter((plan) => plan.is_active).length}
               </p>
             </div>
 
-            <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-              <p className="text-sm text-slate-500">Inactive Plans</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">
+            <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+              <p className="text-sm text-[var(--fos-text-muted)]">Inactive Plans</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                 {plans.filter((plan) => !plan.is_active).length}
               </p>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
-            <div className="border-b border-slate-200 px-6 py-4">
-              <h2 className="font-semibold text-slate-900">
+          <div className="overflow-hidden rounded-xl bg-[var(--fos-surface)] ring-1 ring-slate-200">
+            <div className="border-b border-[var(--fos-border)] px-6 py-4">
+              <h2 className="font-semibold text-[var(--fos-text)]">
                 Available Plans
               </h2>
             </div>
 
             {loading ? (
-              <div className="p-10 text-center text-sm text-slate-500">
+              <div className="p-10 text-center text-sm text-[var(--fos-text-muted)]">
                 Loading membership plans...
               </div>
             ) : plans.length === 0 ? (
               <div className="p-12 text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-                  <Plus size={22} className="text-slate-500" />
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--fos-surface-muted)]">
+                  <Plus size={22} className="text-[var(--fos-text-muted)]" />
                 </div>
 
-                <h3 className="mt-4 font-semibold text-slate-900">
+                <h3 className="mt-4 font-semibold text-[var(--fos-text)]">
                   No membership plans yet
                 </h3>
 
-                <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+                <p className="mx-auto mt-1 max-w-md text-sm text-[var(--fos-text-muted)]">
                   Create your first funeral cover plan to start assigning
                   members to a contribution structure.
                 </p>
@@ -430,7 +448,7 @@ export default function MembershipPlansPage() {
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="font-semibold text-slate-900">
+                        <h3 className="font-semibold text-[var(--fos-text)]">
                           {plan.name}
                         </h3>
 
@@ -440,7 +458,7 @@ export default function MembershipPlansPage() {
                             Active
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--fos-surface-muted)] px-2.5 py-1 text-xs font-medium text-[var(--fos-text-muted)]">
                             <XCircle size={13} />
                             Inactive
                           </span>
@@ -448,16 +466,16 @@ export default function MembershipPlansPage() {
                       </div>
 
                       {plan.description && (
-                        <p className="mt-1 text-sm text-slate-500">
+                        <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                           {plan.description}
                         </p>
                       )}
 
-                      <p className="mt-3 text-sm text-slate-500">
+                      <p className="mt-3 text-sm text-[var(--fos-text-muted)]">
                         Monthly contribution
                       </p>
 
-                      <p className="text-lg font-bold text-slate-900">
+                      <p className="text-lg font-bold text-[var(--fos-text)]">
                         {formatCurrency(plan.monthly_contribution)}
                       </p>
 
@@ -470,7 +488,7 @@ export default function MembershipPlansPage() {
                       <button
                         type="button"
                         onClick={() => togglePlan(plan)}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                        className="rounded-lg border border-[var(--fos-border)] px-3 py-2 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
                       >
                         {plan.is_active ? "Deactivate" : "Activate"}
                       </button>
@@ -478,7 +496,7 @@ export default function MembershipPlansPage() {
                       <button
                         type="button"
                         onClick={() => openEditForm(plan)}
-                        className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                        className="flex items-center gap-2 rounded-lg border border-[var(--fos-border)] px-3 py-2 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
                       >
                         <Edit3 size={16} />
                         Edit
@@ -503,16 +521,16 @@ export default function MembershipPlansPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div className="w-full max-w-lg rounded-2xl bg-[var(--fos-surface)] shadow-xl">
+            <div className="flex items-center justify-between border-b border-[var(--fos-border)] px-6 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="text-lg font-semibold text-[var(--fos-text)]">
                   {editingPlan
                     ? "Edit Membership Plan"
                     : "Create Membership Plan"}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                   Define the monthly contribution for this cover plan.
                 </p>
               </div>
@@ -521,7 +539,7 @@ export default function MembershipPlansPage() {
                 type="button"
                 onClick={closeForm}
                 disabled={saving}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text-secondary)] disabled:opacity-50"
               >
                 <X size={20} />
               </button>
@@ -536,7 +554,7 @@ export default function MembershipPlansPage() {
 
               <div className="space-y-5">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Plan Name
                   </label>
 
@@ -550,13 +568,13 @@ export default function MembershipPlansPage() {
                       })
                     }
                     placeholder="e.g. Standard Family Cover"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                     disabled={saving}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Description
                   </label>
 
@@ -570,18 +588,18 @@ export default function MembershipPlansPage() {
                     }
                     placeholder="Describe what this plan covers."
                     rows={3}
-                    className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="w-full resize-none rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                     disabled={saving}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--fos-text-secondary)]">
                     Monthly Contribution
                   </label>
 
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--fos-text-muted)]">
                       R
                     </span>
 
@@ -597,7 +615,7 @@ export default function MembershipPlansPage() {
                         })
                       }
                       placeholder="0.00"
-                      className="w-full rounded-lg border border-slate-300 py-2.5 pl-8 pr-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      className="w-full rounded-lg border border-[var(--fos-border)] py-2.5 pl-8 pr-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                       disabled={saving}
                     />
                   </div>
@@ -658,15 +676,15 @@ export default function MembershipPlansPage() {
                         is_active: event.target.checked,
                       })
                     }
-                    className="h-4 w-4 rounded border-slate-300"
+                    className="h-4 w-4 rounded border-[var(--fos-border)]"
                     disabled={saving}
                   />
 
                   <span>
-                    <span className="block text-sm font-medium text-slate-700">
+                    <span className="block text-sm font-medium text-[var(--fos-text-secondary)]">
                       Active plan
                     </span>
-                    <span className="block text-xs text-slate-500">
+                    <span className="block text-xs text-[var(--fos-text-muted)]">
                       Members can be assigned to active plans.
                     </span>
                   </span>
@@ -678,7 +696,7 @@ export default function MembershipPlansPage() {
                   type="button"
                   onClick={closeForm}
                   disabled={saving}
-                  className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-[var(--fos-border)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)] disabled:opacity-50"
                 >
                   Cancel
                 </button>

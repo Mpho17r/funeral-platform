@@ -30,10 +30,33 @@ type CoverPolicy = {
 };
 
 function getErrorMessage(
-  error: any,
+  error: unknown,
   fallback: string,
-) {
-  const detail = error?.response?.data?.detail;
+): string {
+  type ValidationItem = {
+    msg?: unknown;
+    loc?: unknown;
+  };
+
+  type ErrorPayload = {
+    detail?: unknown;
+    message?: unknown;
+  };
+
+  type ErrorShape = {
+    response?: {
+      data?: ErrorPayload;
+    };
+    message?: unknown;
+  };
+
+  const candidate =
+    typeof error === "object" && error !== null
+      ? (error as ErrorShape)
+      : undefined;
+
+  const detail =
+    candidate?.response?.data?.detail;
 
   if (typeof detail === "string") {
     return detail;
@@ -41,42 +64,57 @@ function getErrorMessage(
 
   if (Array.isArray(detail)) {
     return detail
-      .map((item: any) => {
-        if (typeof item === "string") {
-          return item;
+      .map((value: unknown) => {
+        if (typeof value === "string") {
+          return value;
         }
 
-        if (item?.msg) {
-          const location = Array.isArray(item.loc)
-            ? item.loc.join(".")
-            : "";
-
-          return location
-            ? `${location}: ${item.msg}`
-            : item.msg;
+        if (typeof value !== "object" || value === null) {
+          return null;
         }
 
-        return null;
+        const item = value as ValidationItem;
+        if (typeof item.msg !== "string") {
+          return null;
+        }
+
+        const location = Array.isArray(item.loc)
+          ? item.loc
+              .filter((part): part is string | number =>
+                typeof part === "string" ||
+                typeof part === "number"
+              )
+              .join(".")
+          : "";
+
+        return location
+          ? `${location}: ${item.msg}`
+          : item.msg;
       })
-      .filter(Boolean)
-      .join(" | ");
+      .filter((value): value is string =>
+        typeof value === "string" && value.length > 0
+      )
+      .join(" | ") || fallback;
   }
 
-  if (
-    detail &&
-    typeof detail === "object" &&
-    typeof detail.msg === "string"
-  ) {
-    return detail.msg;
+  if (typeof detail === "object" && detail !== null) {
+    const item = detail as ValidationItem;
+    if (typeof item.msg === "string") {
+      return item.msg;
+    }
   }
 
-  if (typeof error?.message === "string") {
-    return error.message;
+  const responseMessage = candidate?.response?.data?.message;
+  if (typeof responseMessage === "string") {
+    return responseMessage;
+  }
+
+  if (typeof candidate?.message === "string") {
+    return candidate.message;
   }
 
   return fallback;
 }
-
 export default function MembershipRulesPage() {
   const router = useRouter();
 
@@ -152,7 +190,7 @@ export default function MembershipRulesPage() {
       setReinstatementPolicy(
         data.reinstatement_policy,
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(
         getErrorMessage(
           err,
@@ -165,7 +203,9 @@ export default function MembershipRulesPage() {
   }
 
   useEffect(() => {
-    loadBusiness();
+    window.setTimeout(() => {
+      void loadBusiness();
+    }, 0);
   }, []);
 
   async function saveRules() {
@@ -239,7 +279,7 @@ export default function MembershipRulesPage() {
       setMessage(
         "Membership rules saved successfully.",
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(
         getErrorMessage(
           err,
@@ -253,9 +293,9 @@ export default function MembershipRulesPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <main className="min-h-screen bg-[var(--fos-surface-muted)] text-[var(--fos-text)] dark:bg-slate-950 dark:text-slate-100">
         <div className="flex min-h-screen items-center justify-center">
-          <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-3 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
             <Loader2
               size={20}
               className="animate-spin"
@@ -268,15 +308,15 @@ export default function MembershipRulesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <main className="min-h-screen bg-[var(--fos-surface-muted)] text-[var(--fos-text)] dark:bg-slate-950 dark:text-slate-100">
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-20 items-center justify-between border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
+        <header className="flex min-h-20 items-center justify-between border-b border-[var(--fos-border)] bg-[var(--fos-surface)] px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+            <h2 className="text-xl font-bold text-[var(--fos-text)] dark:text-white">
               Membership Rules
             </h2>
 
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
               Configure how membership cover behaves when
               contributions fall into arrears.
             </p>
@@ -291,30 +331,30 @@ export default function MembershipRulesPage() {
                 onClick={() =>
                   router.push("/settings")
                 }
-                className="mb-4 flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                className="mb-4 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-muted)] transition hover:text-[var(--fos-text)] dark:text-[var(--fos-text-muted)] dark:hover:text-white"
               >
                 <ArrowLeft size={16} />
                 Back to Settings
               </button>
 
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-[var(--fos-surface)] dark:text-[var(--fos-text)]">
                   <ShieldCheck size={24} />
                 </div>
 
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  <h1 className="text-2xl font-bold text-[var(--fos-text)] dark:text-white">
                     Membership Cover Rules
                   </h1>
 
-                  <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                     These rules control when members remain
                     covered, enter arrears, lapse, and become
                     eligible for reinstatement.
                   </p>
 
                   {business && (
-                    <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    <p className="mt-2 text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                       {business.name}
                     </p>
                   )}
@@ -337,13 +377,13 @@ export default function MembershipRulesPage() {
 
             <div className="space-y-6">
               {/* GRACE PERIOD */}
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="mb-5">
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  <h2 className="text-lg font-semibold text-[var(--fos-text)] dark:text-white">
                     Grace Period
                   </h2>
 
-                  <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-sm leading-6 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                     The number of days after a contribution
                     becomes due during which cover can continue
                     when arrears cover is disabled.
@@ -353,7 +393,7 @@ export default function MembershipRulesPage() {
                 <div className="max-w-sm">
                   <label
                     htmlFor="grace-period"
-                    className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+                    className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)] dark:text-slate-300"
                   >
                     Grace period
                   </label>
@@ -369,10 +409,10 @@ export default function MembershipRulesPage() {
                           Number(event.target.value),
                         )
                       }
-                      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-16 text-sm outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
+                      className="w-full rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 pr-16 text-sm outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
                     />
 
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[var(--fos-text-muted)]">
                       days
                     </span>
                   </div>
@@ -380,14 +420,14 @@ export default function MembershipRulesPage() {
               </section>
 
               {/* COVER DURING ARREARS */}
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                   <div className="max-w-2xl">
-                    <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                    <h2 className="text-lg font-semibold text-[var(--fos-text)] dark:text-white">
                       Cover During Arrears
                     </h2>
 
-                    <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                    <p className="mt-1 text-sm leading-6 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                       Decide whether a member remains covered
                       while their membership has unpaid
                       contributions.
@@ -407,12 +447,12 @@ export default function MembershipRulesPage() {
                     }
                     className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${
                       coverDuringArrears
-                        ? "bg-slate-900 dark:bg-white"
+                        ? "bg-slate-900 dark:bg-[var(--fos-surface)]"
                         : "bg-slate-300 dark:bg-slate-700"
                     }`}
                   >
                     <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                      className={`inline-block h-5 w-5 transform rounded-full bg-[var(--fos-surface)] shadow transition ${
                         coverDuringArrears
                           ? "translate-x-6"
                           : "translate-x-1"
@@ -425,10 +465,10 @@ export default function MembershipRulesPage() {
                   </button>
                 </div>
 
-                <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-400">
+                <div className="mt-5 rounded-xl bg-[var(--fos-page)] p-4 text-sm text-[var(--fos-text-secondary)] dark:bg-slate-950 dark:text-[var(--fos-text-muted)]">
                   {coverDuringArrears ? (
                     <>
-                      <strong className="text-slate-900 dark:text-white">
+                      <strong className="text-[var(--fos-text)] dark:text-white">
                         Cover remains active during arrears.
                       </strong>{" "}
                       The member can remain covered until the
@@ -437,7 +477,7 @@ export default function MembershipRulesPage() {
                     </>
                   ) : (
                     <>
-                      <strong className="text-slate-900 dark:text-white">
+                      <strong className="text-[var(--fos-text)] dark:text-white">
                         Grace-period cover applies.
                       </strong>{" "}
                       Once a member enters arrears, cover
@@ -449,13 +489,13 @@ export default function MembershipRulesPage() {
               </section>
 
               {/* LAPSE */}
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="mb-5">
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  <h2 className="text-lg font-semibold text-[var(--fos-text)] dark:text-white">
                     Membership Lapse
                   </h2>
 
-                  <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-sm leading-6 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                     The membership becomes lapsed once the
                     oldest unpaid contribution has remained
                     unpaid for this many days.
@@ -465,7 +505,7 @@ export default function MembershipRulesPage() {
                 <div className="max-w-sm">
                   <label
                     htmlFor="lapse-after"
-                    className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+                    className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)] dark:text-slate-300"
                   >
                     Lapse after
                   </label>
@@ -481,15 +521,15 @@ export default function MembershipRulesPage() {
                           Number(event.target.value),
                         )
                       }
-                      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-16 text-sm outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
+                      className="w-full rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 pr-16 text-sm outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
                     />
 
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[var(--fos-text-muted)]">
                       days
                     </span>
                   </div>
 
-                  <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                  <p className="mt-2 text-xs text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                     Must be greater than or equal to the grace
                     period.
                   </p>
@@ -497,13 +537,13 @@ export default function MembershipRulesPage() {
               </section>
 
               {/* REINSTATEMENT */}
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="mb-5">
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  <h2 className="text-lg font-semibold text-[var(--fos-text)] dark:text-white">
                     Reinstatement Policy
                   </h2>
 
-                  <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-sm leading-6 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                     Decide what happens when a previously
                     lapsed membership has no remaining unpaid
                     contributions.
@@ -521,12 +561,12 @@ export default function MembershipRulesPage() {
                     className={`rounded-xl border p-4 text-left transition ${
                       reinstatementPolicy ===
                       "automatic"
-                        ? "border-slate-900 bg-slate-50 ring-2 ring-slate-200 dark:border-white dark:bg-slate-800 dark:ring-slate-700"
-                        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600"
+                        ? "border-slate-900 bg-[var(--fos-page)] ring-2 ring-slate-200 dark:border-white dark:bg-slate-800 dark:ring-slate-700"
+                        : "border-[var(--fos-border)] bg-[var(--fos-surface)] hover:border-[var(--fos-border)] dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600"
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-900 dark:text-white">
+                      <span className="font-semibold text-[var(--fos-text)] dark:text-white">
                         Automatic
                       </span>
 
@@ -536,7 +576,7 @@ export default function MembershipRulesPage() {
                       )}
                     </div>
 
-                    <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    <p className="mt-2 text-xs leading-5 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                       Automatically return the membership to
                       active status when arrears are cleared.
                     </p>
@@ -552,12 +592,12 @@ export default function MembershipRulesPage() {
                     className={`rounded-xl border p-4 text-left transition ${
                       reinstatementPolicy ===
                       "manual"
-                        ? "border-slate-900 bg-slate-50 ring-2 ring-slate-200 dark:border-white dark:bg-slate-800 dark:ring-slate-700"
-                        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600"
+                        ? "border-slate-900 bg-[var(--fos-page)] ring-2 ring-slate-200 dark:border-white dark:bg-slate-800 dark:ring-slate-700"
+                        : "border-[var(--fos-border)] bg-[var(--fos-surface)] hover:border-[var(--fos-border)] dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600"
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-900 dark:text-white">
+                      <span className="font-semibold text-[var(--fos-text)] dark:text-white">
                         Manual
                       </span>
 
@@ -567,7 +607,7 @@ export default function MembershipRulesPage() {
                       )}
                     </div>
 
-                    <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    <p className="mt-2 text-xs leading-5 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                       A Main Admin or authorised staff member
                       must reinstate the membership.
                     </p>
@@ -583,12 +623,12 @@ export default function MembershipRulesPage() {
                     className={`rounded-xl border p-4 text-left transition ${
                       reinstatementPolicy ===
                       "not_allowed"
-                        ? "border-slate-900 bg-slate-50 ring-2 ring-slate-200 dark:border-white dark:bg-slate-800 dark:ring-slate-700"
-                        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600"
+                        ? "border-slate-900 bg-[var(--fos-page)] ring-2 ring-slate-200 dark:border-white dark:bg-slate-800 dark:ring-slate-700"
+                        : "border-[var(--fos-border)] bg-[var(--fos-surface)] hover:border-[var(--fos-border)] dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600"
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-900 dark:text-white">
+                      <span className="font-semibold text-[var(--fos-text)] dark:text-white">
                         Not Allowed
                       </span>
 
@@ -598,7 +638,7 @@ export default function MembershipRulesPage() {
                       )}
                     </div>
 
-                    <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    <p className="mt-2 text-xs leading-5 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                       Once lapsed, the membership cannot be
                       automatically reinstated.
                     </p>
@@ -607,13 +647,13 @@ export default function MembershipRulesPage() {
               </section>
 
               {/* SAVE */}
-              <section className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center md:justify-between">
+              <section className="flex flex-col gap-4 rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="font-semibold text-slate-900 dark:text-white">
+                  <h2 className="font-semibold text-[var(--fos-text)] dark:text-white">
                     Save Membership Rules
                   </h2>
 
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                     Changes will apply to membership status and
                     coverage decisions for this business.
                   </p>
@@ -625,7 +665,7 @@ export default function MembershipRulesPage() {
                   disabled={
                     saving || !business
                   }
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[var(--fos-surface)] dark:text-[var(--fos-text)] dark:hover:bg-[var(--fos-border)]"
                 >
                   {saving ? (
                     <>

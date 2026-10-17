@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   ArrowLeft,
@@ -48,6 +48,25 @@ type UserForm = {
   is_active: boolean;
 };
 
+function asRecord(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function getApiErrorDetails(error: unknown) {
+  const errorRecord = asRecord(error);
+  const responseRecord = asRecord(errorRecord?.response);
+  const dataRecord = asRecord(responseRecord?.data);
+
+  return {
+    status: responseRecord?.status,
+    detail: dataRecord?.detail,
+  };
+}
+
 const emptyForm: UserForm = {
   full_name: "",
   email: "",
@@ -79,53 +98,57 @@ export default function TeamPage() {
   const [notice, setNotice] = useState("");
   const [resetting, setResetting] = useState<User | null>(null);
 
-  async function loadUsers() {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
       const response = await api.get<User[]>("/users");
-
       setUsers(response.data);
 
       const token = localStorage.getItem("access_token");
-
       if (token) {
         try {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-
-          const loggedInUser = response.data.find(
-            (user) => user.id === payload.sub
+          const payload: { sub?: string } = JSON.parse(
+            atob(token.split(".")[1]),
           );
-
-          setCurrentUser(loggedInUser || null);
+          const loggedInUser = response.data.find(
+            (user) => user.id === payload.sub,
+          );
+          setCurrentUser(loggedInUser ?? null);
         } catch {
           setCurrentUser(null);
         }
+      } else {
+        setCurrentUser(null);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to load users:", err);
+      const { status, detail } = getApiErrorDetails(err);
 
-      if (err.response?.status === 401) {
+      if (status === 401) {
         setError("Your session has expired. Please log in again.");
-      } else if (err.response?.status === 403) {
-        setError(
-          "You do not have permission to manage team members."
-        );
+      } else if (status === 403) {
+        setError("You do not have permission to manage team members.");
       } else {
         setError(
-          err.response?.data?.detail ||
-            "Unable to load team members."
+          typeof detail === "string"
+            ? detail
+            : "Unable to load team members.",
         );
       }
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    async function initializeTeamUsers() {
+      await loadUsers();
+    }
+
+    void initializeTeamUsers();
+  }, [loadUsers]);
 
   function openCreateForm() {
     setEditingUser(null);
@@ -271,25 +294,29 @@ export default function TeamPage() {
       }
 
       closeForm();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to save user:", err);
+      const { status, detail } = getApiErrorDetails(err);
 
-      if (err.response?.status === 401) {
+      if (status === 401) {
         setFormError("Your session has expired. Please log in again.");
-      } else if (err.response?.status === 403) {
+      } else if (status === 403) {
         setFormError(
-          err.response?.data?.detail ||
-            "You do not have permission to perform this action."
+          typeof detail === "string"
+            ? detail
+            : "You do not have permission to perform this action."
         );
-      } else if (err.response?.status === 409) {
+      } else if (status === 409) {
         setFormError(
-          err.response?.data?.detail ||
-            "That email address is already registered."
+          typeof detail === "string"
+            ? detail
+            : "That email address is already registered."
         );
       } else {
         setFormError(
-          err.response?.data?.detail ||
-            "Unable to save team member."
+          typeof detail === "string"
+            ? detail
+            : "Unable to save team member."
         );
       }
     } finally {
@@ -337,12 +364,13 @@ export default function TeamPage() {
           )
         );
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to update user status:", err);
-
+      const { detail } = getApiErrorDetails(err);
       setError(
-        err.response?.data?.detail ||
-          "Unable to update team member status."
+        typeof detail === "string"
+          ? detail
+          : "Unable to update team member status."
       );
     }
   }
@@ -350,6 +378,8 @@ export default function TeamPage() {
   function isLocked(user: User) {
     return (
       user.locked_until !== null &&
+      // The lock is time-based, so reading the clock here is intended.
+      // eslint-disable-next-line react-hooks/purity
       new Date(user.locked_until).getTime() > Date.now()
     );
   }
@@ -383,10 +413,13 @@ export default function TeamPage() {
         ),
       );
       setNotice(`${user.full_name} can sign in again.`);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const { detail } = getApiErrorDetails(err);
+
       setError(
-        err.response?.data?.detail ||
-          "Unable to unlock this account.",
+        typeof detail === "string"
+          ? detail
+          : "Unable to unlock this account.",
       );
     }
   }
@@ -397,15 +430,15 @@ export default function TeamPage() {
   const staff = users.filter((user) => user.role === "staff");
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main className="min-h-screen bg-[var(--fos-surface-muted)] text-[var(--fos-text)]">
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="border-b border-slate-200 bg-white">
+        <header className="border-b border-[var(--fos-border)] bg-[var(--fos-surface)]">
           <div className="flex items-center justify-between px-6 py-5">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">
+              <h1 className="text-2xl font-bold text-[var(--fos-text)]">
                 Team & Users
               </h1>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                 Manage staff accounts, roles and access to your funeral business.
               </p>
             </div>
@@ -427,7 +460,7 @@ export default function TeamPage() {
             <button
               type="button"
               onClick={() => router.push("/settings")}
-              className="mb-6 flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+              className="mb-6 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-muted)] transition hover:text-[var(--fos-text)]"
             >
               <ArrowLeft size={16} />
               Back to Settings
@@ -459,46 +492,46 @@ export default function TeamPage() {
             )}
 
             <div className="mb-6 grid gap-4 md:grid-cols-4">
-              <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">Total Users</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">
+              <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+                <p className="text-sm text-[var(--fos-text-muted)]">Total Users</p>
+                <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                   {users.length}
                 </p>
               </div>
 
-              <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">Active</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">
+              <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+                <p className="text-sm text-[var(--fos-text-muted)]">Active</p>
+                <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                   {activeUsers.length}
                 </p>
               </div>
 
-              <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">Managers</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">
+              <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+                <p className="text-sm text-[var(--fos-text-muted)]">Managers</p>
+                <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                   {managers.length}
                 </p>
               </div>
 
-              <div className="rounded-xl bg-white p-5 ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">Staff</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">
+              <div className="rounded-xl bg-[var(--fos-surface)] p-5 ring-1 ring-slate-200">
+                <p className="text-sm text-[var(--fos-text-muted)]">Staff</p>
+                <p className="mt-2 text-2xl font-bold text-[var(--fos-text)]">
                   {staff.length}
                 </p>
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
-              <div className="border-b border-slate-200 px-6 py-4">
+            <div className="overflow-hidden rounded-xl bg-[var(--fos-surface)] ring-1 ring-slate-200">
+              <div className="border-b border-[var(--fos-border)] px-6 py-4">
                 <div className="flex items-center gap-3">
-                  <Users size={20} className="text-slate-500" />
+                  <Users size={20} className="text-[var(--fos-text-muted)]" />
 
                   <div>
-                    <h2 className="font-semibold text-slate-900">
+                    <h2 className="font-semibold text-[var(--fos-text)]">
                       Business Team
                     </h2>
 
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-[var(--fos-text-muted)]">
                       {inactiveUsers.length} inactive account
                       {inactiveUsers.length === 1 ? "" : "s"}
                     </p>
@@ -507,20 +540,20 @@ export default function TeamPage() {
               </div>
 
               {loading ? (
-                <div className="p-10 text-center text-sm text-slate-500">
+                <div className="p-10 text-center text-sm text-[var(--fos-text-muted)]">
                   Loading team members...
                 </div>
               ) : users.length === 0 ? (
                 <div className="p-12 text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-                    <Users size={22} className="text-slate-500" />
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--fos-surface-muted)]">
+                    <Users size={22} className="text-[var(--fos-text-muted)]" />
                   </div>
 
-                  <h3 className="mt-4 font-semibold text-slate-900">
+                  <h3 className="mt-4 font-semibold text-[var(--fos-text)]">
                     No team members yet
                   </h3>
 
-                  <p className="mt-2 text-sm text-slate-500">
+                  <p className="mt-2 text-sm text-[var(--fos-text-muted)]">
                     Add your first staff member to start building your team.
                   </p>
                 </div>
@@ -539,7 +572,7 @@ export default function TeamPage() {
                         className="flex flex-col gap-4 px-6 py-5 md:flex-row md:items-center md:justify-between"
                       >
                         <div className="flex min-w-0 items-center gap-4">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 font-semibold text-slate-700">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--fos-surface-muted)] font-semibold text-[var(--fos-text-secondary)]">
                             {user.full_name
                               .split(" ")
                               .map((part) => part[0])
@@ -550,18 +583,18 @@ export default function TeamPage() {
 
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-semibold text-slate-900">
+                              <p className="font-semibold text-[var(--fos-text)]">
                                 {user.full_name}
                               </p>
 
                               {isCurrentUser && (
-                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                                <span className="rounded-full bg-[var(--fos-surface-muted)] px-2 py-0.5 text-xs font-medium text-[var(--fos-text-secondary)]">
                                   You
                                 </span>
                               )}
                             </div>
 
-                            <p className="truncate text-sm text-slate-500">
+                            <p className="truncate text-sm text-[var(--fos-text-muted)]">
                               {user.email}
                             </p>
 
@@ -581,7 +614,7 @@ export default function TeamPage() {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3">
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-700">
+                          <span className="rounded-full bg-[var(--fos-surface-muted)] px-3 py-1 text-xs font-semibold capitalize text-[var(--fos-text-secondary)]">
                             {user.role.replace("_", " ")}
                           </span>
 
@@ -589,7 +622,7 @@ export default function TeamPage() {
                             className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
                               user.is_active
                                 ? "bg-emerald-50 text-emerald-700"
-                                : "bg-slate-100 text-slate-500"
+                                : "bg-[var(--fos-surface-muted)] text-[var(--fos-text-muted)]"
                             }`}
                           >
                             {user.is_active ? (
@@ -622,7 +655,7 @@ export default function TeamPage() {
                                 onClick={() =>
                                   openEditForm(user)
                                 }
-                                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                className="flex items-center gap-1.5 rounded-lg border border-[var(--fos-border)] px-3 py-2 text-xs font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)]"
                               >
                                 <Edit3 size={14} />
                                 Edit
@@ -686,16 +719,16 @@ export default function TeamPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div className="w-full max-w-lg rounded-2xl bg-[var(--fos-surface)] shadow-xl">
+            <div className="flex items-center justify-between border-b border-[var(--fos-border)] px-6 py-5">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="text-lg font-semibold text-[var(--fos-text)]">
                   {editingUser
                     ? "Edit Team Member"
                     : "Add Team Member"}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                   {editingUser
                     ? "Update this team member's account and access."
                     : "Create a new manager or staff account."}
@@ -706,7 +739,7 @@ export default function TeamPage() {
                 type="button"
                 onClick={closeForm}
                 disabled={saving}
-                className="text-slate-400 transition hover:text-slate-700 disabled:opacity-50"
+                className="text-[var(--fos-text-muted)] transition hover:text-[var(--fos-text-secondary)] disabled:opacity-50"
               >
                 <X size={20} />
               </button>
@@ -724,7 +757,7 @@ export default function TeamPage() {
               )}
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                   Full Name
                 </label>
 
@@ -737,7 +770,7 @@ export default function TeamPage() {
                       full_name: event.target.value,
                     }))
                   }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   placeholder="e.g. John Mokoena"
                   disabled={saving}
                 />
@@ -746,7 +779,7 @@ export default function TeamPage() {
               {!editingUser && (
                 <>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                    <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                       Email
                     </label>
 
@@ -759,14 +792,14 @@ export default function TeamPage() {
                           email: event.target.value,
                         }))
                       }
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                       placeholder="name@example.com"
                       disabled={saving}
                     />
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                    <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                       Temporary Password
                     </label>
 
@@ -779,7 +812,7 @@ export default function TeamPage() {
                           password: event.target.value,
                         }))
                       }
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                       placeholder="Enter a password"
                       disabled={saving}
                     />
@@ -796,7 +829,7 @@ export default function TeamPage() {
               )}
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
                   Role
                 </label>
 
@@ -815,7 +848,7 @@ export default function TeamPage() {
                         currentUser.role !== "main_admin"
                       : false)
                   }
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-100 disabled:text-slate-500"
+                  className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-[var(--fos-surface-muted)] disabled:text-[var(--fos-text-muted)]"
                 >
                   {canCreateRole("staff") || editingUser ? (
                     <option value="staff">Staff</option>
@@ -828,14 +861,14 @@ export default function TeamPage() {
 
                 {!editingUser &&
                   currentUser?.role === "manager" && (
-                    <p className="mt-1.5 text-xs text-slate-500">
+                    <p className="mt-1.5 text-xs text-[var(--fos-text-muted)]">
                       Managers can create staff accounts.
                     </p>
                   )}
               </div>
 
               {editingUser && (
-                <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3">
+                <label className="flex items-center gap-3 rounded-lg border border-[var(--fos-border)] p-3">
                   <input
                     type="checkbox"
                     checked={form.is_active}
@@ -846,21 +879,21 @@ export default function TeamPage() {
                       }))
                     }
                     disabled={saving}
-                    className="h-4 w-4 rounded border-slate-300"
+                    className="h-4 w-4 rounded border-[var(--fos-border)]"
                   />
 
-                  <span className="text-sm font-medium text-slate-700">
+                  <span className="text-sm font-medium text-[var(--fos-text-secondary)]">
                     Account is active
                   </span>
                 </label>
               )}
 
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+              <div className="flex justify-end gap-3 border-t border-[var(--fos-border)] pt-5">
                 <button
                   type="button"
                   onClick={closeForm}
                   disabled={saving}
-                  className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-[var(--fos-border)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)] disabled:opacity-50"
                 >
                   Cancel
                 </button>

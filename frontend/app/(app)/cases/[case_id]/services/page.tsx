@@ -1,10 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ArrowLeft,
-  CalendarDays,
   CheckCircle2,
   HeartHandshake,
   Loader2,
@@ -16,6 +15,7 @@ import {
 
 import { useParams, useRouter } from "next/navigation";
 
+import axios from "axios";
 import api from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 
@@ -57,11 +57,14 @@ type ServiceForm = {
    HELPERS
 ============================================================ */
 
-function getApiErrorMessage(
-  err: any,
-  fallback: string
-): string {
-  const detail = err?.response?.data?.detail;
+function getApiErrorStatus(err: unknown): number | undefined {
+  return axios.isAxiosError(err) ? err.response?.status : undefined;
+}
+
+function getApiErrorMessage(err: unknown, fallback: string): string {
+  const detail = axios.isAxiosError<{ detail?: unknown }>(err)
+    ? err.response?.data?.detail
+    : undefined;
 
   if (typeof detail === "string") {
     return detail;
@@ -69,12 +72,17 @@ function getApiErrorMessage(
 
   if (Array.isArray(detail)) {
     return detail
-      .map((item: any) => {
+      .map((item: unknown) => {
         if (typeof item === "string") {
           return item;
         }
 
-        if (item?.msg) {
+        if (
+          item !== null &&
+          typeof item === "object" &&
+          "msg" in item &&
+          typeof item.msg === "string"
+        ) {
           return item.msg;
         }
 
@@ -83,11 +91,7 @@ function getApiErrorMessage(
       .join(" ");
   }
 
-  if (typeof err?.message === "string") {
-    return err.message;
-  }
-
-  return fallback;
+  return err instanceof Error ? err.message : fallback;
 }
 
 function formatMoney(value: number | string) {
@@ -181,37 +185,10 @@ export default function ServicesPage() {
   });
 
   /* ==========================================================
-     AUTH + INITIAL LOAD
-  ========================================================== */
-
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-
-    if (!caseId) {
-      setPageError("Case ID is missing from the URL.");
-      setLoading(false);
-      return;
-    }
-
-    if (!isValidUuid(caseId)) {
-      setPageError(
-        "Invalid case ID. Please open Services from an actual funeral case."
-      );
-      setLoading(false);
-      return;
-    }
-
-    loadServices();
-  }, [caseId, router]);
-
-  /* ==========================================================
      LOAD SERVICES
   ========================================================== */
 
-  async function loadServices() {
+  const loadServices = useCallback(async () => {
     try {
       setLoading(true);
       setPageError("");
@@ -221,22 +198,50 @@ export default function ServicesPage() {
       );
 
       setServices(response.data);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
 
       setPageError(
-        getApiErrorMessage(
-          err,
-          "Unable to load case services."
-        )
+        getApiErrorMessage(err, "Unable to load case services.")
       );
     } finally {
       setLoading(false);
     }
-  }
+  }, [caseId, router]);
+
+  /* ==========================================================
+     AUTH + INITIAL LOAD
+  ========================================================== */
+
+  useEffect(() => {
+    async function initializeCaseServices() {
+      if (!isAuthenticated()) {
+        router.push("/login");
+        return;
+      }
+
+      if (!caseId) {
+        setPageError("Case ID is missing from the URL.");
+        setLoading(false);
+        return;
+      }
+
+      if (!isValidUuid(caseId)) {
+        setPageError(
+          "Invalid case ID. Please open Services from an actual funeral case."
+        );
+        setLoading(false);
+        return;
+      }
+
+      await loadServices();
+    }
+
+    void initializeCaseServices();
+  }, [caseId, router, loadServices]);
 
   /* ==========================================================
      FORM HELPERS
@@ -346,8 +351,8 @@ export default function ServicesPage() {
       resetForm();
 
       await loadServices();
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -391,8 +396,8 @@ export default function ServicesPage() {
           (service) => service.id !== serviceId
         )
       );
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (getApiErrorStatus(err) === 401) {
         router.push("/login");
         return;
       }
@@ -448,8 +453,8 @@ export default function ServicesPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="flex items-center gap-3 text-sm text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-[var(--fos-surface-muted)]">
+        <div className="flex items-center gap-3 text-sm text-[var(--fos-text-muted)]">
           <Loader2
             size={20}
             className="animate-spin"
@@ -465,19 +470,19 @@ export default function ServicesPage() {
   ========================================================== */
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-[var(--fos-surface-muted)]">
       {/* ======================================================
           HEADER
       ====================================================== */}
 
-      <header className="border-b bg-white">
+      <header className="border-b bg-[var(--fos-surface)]">
         <div className="mx-auto max-w-7xl px-6 py-5 md:px-8">
           <button
             type="button"
             onClick={() =>
               router.push(`/cases/${caseId}`)
             }
-            className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+            className="mb-5 flex items-center gap-2 text-sm font-medium text-[var(--fos-text-muted)] hover:text-[var(--fos-text)]"
           >
             <ArrowLeft size={17} />
             Back to Case
@@ -491,11 +496,11 @@ export default function ServicesPage() {
                 </div>
 
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">
+                  <h1 className="text-2xl font-bold text-[var(--fos-text)]">
                     Services
                   </h1>
 
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                     Manage services and arrangements for
                     this funeral case.
                   </p>
@@ -507,7 +512,7 @@ export default function ServicesPage() {
               <button
                 type="button"
                 onClick={loadServices}
-                className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
               >
                 <RefreshCw size={16} />
                 Refresh
@@ -575,13 +580,13 @@ export default function ServicesPage() {
 
         {/* SERVICES CARD */}
 
-        <div className="mt-8 rounded-2xl border bg-white shadow-sm">
+        <div className="mt-8 rounded-2xl border bg-[var(--fos-surface)] shadow-sm">
           <div className="border-b px-6 py-5">
-            <h2 className="text-lg font-bold text-slate-900">
+            <h2 className="text-lg font-bold text-[var(--fos-text)]">
               Case Services
             </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
               Services and arrangements associated with
               this case.
             </p>
@@ -589,15 +594,15 @@ export default function ServicesPage() {
 
           {services.length === 0 ? (
             <div className="px-6 py-16 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--fos-surface-muted)] text-[var(--fos-text-muted)]">
                 <HeartHandshake size={25} />
               </div>
 
-              <h3 className="mt-5 text-base font-semibold text-slate-900">
+              <h3 className="mt-5 text-base font-semibold text-[var(--fos-text)]">
                 No services yet
               </h3>
 
-              <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+              <p className="mx-auto mt-2 max-w-md text-sm text-[var(--fos-text-muted)]">
                 Add the funeral services and arrangements
                 required for this case.
               </p>
@@ -621,11 +626,11 @@ export default function ServicesPage() {
                   <div className="flex flex-col justify-between gap-5 lg:flex-row">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="text-base font-bold text-slate-900">
+                        <h3 className="text-base font-bold text-[var(--fos-text)]">
                           {service.service_name}
                         </h3>
 
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                        <span className="rounded-full bg-[var(--fos-surface-muted)] px-3 py-1 text-xs font-medium text-[var(--fos-text-secondary)]">
                           {formatStatus(
                             service.service_type
                           )}
@@ -643,7 +648,7 @@ export default function ServicesPage() {
                       </div>
 
                       {service.description && (
-                        <p className="mt-3 text-sm text-slate-600">
+                        <p className="mt-3 text-sm text-[var(--fos-text-secondary)]">
                           {service.description}
                         </p>
                       )}
@@ -680,23 +685,23 @@ export default function ServicesPage() {
 
                       {service.provider && (
                         <div className="mt-4">
-                          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                          <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                             Provider
                           </p>
 
-                          <p className="mt-1 text-sm font-medium text-slate-700">
+                          <p className="mt-1 text-sm font-medium text-[var(--fos-text-secondary)]">
                             {service.provider}
                           </p>
                         </div>
                       )}
 
                       {service.notes && (
-                        <div className="mt-4 rounded-lg bg-slate-50 p-4">
-                          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                        <div className="mt-4 rounded-lg bg-[var(--fos-page)] p-4">
+                          <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
                             Notes
                           </p>
 
-                          <p className="mt-1 text-sm text-slate-600">
+                          <p className="mt-1 text-sm text-[var(--fos-text-secondary)]">
                             {service.notes}
                           </p>
                         </div>
@@ -742,14 +747,14 @@ export default function ServicesPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-5">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">
+                <h2 className="text-lg font-bold text-[var(--fos-text)]">
                   Add Service
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                   Add a service or arrangement to this
                   funeral case.
                 </p>
@@ -759,7 +764,7 @@ export default function ServicesPage() {
                 type="button"
                 onClick={closeForm}
                 disabled={saving}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+                className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text)] disabled:opacity-50"
               >
                 <X size={20} />
               </button>
@@ -916,7 +921,7 @@ export default function ServicesPage() {
                   type="button"
                   onClick={closeForm}
                   disabled={saving}
-                  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-[var(--fos-border)] px-5 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)] disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -962,22 +967,22 @@ function SummaryCard({
   description: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border bg-[var(--fos-surface)] p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-500">
+        <p className="text-sm font-medium text-[var(--fos-text-muted)]">
           {title}
         </p>
 
-        <div className="rounded-lg bg-slate-100 p-2 text-slate-700">
+        <div className="rounded-lg bg-[var(--fos-surface-muted)] p-2 text-[var(--fos-text-secondary)]">
           {icon}
         </div>
       </div>
 
-      <p className="mt-4 text-2xl font-bold text-slate-900">
+      <p className="mt-4 text-2xl font-bold text-[var(--fos-text)]">
         {value}
       </p>
 
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-[var(--fos-text-muted)]">
         {description}
       </p>
     </div>
@@ -997,11 +1002,11 @@ function InfoItem({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
         {label}
       </p>
 
-      <p className="mt-1 text-sm font-semibold text-slate-800">
+      <p className="mt-1 text-sm font-semibold text-[var(--fos-text)]">
         {value}
       </p>
     </div>
@@ -1033,7 +1038,7 @@ function FormField({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-slate-700">
+      <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
         {label}
 
         {required && (
@@ -1053,7 +1058,7 @@ function FormField({
         required={required}
         min={min}
         step={step}
-        className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+        className="w-full rounded-lg border border-[var(--fos-border)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
       />
     </div>
   );
@@ -1079,7 +1084,7 @@ function FormSelect({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-slate-700">
+      <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
         {label}
       </label>
 
@@ -1088,7 +1093,7 @@ function FormSelect({
         onChange={(event) =>
           onChange(event.target.value)
         }
-        className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+        className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
       >
         {options.map((option) => (
           <option
@@ -1120,7 +1125,7 @@ function TextAreaField({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-slate-700">
+      <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
         {label}
       </label>
 
@@ -1131,7 +1136,7 @@ function TextAreaField({
         }
         placeholder={placeholder}
         rows={4}
-        className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+        className="w-full rounded-lg border border-[var(--fos-border)] px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
       />
     </div>
   );
