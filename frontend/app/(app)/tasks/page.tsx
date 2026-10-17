@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClipboardList, Loader2, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import api from "@/lib/api";
+import axios from "axios";
 import { isAuthenticated } from "@/lib/auth";
 
 type WorkspaceTask = {
@@ -24,8 +25,14 @@ type WorkspaceTask = {
   completed_at: string | null;
 };
 
-function getApiErrorMessage(err: any, fallback: string) {
-  const detail = err?.response?.data?.detail;
+type ApiErrorResponse = {
+  detail?: unknown;
+};
+
+function getApiErrorMessage(err: unknown, fallback: string): string {
+  const detail = axios.isAxiosError<ApiErrorResponse>(err)
+    ? err.response?.data?.detail
+    : undefined;
 
   if (typeof detail === "string") {
     return detail;
@@ -33,12 +40,17 @@ function getApiErrorMessage(err: any, fallback: string) {
 
   if (Array.isArray(detail)) {
     return detail
-      .map((item: any) => {
+      .map((item: unknown) => {
         if (typeof item === "string") {
           return item;
         }
 
-        if (item?.msg) {
+        if (
+          item !== null &&
+          typeof item === "object" &&
+          "msg" in item &&
+          typeof item.msg === "string"
+        ) {
           return item.msg;
         }
 
@@ -47,7 +59,7 @@ function getApiErrorMessage(err: any, fallback: string) {
       .join(" ");
   }
 
-  if (typeof err?.message === "string") {
+  if (err instanceof Error && typeof err.message === "string") {
     return err.message;
   }
 
@@ -99,24 +111,14 @@ export default function TasksWorkspacePage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
 
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-
-    loadTasks();
-  }, [router]);
-
-  async function loadTasks() {
+  const loadTasks = useCallback(async () => {
     try {
       setLoading(true);
       setPageError("");
-
       const response = await api.get<WorkspaceTask[]>("/tasks");
       setTasks(response.data);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
         router.push("/login");
         return;
       }
@@ -130,7 +132,20 @@ export default function TasksWorkspacePage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    async function initializeTasks() {
+      if (!isAuthenticated()) {
+        router.push("/login");
+        return;
+      }
+
+      await loadTasks();
+    }
+
+    void initializeTasks();
+  }, [router, loadTasks]);
 
   const assignees = useMemo(() => {
     const names = tasks
@@ -159,15 +174,15 @@ export default function TasksWorkspacePage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-3">
-              <ClipboardList className="h-6 w-6 text-slate-700" />
+            <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3">
+              <ClipboardList className="h-6 w-6 text-[var(--fos-text-secondary)]" />
             </div>
 
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900">
+              <h1 className="text-2xl font-semibold text-[var(--fos-text)]">
                 Tasks
               </h1>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-[var(--fos-text-muted)]">
                 Business-wide task workspace
               </p>
             </div>
@@ -178,19 +193,19 @@ export default function TasksWorkspacePage() {
           type="button"
           onClick={loadTasks}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2 text-sm font-medium text-[var(--fos-text-secondary)] shadow-sm transition hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh
         </button>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-4 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-end">
           <div className="w-full md:w-56">
             <label
               htmlFor="status-filter"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-[var(--fos-text-secondary)]"
             >
               Status
             </label>
@@ -201,7 +216,7 @@ export default function TasksWorkspacePage() {
               onChange={(event) =>
                 setStatusFilter(event.target.value)
               }
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500"
+              className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2 text-sm outline-none focus:border-slate-500"
             >
               <option value="all">All statuses</option>
               <option value="pending">Pending</option>
@@ -213,7 +228,7 @@ export default function TasksWorkspacePage() {
           <div className="w-full md:w-64">
             <label
               htmlFor="assignee-filter"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-[var(--fos-text-secondary)]"
             >
               Assigned to
             </label>
@@ -224,7 +239,7 @@ export default function TasksWorkspacePage() {
               onChange={(event) =>
                 setAssigneeFilter(event.target.value)
               }
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500"
+              className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2 text-sm outline-none focus:border-slate-500"
             >
               <option value="all">Everyone</option>
 
@@ -236,13 +251,13 @@ export default function TasksWorkspacePage() {
             </select>
           </div>
 
-          <div className="text-sm text-slate-500">
+          <div className="text-sm text-[var(--fos-text-muted)]">
             Showing{" "}
-            <span className="font-semibold text-slate-800">
+            <span className="font-semibold text-[var(--fos-text)]">
               {filteredTasks.length}
             </span>{" "}
             of{" "}
-            <span className="font-semibold text-slate-800">
+            <span className="font-semibold text-[var(--fos-text)]">
               {tasks.length}
             </span>{" "}
             tasks
@@ -256,40 +271,40 @@ export default function TasksWorkspacePage() {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-sm">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 px-6 py-16 text-sm text-slate-500">
+          <div className="flex items-center justify-center gap-2 px-6 py-16 text-sm text-[var(--fos-text-muted)]">
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading tasks...
           </div>
         ) : filteredTasks.length === 0 ? (
           <div className="px-6 py-16 text-center">
             <ClipboardList className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-            <h2 className="text-lg font-semibold text-slate-800">
+            <h2 className="text-lg font-semibold text-[var(--fos-text)]">
               No tasks found
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
               There are no tasks matching the current filters.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+              <thead className="bg-[var(--fos-page)]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Task
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Case
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Assigned to
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Due
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
                     Status
                   </th>
                 </tr>
@@ -299,15 +314,15 @@ export default function TasksWorkspacePage() {
                 {filteredTasks.map((task) => (
                   <tr
                     key={task.id}
-                    className="transition hover:bg-slate-50"
+                    className="transition hover:bg-[var(--fos-page)]"
                   >
                     <td className="px-6 py-4">
-                      <div className="font-medium text-slate-900">
+                      <div className="font-medium text-[var(--fos-text)]">
                         {task.title}
                       </div>
 
                       {task.description && (
-                        <div className="mt-1 max-w-md text-sm text-slate-500">
+                        <div className="mt-1 max-w-md text-sm text-[var(--fos-text-muted)]">
                           {task.description}
                         </div>
                       )}
@@ -323,20 +338,20 @@ export default function TasksWorkspacePage() {
                         }
                         className="text-left"
                       >
-                        <div className="font-medium text-slate-900 hover:underline">
+                        <div className="font-medium text-[var(--fos-text)] hover:underline">
                           {task.case_number}
                         </div>
-                        <div className="text-sm text-slate-500">
+                        <div className="text-sm text-[var(--fos-text-muted)]">
                           {task.deceased_full_name}
                         </div>
                       </button>
                     </td>
 
-                    <td className="px-6 py-4 text-sm text-slate-700">
+                    <td className="px-6 py-4 text-sm text-[var(--fos-text-secondary)]">
                       {task.assigned_to_name || "Unassigned"}
                     </td>
 
-                    <td className="px-6 py-4 text-sm text-slate-700">
+                    <td className="px-6 py-4 text-sm text-[var(--fos-text-secondary)]">
                       {formatDate(task.due_date)}
                     </td>
 

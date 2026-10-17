@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Download,
@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import api from "@/lib/api";
+import axios from "axios";
 import { isAuthenticated } from "@/lib/auth";
 
 type CaseDocument = {
@@ -94,13 +95,37 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
 
-function getApiError(error: any, fallback: string) {
-  return (
-    error?.response?.data?.detail ||
-    error?.response?.data?.message ||
-    error?.message ||
-    fallback
-  );
+function getApiErrorStatus(error: unknown): number | undefined {
+  return axios.isAxiosError(error) ? error.response?.status : undefined;
+}
+
+function getApiError(error: unknown, fallback: string): string {
+  if (axios.isAxiosError<{ detail?: unknown; message?: unknown }>(error)) {
+    const detail = error.response?.data?.detail;
+    const message = error.response?.data?.message;
+
+    if (typeof detail === "string") return detail;
+    if (typeof message === "string") return message;
+
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item: unknown) => {
+          if (typeof item === "string") return item;
+          if (
+            item !== null &&
+            typeof item === "object" &&
+            "msg" in item &&
+            typeof item.msg === "string"
+          ) {
+            return item.msg;
+          }
+          return "Invalid request.";
+        })
+        .join(" ");
+    }
+  }
+
+  return error instanceof Error ? error.message : fallback;
 }
 
 export default function CaseDocumentsPage() {
@@ -136,22 +161,7 @@ export default function CaseDocumentsPage() {
     );
   }, [caseId]);
 
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-      return;
-    }
-
-    if (!isValidUuid) {
-      setError("Invalid case ID.");
-      setLoading(false);
-      return;
-    }
-
-    loadDocuments();
-  }, [isValidUuid, caseId, router]);
-
-  async function loadDocuments(showRefreshState = false) {
+  const loadDocuments = useCallback(async (showRefreshState = false) => {
     if (!caseId || !isValidUuid) {
       return;
     }
@@ -165,21 +175,26 @@ export default function CaseDocumentsPage() {
         setLoading(true);
       }
 
-      const response = await api.get(`/cases/${caseId}/documents`);
+      const response = await api.get<CaseDocument[]>(
+        `/cases/${caseId}/documents`
+      );
+
       setDocuments(response.data);
-    } catch (error: any) {
-      if (error?.response?.status === 401) {
+    } catch (error: unknown) {
+      const status = getApiErrorStatus(error);
+
+      if (status === 401) {
         localStorage.removeItem("access_token");
         router.replace("/login");
         return;
       }
 
-      if (error?.response?.status === 403) {
+      if (status === 403) {
         setError("You do not have permission to view case documents.");
         return;
       }
 
-      if (error?.response?.status === 404) {
+      if (status === 404) {
         setError("Case not found.");
         return;
       }
@@ -189,7 +204,26 @@ export default function CaseDocumentsPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, [caseId, isValidUuid, router]);
+
+  useEffect(() => {
+    async function initializeDocuments() {
+      if (!isAuthenticated()) {
+        router.replace("/login");
+        return;
+      }
+
+      if (!isValidUuid) {
+        setError("Invalid case ID.");
+        setLoading(false);
+        return;
+      }
+
+      await loadDocuments();
+    }
+
+    void initializeDocuments();
+  }, [isValidUuid, router, loadDocuments]);
 
   function resetUploadForm() {
     setForm(emptyForm);
@@ -258,14 +292,14 @@ export default function CaseDocumentsPage() {
       setSuccess("Document uploaded successfully.");
       resetUploadForm();
       await loadDocuments();
-    } catch (error: any) {
-      if (error?.response?.status === 401) {
+    } catch (error: unknown) {
+      if (getApiErrorStatus(error) === 401) {
         localStorage.removeItem("access_token");
         router.replace("/login");
         return;
       }
 
-      if (error?.response?.status === 403) {
+      if (getApiErrorStatus(error) === 403) {
         setError("You do not have permission to upload documents.");
         return;
       }
@@ -298,14 +332,14 @@ export default function CaseDocumentsPage() {
       setEditingDocument(null);
       setForm(emptyForm);
       await loadDocuments();
-    } catch (error: any) {
-      if (error?.response?.status === 401) {
+    } catch (error: unknown) {
+      if (getApiErrorStatus(error) === 401) {
         localStorage.removeItem("access_token");
         router.replace("/login");
         return;
       }
 
-      if (error?.response?.status === 403) {
+      if (getApiErrorStatus(error) === 403) {
         setError("You do not have permission to edit documents.");
         return;
       }
@@ -337,19 +371,19 @@ export default function CaseDocumentsPage() {
       link.remove();
 
       window.URL.revokeObjectURL(blobUrl);
-    } catch (error: any) {
-      if (error?.response?.status === 401) {
+    } catch (error: unknown) {
+      if (getApiErrorStatus(error) === 401) {
         localStorage.removeItem("access_token");
         router.replace("/login");
         return;
       }
 
-      if (error?.response?.status === 403) {
+      if (getApiErrorStatus(error) === 403) {
         setError("You do not have permission to download documents.");
         return;
       }
 
-      if (error?.response?.status === 404) {
+      if (getApiErrorStatus(error) === 404) {
         setError("Document file could not be found.");
         return;
       }
@@ -375,19 +409,19 @@ export default function CaseDocumentsPage() {
 
       setSuccess("Document deleted successfully.");
       await loadDocuments();
-    } catch (error: any) {
-      if (error?.response?.status === 401) {
+    } catch (error: unknown) {
+      if (getApiErrorStatus(error) === 401) {
         localStorage.removeItem("access_token");
         router.replace("/login");
         return;
       }
 
-      if (error?.response?.status === 403) {
+      if (getApiErrorStatus(error) === 403) {
         setError("You do not have permission to delete documents.");
         return;
       }
 
-      if (error?.response?.status === 404) {
+      if (getApiErrorStatus(error) === 404) {
         setError("Document not found.");
         return;
       }
@@ -399,7 +433,7 @@ export default function CaseDocumentsPage() {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-slate-500">
+        <div className="flex items-center gap-3 text-sm text-[var(--fos-text-muted)]">
           <RefreshCw className="h-4 w-4 animate-spin" />
           Loading documents...
         </div>
@@ -415,21 +449,21 @@ export default function CaseDocumentsPage() {
             <button
               type="button"
               onClick={() => router.push(`/cases/${caseId}`)}
-              className="text-sm font-medium text-slate-500 hover:text-slate-900"
+              className="text-sm font-medium text-[var(--fos-text-muted)] hover:text-[var(--fos-text)]"
             >
               Case
             </button>
             <span className="text-slate-300">/</span>
-            <span className="text-sm font-medium text-slate-900">
+            <span className="text-sm font-medium text-[var(--fos-text)]">
               Documents
             </span>
           </div>
 
-          <h1 className="mt-2 text-2xl font-semibold text-slate-900">
+          <h1 className="mt-2 text-2xl font-semibold text-[var(--fos-text)]">
             Case Documents
           </h1>
 
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
             Upload, review, download, and manage documents for this case.
           </p>
         </div>
@@ -439,7 +473,7 @@ export default function CaseDocumentsPage() {
             type="button"
             onClick={() => loadDocuments(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2 text-sm font-medium text-[var(--fos-text-secondary)] shadow-sm hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCw
               className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
@@ -471,14 +505,14 @@ export default function CaseDocumentsPage() {
       )}
 
       {(showUploadForm || editingDocument) && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm">
           <div className="mb-5 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-[var(--fos-text)]">
                 {editingDocument ? "Edit Document" : "Upload Document"}
               </h2>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
                 {editingDocument
                   ? "Update the document category or description."
                   : "Accepted files: PDF, JPEG, PNG, WebP, or plain text. Maximum 10 MB."}
@@ -493,7 +527,7 @@ export default function CaseDocumentsPage() {
                 setForm(emptyForm);
                 setSelectedFile(null);
               }}
-              className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              className="rounded-lg p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text-secondary)]"
               aria-label="Close form"
             >
               <X className="h-5 w-5" />
@@ -508,7 +542,7 @@ export default function CaseDocumentsPage() {
               <div>
                 <label
                   htmlFor="document_type"
-                  className="mb-2 block text-sm font-medium text-slate-700"
+                  className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]"
                 >
                   Document Type
                 </label>
@@ -522,7 +556,7 @@ export default function CaseDocumentsPage() {
                       document_type: event.target.value,
                     }))
                   }
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm text-[var(--fos-text)] outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 >
                   {DOCUMENT_TYPES.map((type) => (
                     <option key={type.value} value={type.value}>
@@ -535,7 +569,7 @@ export default function CaseDocumentsPage() {
               <div>
                 <label
                   htmlFor="description"
-                  className="mb-2 block text-sm font-medium text-slate-700"
+                  className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]"
                 >
                   Description
                 </label>
@@ -551,7 +585,7 @@ export default function CaseDocumentsPage() {
                     }))
                   }
                   placeholder="Optional description"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm text-[var(--fos-text)] outline-none placeholder:text-[var(--fos-text-muted)] focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 />
               </div>
             </div>
@@ -560,7 +594,7 @@ export default function CaseDocumentsPage() {
               <div>
                 <label
                   htmlFor="document_file"
-                  className="mb-2 block text-sm font-medium text-slate-700"
+                  className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]"
                 >
                   File
                 </label>
@@ -572,11 +606,11 @@ export default function CaseDocumentsPage() {
                   onChange={(event) =>
                     setSelectedFile(event.target.files?.[0] || null)
                   }
-                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                  className="block w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2 text-sm text-[var(--fos-text-secondary)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--fos-surface-muted)] file:px-3 file:py-2 file:text-sm file:font-medium file:text-[var(--fos-text-secondary)] hover:file:bg-[var(--fos-border)]"
                 />
 
                 {selectedFile && (
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs text-[var(--fos-text-muted)]">
                     {selectedFile.name} · {formatFileSize(selectedFile.size)}
                   </p>
                 )}
@@ -592,7 +626,7 @@ export default function CaseDocumentsPage() {
                   setForm(emptyForm);
                   setSelectedFile(null);
                 }}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
               >
                 Cancel
               </button>
@@ -620,14 +654,14 @@ export default function CaseDocumentsPage() {
       )}
 
       {documents.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+        <div className="rounded-2xl border border-dashed border-[var(--fos-border)] bg-[var(--fos-surface)] px-6 py-14 text-center">
           <FileText className="mx-auto h-10 w-10 text-slate-300" />
 
-          <h2 className="mt-4 text-base font-semibold text-slate-900">
+          <h2 className="mt-4 text-base font-semibold text-[var(--fos-text)]">
             No documents yet
           </h2>
 
-          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+          <p className="mx-auto mt-1 max-w-md text-sm text-[var(--fos-text-muted)]">
             Upload important case documents such as identification,
             certificates, proof of death, and supporting records.
           </p>
@@ -642,9 +676,9 @@ export default function CaseDocumentsPage() {
           </button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-6 py-4">
-            <h2 className="text-base font-semibold text-slate-900">
+        <div className="overflow-hidden rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-sm">
+          <div className="border-b border-[var(--fos-border)] px-6 py-4">
+            <h2 className="text-base font-semibold text-[var(--fos-text)]">
               Documents ({documents.length})
             </h2>
           </div>
@@ -656,23 +690,23 @@ export default function CaseDocumentsPage() {
                 className="flex flex-col gap-4 px-6 py-5 lg:flex-row lg:items-center lg:justify-between"
               >
                 <div className="flex min-w-0 items-start gap-4">
-                  <div className="rounded-xl bg-slate-100 p-3">
-                    <FileText className="h-5 w-5 text-slate-600" />
+                  <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3">
+                    <FileText className="h-5 w-5 text-[var(--fos-text-secondary)]" />
                   </div>
 
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm font-semibold text-slate-900">
+                    <h3 className="truncate text-sm font-semibold text-[var(--fos-text)]">
                       {document.original_filename}
                     </h3>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--fos-text-muted)]">
                       <span>{formatDocumentType(document.document_type)}</span>
                       <span>{formatFileSize(document.file_size)}</span>
                       <span>{formatDate(document.created_at)}</span>
                     </div>
 
                     {document.description && (
-                      <p className="mt-2 text-sm text-slate-600">
+                      <p className="mt-2 text-sm text-[var(--fos-text-secondary)]">
                         {document.description}
                       </p>
                     )}
@@ -683,7 +717,7 @@ export default function CaseDocumentsPage() {
                   <button
                     type="button"
                     onClick={() => downloadDocument(document)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
                   >
                     <Download className="h-4 w-4" />
                     Download
@@ -692,7 +726,7 @@ export default function CaseDocumentsPage() {
                   <button
                     type="button"
                     onClick={() => openEditForm(document)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
                   >
                     <Pencil className="h-4 w-4" />
                     Edit
@@ -701,7 +735,7 @@ export default function CaseDocumentsPage() {
                   <button
                     type="button"
                     onClick={() => deleteDocument(document)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-[var(--fos-surface)] px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
                   >
                     <Trash2 className="h-4 w-4" />
                     Delete

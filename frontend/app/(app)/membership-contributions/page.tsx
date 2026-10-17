@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 
 type Member = {
@@ -97,7 +97,7 @@ function formatDate(value: string | null | undefined) {
 function formatMoney(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
 
-  return amount.toLocaleString("en-ZA", {
+  return amount.toLocaleString("en-GB", {
     style: "currency",
     currency: "ZAR",
   });
@@ -149,13 +149,43 @@ function getStatusClass(status: string) {
   }
 }
 
-function extractApiError(error: any, fallback: string) {
-  return (
-    error?.response?.data?.detail ||
-    error?.response?.data?.message ||
-    error?.message ||
-    fallback
-  );
+function getApiErrorDetails(error: unknown): {
+  status?: number;
+  detail?: string;
+  message?: string;
+} {
+  if (error === null || typeof error !== "object") return {};
+
+  const errorRecord = error as Record<string, unknown>;
+  const response = errorRecord.response;
+  let status: number | undefined;
+  let detail: string | undefined;
+
+  if (response !== null && typeof response === "object") {
+    const responseRecord = response as Record<string, unknown>;
+    const data = responseRecord.data;
+
+    if (typeof responseRecord.status === "number") {
+      status = responseRecord.status;
+    }
+
+    if (data !== null && typeof data === "object") {
+      const dataRecord = data as Record<string, unknown>;
+      const candidate = dataRecord.detail ?? dataRecord.message;
+      if (typeof candidate === "string") detail = candidate;
+    }
+  }
+
+  return {
+    status,
+    detail,
+    message: typeof errorRecord.message === "string" ? errorRecord.message : undefined,
+  };
+}
+
+function extractApiError(error: unknown, fallback: string): string {
+  const { detail, message } = getApiErrorDetails(error);
+  return detail || message || fallback;
 }
 
 export default function MembershipContributionsPage() {
@@ -180,19 +210,20 @@ export default function MembershipContributionsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const getMember = (memberId: string) => {
-    return members.find((member) => member.id === memberId);
-  };
+  const getMember = useCallback(
+    (memberId: string) => members.find((member) => member.id === memberId),
+    [members]
+  );
 
   const getPlan = (planId: string) => {
     return plans.find((plan) => plan.id === planId);
   };
 
-  const getMembership = (membershipId: string) => {
-    return memberships.find(
-      (membership) => membership.id === membershipId
-    );
-  };
+  const getMembership = useCallback(
+    (membershipId: string) =>
+      memberships.find((membership) => membership.id === membershipId),
+    [memberships]
+  );
 
   const getMemberNameForMembership = (membership: Membership) => {
     const member = getMember(membership.member_id);
@@ -204,7 +235,7 @@ export default function MembershipContributionsPage() {
     return `${member.first_name} ${member.last_name}`;
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -225,9 +256,8 @@ export default function MembershipContributionsPage() {
       setPlans(plansResponse.data);
       setMemberships(membershipsResponse.data);
       setContributions(contributionsResponse.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-
       setError(
         extractApiError(
           error,
@@ -237,11 +267,15 @@ export default function MembershipContributionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    async function initializeData() {
+      await loadData();
+    }
+
+    void initializeData();
+  }, [loadData]);
 
   const handleMembershipChange = (membershipId: string) => {
     const membership = getMembership(membershipId);
@@ -360,10 +394,10 @@ export default function MembershipContributionsPage() {
 
       resetForm();
       await loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
 
-      const statusCode = error?.response?.status;
+      const statusCode = getApiErrorDetails(error).status;
 
       if (statusCode === 409) {
         setError(
@@ -439,10 +473,10 @@ export default function MembershipContributionsPage() {
     });
   }, [
     contributions,
-    memberships,
-    members,
     search,
     statusFilter,
+    getMember,
+    getMembership,
   ]);
 
   const summary = useMemo(() => {
@@ -512,7 +546,7 @@ export default function MembershipContributionsPage() {
         )}
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-          <div className="rounded-xl bg-white p-5 shadow-sm">
+          <div className="rounded-xl bg-[var(--fos-surface)] p-5 shadow-sm">
             <p className="text-sm text-gray-500">
               Contributions
             </p>
@@ -522,7 +556,7 @@ export default function MembershipContributionsPage() {
             </p>
           </div>
 
-          <div className="rounded-xl bg-white p-5 shadow-sm">
+          <div className="rounded-xl bg-[var(--fos-surface)] p-5 shadow-sm">
             <p className="text-sm text-gray-500">Due</p>
 
             <p className="mt-2 text-2xl font-bold text-blue-600">
@@ -530,7 +564,7 @@ export default function MembershipContributionsPage() {
             </p>
           </div>
 
-          <div className="rounded-xl bg-white p-5 shadow-sm">
+          <div className="rounded-xl bg-[var(--fos-surface)] p-5 shadow-sm">
             <p className="text-sm text-gray-500">
               Overdue
             </p>
@@ -540,7 +574,7 @@ export default function MembershipContributionsPage() {
             </p>
           </div>
 
-          <div className="rounded-xl bg-white p-5 shadow-sm">
+          <div className="rounded-xl bg-[var(--fos-surface)] p-5 shadow-sm">
             <p className="text-sm text-gray-500">
               Partially Paid
             </p>
@@ -550,7 +584,7 @@ export default function MembershipContributionsPage() {
             </p>
           </div>
 
-          <div className="rounded-xl bg-white p-5 shadow-sm">
+          <div className="rounded-xl bg-[var(--fos-surface)] p-5 shadow-sm">
             <p className="text-sm text-gray-500">
               Paid
             </p>
@@ -560,7 +594,7 @@ export default function MembershipContributionsPage() {
             </p>
           </div>
 
-          <div className="rounded-xl bg-white p-5 shadow-sm">
+          <div className="rounded-xl bg-[var(--fos-surface)] p-5 shadow-sm">
             <p className="text-sm text-gray-500">
               Total Paid
             </p>
@@ -571,7 +605,7 @@ export default function MembershipContributionsPage() {
           </div>
         </section>
 
-        <section className="rounded-xl bg-white p-6 shadow-sm">
+        <section className="rounded-xl bg-[var(--fos-surface)] p-6 shadow-sm">
           <div className="mb-5">
             <h2 className="text-lg font-semibold text-gray-900">
               {editingId
@@ -735,7 +769,7 @@ export default function MembershipContributionsPage() {
                   type="button"
                   onClick={resetForm}
                   disabled={saving}
-                  className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded-lg border border-gray-300 bg-[var(--fos-surface)] px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
@@ -744,7 +778,7 @@ export default function MembershipContributionsPage() {
           </form>
         </section>
 
-        <section className="rounded-xl bg-white p-6 shadow-sm">
+        <section className="rounded-xl bg-[var(--fos-surface)] p-6 shadow-sm">
           <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">

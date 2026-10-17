@@ -1906,14 +1906,14 @@ function newLine(): LineForm {
 }
 
 function formatMoney(value: string | number) {
-  return Number(value || 0).toLocaleString("en-ZA", {
+  return Number(value || 0).toLocaleString("en-GB", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
 function formatQuantity(value: string) {
-  return Number(value).toLocaleString("en-ZA", {
+  return Number(value).toLocaleString("en-GB", {
     maximumFractionDigits: 2,
   });
 }
