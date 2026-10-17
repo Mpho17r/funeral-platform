@@ -281,7 +281,7 @@ export default function MembershipsPage() {
   }
 
   function formatCurrency(value: string | number) {
-    return new Intl.NumberFormat("en-ZA", {
+    return new Intl.NumberFormat("en-GB", {
       style: "currency",
       currency: "ZAR",
       minimumFractionDigits: 2,

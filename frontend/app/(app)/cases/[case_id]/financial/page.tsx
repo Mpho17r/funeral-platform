@@ -1945,7 +1945,7 @@ function formatMoney(
 ) {
   return Number(
     value || 0
-  ).toLocaleString("en-ZA", {
+  ).toLocaleString("en-GB", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });

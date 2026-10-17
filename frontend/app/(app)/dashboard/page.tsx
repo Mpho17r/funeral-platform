@@ -56,7 +56,7 @@ function formatCurrency(
 ) {
   const amount = Number(value ?? 0);
 
-  return new Intl.NumberFormat("en-ZA", {
+  return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "ZAR",
     minimumFractionDigits: 2,

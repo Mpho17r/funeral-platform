@@ -95,7 +95,7 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 }
 
 function formatMoney(value: number | string) {
-  return Number(value || 0).toLocaleString("en-ZA", {
+  return Number(value || 0).toLocaleString("en-GB", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });

@@ -379,3 +379,215 @@ table {
   scrollbar-width: thin;
   scrollbar-color: var(--fos-border) transparent;
 }
+
+/* ============================================================
+   Dark mode for screens that only use the neutral utilities
+   (white cards, slate/gray text and borders).
+
+   These rules map those neutrals onto the theme tokens above. Anything
+   that already carries its own dark: class is left alone, so redesigned
+   screens look exactly as designed. They are unlayered on purpose so
+   they win over the utility layer.
+   ============================================================ */
+
+/* Surfaces */
+html.dark .bg-white:not([class*="dark:bg-"]) {
+  background-color: var(--fos-surface);
+}
+
+html.dark :is(.bg-slate-50, .bg-gray-50, .bg-slate-100, .bg-gray-100):not(
+    [class*="dark:bg-"]
+  ),
+html.dark
+  :is(
+    .hover\:bg-slate-50,
+    .hover\:bg-gray-50,
+    .hover\:bg-slate-100,
+    .hover\:bg-gray-100
+  ):hover:not([class*="dark:hover:bg-"]) {
+  background-color: var(--fos-surface-muted);
+}
+
+html.dark :is(.bg-slate-200, .bg-gray-200):not([class*="dark:bg-"]) {
+  background-color: var(--fos-border);
+}
+
+html.dark :is(.disabled\:bg-slate-100):disabled {
+  background-color: var(--fos-surface-muted);
+}
+
+/* Text */
+html.dark
+  :is(
+    .text-slate-900,
+    .text-slate-800,
+    .text-gray-900,
+    .text-gray-800,
+    .hover\:text-slate-900:hover,
+    .hover\:text-slate-800:hover,
+    .hover\:text-gray-900:hover
+  ):not([class*="dark:text-"]):not([class*="dark:hover:text-"]) {
+  color: var(--fos-text);
+}
+
+html.dark
+  :is(.text-slate-700, .text-slate-600, .text-gray-700, .text-gray-600):not(
+    [class*="dark:text-"]
+  ) {
+  color: var(--fos-text-secondary);
+}
+
+html.dark
+  :is(
+    .text-slate-500,
+    .text-slate-400,
+    .text-slate-300,
+    .text-gray-500,
+    .text-gray-400,
+    .disabled\:text-slate-500:disabled
+  ):not([class*="dark:text-"]) {
+  color: var(--fos-text-muted);
+}
+
+/* Borders and dividers */
+html.dark
+  :is(
+    .border-slate-200,
+    .border-slate-300,
+    .border-gray-200,
+    .border-gray-300
+  ):not([class*="dark:border-"]) {
+  border-color: var(--fos-border);
+}
+
+html.dark
+  :is(.divide-slate-100, .divide-slate-200, .divide-gray-100, .divide-gray-200)
+  > :not(:first-child) {
+  border-color: var(--fos-border);
+}
+
+/* Primary buttons: near-black in light mode, light in dark mode */
+html.dark
+  :is(.bg-slate-900, .bg-gray-900):is(.text-white):not([class*="dark:bg-"]) {
+  background-color: var(--fos-primary);
+  color: var(--fos-page);
+}
+
+html.dark
+  :is(.hover\:bg-slate-800, .hover\:bg-gray-800):hover:not(
+    [class*="dark:hover:bg-"]
+  ) {
+  background-color: var(--fos-primary-hover);
+}
+
+/* Focus rings that were near-black in light mode */
+html.dark :is(.focus\:border-slate-900, .focus\:border-gray-900):focus {
+  border-color: var(--fos-focus);
+}
+
+/* Status colours: pale panels and chips become the dark status tokens.
+   Solid red/green buttons and dots keep their colour. */
+html.dark
+  :is(
+    .bg-red-50,
+    .bg-red-100,
+    .hover\:bg-red-50,
+    .hover\:bg-red-100
+  ):not([class*="dark:bg-"]):not([class*="dark:hover:bg-"]) {
+  background-color: var(--fos-danger-bg);
+}
+
+html.dark
+  :is(
+    .bg-amber-50,
+    .bg-amber-100,
+    .bg-yellow-50,
+    .bg-yellow-100,
+    .bg-orange-50,
+    .bg-orange-100,
+    .hover\:bg-amber-100
+  ):not([class*="dark:bg-"]):not([class*="dark:hover:bg-"]) {
+  background-color: var(--fos-warning-bg);
+}
+
+html.dark
+  :is(
+    .bg-emerald-50,
+    .bg-emerald-100,
+    .bg-green-50,
+    .bg-green-100,
+    .hover\:bg-emerald-50,
+    .hover\:bg-emerald-100
+  ):not([class*="dark:bg-"]):not([class*="dark:hover:bg-"]) {
+  background-color: var(--fos-success-bg);
+}
+
+html.dark
+  :is(
+    .bg-sky-50,
+    .bg-sky-100,
+    .bg-blue-50,
+    .bg-blue-100,
+    .bg-indigo-50,
+    .bg-indigo-100,
+    .bg-purple-100,
+    .bg-indigo-50\/40
+  ):not([class*="dark:bg-"]) {
+  background-color: var(--fos-info-bg);
+}
+
+html.dark
+  :is(
+    .text-red-500,
+    .text-red-600,
+    .text-red-700,
+    .text-red-800,
+    .hover\:text-red-600:hover,
+    .hover\:text-red-700:hover
+  ):not([class*="dark:text-"]):not([class*="dark:hover:text-"]) {
+  color: var(--fos-danger-text);
+}
+
+html.dark
+  :is(
+    .text-amber-500,
+    .text-amber-600,
+    .text-amber-700,
+    .text-amber-800,
+    .text-amber-900
+  ):not([class*="dark:text-"]) {
+  color: var(--fos-warning-text);
+}
+
+html.dark
+  :is(
+    .text-emerald-600,
+    .text-emerald-700,
+    .text-emerald-800,
+    .hover\:text-emerald-800:hover
+  ):not([class*="dark:text-"]):not([class*="dark:hover:text-"]) {
+  color: var(--fos-success-text);
+}
+
+html.dark
+  :is(.text-sky-700, .text-blue-700, .text-indigo-700, .text-purple-700):not(
+    [class*="dark:text-"]
+  ) {
+  color: var(--fos-info-text);
+}
+
+html.dark
+  :is(
+    .border-red-200,
+    .border-red-300,
+    .border-red-400,
+    .border-amber-200,
+    .border-amber-300,
+    .border-amber-400,
+    .hover\:border-amber-300:hover,
+    .border-emerald-200,
+    .border-emerald-300,
+    .border-indigo-100
+  ):not([class*="dark:border-"]) {
+  border-color: color-mix(in srgb, currentColor 35%, var(--fos-border));
+}

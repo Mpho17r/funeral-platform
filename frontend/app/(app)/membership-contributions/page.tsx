@@ -97,7 +97,7 @@ function formatDate(value: string | null | undefined) {
 function formatMoney(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
 
-  return amount.toLocaleString("en-ZA", {
+  return amount.toLocaleString("en-GB", {
     style: "currency",
     currency: "ZAR",
   });

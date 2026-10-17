@@ -516,7 +516,7 @@ export default function CasesPage() {
   };
 
   return (
-    <main className="min-h-full bg-[#f6f8f6]">
+    <main className="min-h-full bg-[var(--fos-page)]">
       <section className="px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           {/* Header */}
@@ -1672,7 +1672,7 @@ function formatDate(value: string | null) {
 function formatCurrency(
   value: string | number
 ) {
-  return new Intl.NumberFormat("en-ZA", {
+  return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "ZAR",
     minimumFractionDigits: 2,

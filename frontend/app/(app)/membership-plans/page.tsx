@@ -333,7 +333,7 @@ export default function MembershipPlansPage() {
   function formatCurrency(value: string | number) {
     const amount = Number(value);
 
-    return new Intl.NumberFormat("en-ZA", {
+    return new Intl.NumberFormat("en-GB", {
       style: "currency",
       currency: "ZAR",
       minimumFractionDigits: 2,
