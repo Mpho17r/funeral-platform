@@ -16,7 +16,9 @@ from app.services.audit_service import create_audit_log
 from app.services.branch_service import BranchError, resolve_branch_id
 from app.services.membership_status import recalculate_membership_status
 from app.models.funeral_case import FuneralCase
-from app.services import case_import, payment_import
+from app.models.covered_dependent import CoveredDependent
+from app.models.membership_beneficiary import MembershipBeneficiary
+from app.services import case_import, payment_import, people_import
 from app.services.member_import import (
     ImportFileError,
     RowResult,
@@ -528,3 +530,132 @@ async def import_cases_file(
     summary.update(imported=created, skipped=skipped)
 
     return summary
+
+
+# ============================================================
+# PEOPLE ON A POLICY: covered dependents and beneficiaries
+# ============================================================
+
+def _people_summary(rows, ignored: list[str], notes: list[str]) -> dict:
+    return {
+        "total": len(rows),
+        "ready": sum(1 for r in rows if r.ok),
+        "with_errors": sum(1 for r in rows if not r.ok),
+        "ignored_columns": ignored,
+        "policy_notes": notes,
+        "rows": [
+            {
+                "line": r.line,
+                "member_number": r.values.get("membership_number", ""),
+                "name": " ".join(
+                    p for p in (
+                        r.values.get("first_name", ""),
+                        r.values.get("last_name", ""),
+                    ) if p
+                ),
+                "plan": "",
+                "ok": r.ok,
+                "errors": r.errors,
+                "warnings": r.warnings,
+            }
+            for r in rows
+        ],
+    }
+
+
+def _people_results(db, current_user, kind: str, raw: bytes):
+    try:
+        rows = people_import.read_rows(kind, raw)
+    except ImportFileError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        )
+
+    return people_import.check_rows(
+        db, UUID(str(current_user["business_id"])), kind, rows
+    )
+
+
+def _register_people_routes(kind: str, model, audit_action: str):
+    @router.get(f"/{kind}/template")
+    def template(
+        current_user: dict = Depends(require_permission("imports.run")),
+    ):
+        return Response(
+            content=people_import.template_csv(kind),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition":
+                    f'attachment; filename="{kind}-template.csv"'
+            },
+        )
+
+    @router.post(f"/{kind}/check")
+    async def check(
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        current_user: dict = Depends(require_permission("imports.run")),
+    ):
+        """Report what would happen. Saves nothing."""
+
+        rows, ignored, notes = _people_results(
+            db, current_user, kind, await _read(file)
+        )
+
+        return _people_summary(rows, ignored, notes)
+
+    @router.post(f"/{kind}")
+    async def run(
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        current_user: dict = Depends(require_permission("imports.run")),
+    ):
+        business_id = UUID(str(current_user["business_id"]))
+        actor = UUID(str(current_user["user_id"]))
+
+        rows, ignored, notes = _people_results(
+            db, current_user, kind, await _read(file)
+        )
+
+        created = 0
+
+        for row in rows:
+            if not row.ok:
+                continue
+
+            extra = {"is_active": True} if kind == "beneficiaries" else {}
+            db.add(model(business_id=business_id, **row.data, **extra))
+            created += 1
+
+        skipped = sum(1 for r in rows if not r.ok)
+
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=actor,
+            action=audit_action,
+            entity_type="import",
+            entity_id=None,
+            details={
+                "filename": (file.filename or "")[:200],
+                "people_created": created,
+                "rows_skipped": skipped,
+            },
+            notes=f"Imported {created} {kind} from a file.",
+        )
+
+        db.commit()
+
+        summary = _people_summary(rows, ignored, notes)
+        summary.update(imported=created, skipped=skipped)
+
+        return summary
+
+    return template, check, run
+
+
+_register_people_routes("dependents", CoveredDependent, "import.dependents")
+_register_people_routes(
+    "beneficiaries", MembershipBeneficiary, "import.beneficiaries"
+)
