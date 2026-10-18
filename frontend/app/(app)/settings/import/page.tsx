@@ -34,6 +34,36 @@ type Report = {
   imported?: number;
   policies_created?: number;
   skipped?: number;
+  total_amount?: string;
+  imported_amount?: string;
+  months_created?: number;
+  memberships_updated?: number;
+};
+
+type Kind = "members" | "payments";
+
+const KINDS: Record<
+  Kind,
+  { tab: string; title: string; intro: string; step1: string; noun: string }
+> = {
+  members: {
+    tab: "Members",
+    title: "Import members",
+    intro:
+      "Bring in the members and policies you already have from a spreadsheet. We check the file first and show you any problems. Nothing is saved until you confirm.",
+    step1:
+      "In Excel or Google Sheets, use Save as → CSV. Member number, first name and last name are required. Add a plan name and membership number to bring in the policy as well. Create the plans first under Membership Plans.",
+    noun: "member",
+  },
+  payments: {
+    tab: "Payment history",
+    title: "Import payment history",
+    intro:
+      "Bring in the payments already taken under your old system so arrears and cover come out right. Import your members and policies first. We check the file first and nothing is saved until you confirm.",
+    step1:
+      "One row per payment: membership number, payment date and amount are required. Add the month the payment is for (e.g. 2026-10) so it clears that month; without it the payment is recorded but does not clear arrears. Add a receipt number as the reference so the file can be safely uploaded again.",
+    noun: "payment",
+  },
 };
 
 export default function ImportPage() {
@@ -45,8 +75,21 @@ export default function ImportPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [kind, setKind] = useState<Kind>("members");
+
+  const copy = KINDS[kind];
+  const base = `/imports/${kind}`;
 
   const done = report?.imported !== undefined;
+
+  function switchKind(next: Kind) {
+    setKind(next);
+    pick(null);
+
+    if (fileInput.current) {
+      fileInput.current.value = "";
+    }
+  }
 
   function pick(next: File | null) {
     setFile(next);
@@ -78,18 +121,20 @@ export default function ImportPage() {
 
   async function downloadTemplate() {
     try {
-      const response = await api.get("/imports/members/template", {
+      const response = await api.get(`${base}/template`, {
         responseType: "blob",
       });
       const url = URL.createObjectURL(response.data);
       const link = document.createElement("a");
 
       link.href = url;
-      link.download = "members-template.csv";
+      link.download = `${kind}-template.csv`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError(getApiErrorMessage(err, "The template could not be downloaded."));
+      setError(
+        getApiErrorMessage(err, "The template could not be downloaded."),
+      );
     }
   }
 
@@ -108,21 +153,40 @@ export default function ImportPage() {
           Back to Settings
         </button>
 
-        <h1 className="text-2xl font-bold">Import members</h1>
-        <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
-          Bring in the members and policies you already have from a
-          spreadsheet. We check the file first and show you any problems.
-          Nothing is saved until you confirm.
+        <h1 className="text-2xl font-bold">{copy.title}</h1>
+
+        <div
+          role="tablist"
+          aria-label="What to import"
+          className="mt-4 inline-flex rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-1"
+        >
+          {(Object.keys(KINDS) as Kind[]).map((k) => (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={kind === k}
+              onClick={() => switchKind(k)}
+              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+                kind === k
+                  ? "bg-[var(--fos-primary)] text-white"
+                  : "text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
+              }`}
+            >
+              {KINDS[k].tab}
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-3 text-sm text-[var(--fos-text-muted)]">
+          {copy.intro}
         </p>
 
         <ol className="mt-6 space-y-4">
           <li className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5">
             <p className="font-semibold">1. Get your list into our format</p>
             <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
-              In Excel or Google Sheets, use <em>Save as → CSV</em>. Member
-              number, first name and last name are required. Add a plan name
-              and membership number to bring in the policy as well. Create the
-              plans first under Membership Plans.
+              {copy.step1}
             </p>
             <button
               type="button"
@@ -164,7 +228,7 @@ export default function ImportPage() {
               <button
                 type="button"
                 disabled={!file || busy || done}
-                onClick={() => send("/imports/members/check")}
+                onClick={() => send(`${base}/check`)}
                 className="ml-auto rounded-xl bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--fos-primary-hover)] disabled:opacity-50"
               >
                 {busy && !report ? "Checking…" : "Check file"}
@@ -191,10 +255,13 @@ export default function ImportPage() {
                 >
                   <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
                   <span>
-                    Imported {report.imported} member
+                    Imported {report.imported} {copy.noun}
                     {report.imported === 1 ? "" : "s"}
-                    {report.policies_created
+                    {kind === "members" && report.policies_created
                       ? ` and ${report.policies_created} polic${report.policies_created === 1 ? "y" : "ies"}`
+                      : ""}
+                    {kind === "payments" && report.imported_amount
+                      ? ` totalling ${report.imported_amount}, updating ${report.memberships_updated} polic${report.memberships_updated === 1 ? "y" : "ies"}`
                       : ""}
                     .
                     {report.skipped
@@ -206,8 +273,12 @@ export default function ImportPage() {
                 <p className="mt-2 text-sm text-[var(--fos-text-secondary)]">
                   <strong>{report.ready}</strong> of {report.total} rows are
                   ready
-                  {report.policies > 0 &&
+                  {kind === "members" &&
+                    report.policies > 0 &&
                     ` (including ${report.policies} polic${report.policies === 1 ? "y" : "ies"})`}
+                  {kind === "payments" &&
+                    report.total_amount &&
+                    ` (${report.total_amount} in total)`}
                   .{" "}
                   {report.with_errors > 0 ? (
                     <>
@@ -233,7 +304,9 @@ export default function ImportPage() {
                     <thead className="bg-[var(--fos-surface-muted)] text-xs uppercase text-[var(--fos-text-muted)]">
                       <tr>
                         <th className="px-3 py-2">Row</th>
-                        <th className="px-3 py-2">Member</th>
+                        <th className="px-3 py-2">
+                          {kind === "members" ? "Member" : "Payment"}
+                        </th>
                         <th className="px-3 py-2">What to fix</th>
                       </tr>
                     </thead>
@@ -250,6 +323,9 @@ export default function ImportPage() {
                             </div>
                             <div className="text-xs text-[var(--fos-text-muted)]">
                               {row.name}
+                              {kind === "payments" && row.plan
+                                ? ` · for ${row.plan}`
+                                : ""}
                             </div>
                           </td>
                           <td className="px-3 py-2">
@@ -290,7 +366,7 @@ export default function ImportPage() {
                   <button
                     type="button"
                     disabled={busy || report.ready === 0}
-                    onClick={() => send("/imports/members")}
+                    onClick={() => send(base)}
                     className="inline-flex items-center gap-2 rounded-xl bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--fos-primary-hover)] disabled:opacity-50"
                   >
                     <Upload size={16} />
@@ -312,10 +388,14 @@ export default function ImportPage() {
               {done && (
                 <button
                   type="button"
-                  onClick={() => router.push("/members")}
+                  onClick={() =>
+                    router.push(
+                      kind === "members" ? "/members" : "/membership-payments",
+                    )
+                  }
                   className="mt-4 rounded-xl bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-white"
                 >
-                  View members
+                  {kind === "members" ? "View members" : "View payments"}
                 </button>
               )}
             </li>

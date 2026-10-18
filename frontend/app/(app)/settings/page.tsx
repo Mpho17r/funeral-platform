@@ -211,11 +211,11 @@ export default function SettingsPage() {
                 </div>
 
                 <h3 className="mt-5 text-lg font-semibold text-[var(--fos-text)]">
-                  Import members
+                  Import members and payments
                 </h3>
 
                 <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
-                  Bring in your existing members and policies from a
+                  Bring in your existing members, policies and payment history from a
                   spreadsheet. We check it first and nothing is saved until
                   you confirm.
                 </p>
