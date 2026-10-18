@@ -26,6 +26,7 @@ import {
   Snowflake,
   MessageSquare,
   Activity,
+  CircleHelp,
   FileUp,
   HeartHandshake,
 } from "lucide-react";
@@ -337,6 +338,11 @@ export default function Sidebar({
       label: "Settings",
       icon: <Settings size={18} />,
       path: "/settings",
+    },
+    {
+      label: "Guide",
+      icon: <CircleHelp size={18} />,
+      path: "/help",
     },
   ];
 

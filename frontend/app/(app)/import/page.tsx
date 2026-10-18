@@ -37,10 +37,31 @@ type Report = {
   total_amount?: string;
   imported_amount?: string;
   months_created?: number;
+  policy_notes?: string[];
   memberships_updated?: number;
 };
 
-type Kind = "members" | "payments" | "cases";
+type Kind = "members" | "payments" | "cases" | "dependents" | "beneficiaries";
+
+const WHERE: Record<Kind, { column: string; path: string; view: string }> = {
+  members: { column: "Member", path: "/members", view: "View members" },
+  payments: {
+    column: "Payment",
+    path: "/membership-payments",
+    view: "View payments",
+  },
+  cases: { column: "Case", path: "/cases", view: "View cases" },
+  dependents: {
+    column: "Person",
+    path: "/covered-dependents",
+    view: "View dependents",
+  },
+  beneficiaries: {
+    column: "Person",
+    path: "/beneficiaries",
+    view: "View beneficiaries",
+  },
+};
 
 const KINDS: Record<
   Kind,
@@ -73,6 +94,24 @@ const KINDS: Record<
       "One row per case: case number and the deceased's full name are required. Add the date of death (cover is judged from it), funeral date, venue, next of kin and status (open, confirmed, in progress, completed, closed or cancelled). Add a membership number to link the case to the policy.",
     noun: "case",
   },
+  dependents: {
+    tab: "Covered dependents",
+    title: "Import covered dependents",
+    intro:
+      "Bring in the spouse, children and parents covered on each policy. Import your members and policies first. We check the file first and nothing is saved until you confirm.",
+    step1:
+      "One row per person: membership number, first name, last name and relationship are required. Words like son, daughter, wife or mother are understood. Add the date of birth and cover start date; if you leave the start date out, the policy start date is used.",
+    noun: "dependent",
+  },
+  beneficiaries: {
+    tab: "Beneficiaries",
+    title: "Import beneficiaries",
+    intro:
+      "Bring in who is nominated to receive the payout on each policy, with their percentage share. Import your members and policies first. We check the file first and nothing is saved until you confirm.",
+    step1:
+      "One row per beneficiary: membership number, first name, last name, relationship and share (a percentage such as 60 or 60%) are required. The shares on one policy cannot add up to more than 100, and must total exactly 100 before a claim can be paid.",
+    noun: "beneficiary",
+  },
 };
 
 export default function ImportPage() {
@@ -89,7 +128,13 @@ export default function ImportPage() {
   useEffect(() => {
     const wanted = new URLSearchParams(window.location.search).get("tab");
 
-    if (wanted === "payments" || wanted === "cases" || wanted === "members") {
+    if (
+      wanted === "payments" ||
+      wanted === "cases" ||
+      wanted === "members" ||
+      wanted === "dependents" ||
+      wanted === "beneficiaries"
+    ) {
       setKind(wanted);
     }
   }, []);
@@ -175,7 +220,7 @@ export default function ImportPage() {
         <div
           role="tablist"
           aria-label="What to import"
-          className="mt-4 inline-flex rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-1"
+          className="mt-4 inline-flex flex-wrap gap-1 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-1"
         >
           {(Object.keys(KINDS) as Kind[]).map((k) => (
             <button
@@ -272,8 +317,10 @@ export default function ImportPage() {
                 >
                   <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
                   <span>
-                    Imported {report.imported} {copy.noun}
-                    {report.imported === 1 ? "" : "s"}
+                    Imported {report.imported}{" "}
+                    {report.imported === 1
+                      ? copy.noun
+                      : copy.noun.replace(/y$/, "ie") + "s"}
                     {kind === "members" && report.policies_created
                       ? ` and ${report.policies_created} polic${report.policies_created === 1 ? "y" : "ies"}`
                       : ""}
@@ -315,19 +362,21 @@ export default function ImportPage() {
                 </p>
               )}
 
+              {report.policy_notes && report.policy_notes.length > 0 && (
+                <ul className="mt-3 space-y-1 text-sm text-amber-700">
+                  {report.policy_notes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              )}
+
               {shown.length > 0 && (
                 <div className="mt-4 overflow-x-auto rounded-xl border border-[var(--fos-border)]">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-[var(--fos-surface-muted)] text-xs uppercase text-[var(--fos-text-muted)]">
                       <tr>
                         <th className="px-3 py-2">Row</th>
-                        <th className="px-3 py-2">
-                          {kind === "members"
-                            ? "Member"
-                            : kind === "payments"
-                              ? "Payment"
-                              : "Case"}
-                        </th>
+                        <th className="px-3 py-2">{WHERE[kind].column}</th>
                         <th className="px-3 py-2">What to fix</th>
                       </tr>
                     </thead>
@@ -409,22 +458,10 @@ export default function ImportPage() {
               {done && (
                 <button
                   type="button"
-                  onClick={() =>
-                    router.push(
-                      kind === "members"
-                        ? "/members"
-                        : kind === "payments"
-                          ? "/membership-payments"
-                          : "/cases",
-                    )
-                  }
+                  onClick={() => router.push(WHERE[kind].path)}
                   className="mt-4 rounded-xl bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-white"
                 >
-                  {kind === "members"
-                    ? "View members"
-                    : kind === "payments"
-                      ? "View payments"
-                      : "View cases"}
+                  {WHERE[kind].view}
                 </button>
               )}
             </li>
