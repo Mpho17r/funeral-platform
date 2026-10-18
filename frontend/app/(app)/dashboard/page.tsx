@@ -19,6 +19,7 @@ import {
   titleOf,
   useCurrentUser,
 } from "@/components/CurrentUserProvider";
+import { SetupChecklist } from "@/components/SetupChecklist";
 import { removeToken } from "@/lib/auth";
 
 type RecentCase = {
@@ -335,6 +336,8 @@ export default function DashboardPage() {
           {error}
         </div>
       )}
+
+      {currentUser && currentUser.role !== "staff" && <SetupChecklist />}
 
       {/* COMING UP + MONEY */}
       <div

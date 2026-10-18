@@ -241,6 +241,75 @@ def update_business_branding(
     return business
 
 
+CONTACT_FIELDS = ("name", "phone", "email", "address")
+
+
+class BusinessContactUpdate(BaseModel):
+    """The details families and documents show for the business."""
+
+    name: str = Field(min_length=1, max_length=255)
+    phone: str | None = Field(default=None, max_length=50)
+    email: str | None = Field(default=None, max_length=255)
+    address: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def tidy(self):
+        self.name = self.name.strip()
+
+        if not self.name:
+            raise ValueError("The business name cannot be empty")
+
+        for field in ("phone", "email", "address"):
+            value = getattr(self, field)
+            setattr(self, field, (value or "").strip() or None)
+
+        return self
+
+
+@router.patch(
+    "/{business_id}/contact",
+    response_model=BusinessResponse,
+)
+def update_business_contact(
+    business_id: UUID,
+    data: BusinessContactUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("settings.manage")),
+):
+    verify_business_access(business_id, current_user)
+
+    business = get_business_or_404(business_id, db)
+
+    before = snapshot_fields(business, CONTACT_FIELDS)
+
+    business.name = data.name
+    business.phone = data.phone
+    business.email = data.email
+    business.address = data.address
+
+    changes = build_audit_changes(
+        before,
+        snapshot_fields(business, CONTACT_FIELDS),
+    )
+
+    if changes:
+        create_audit_log(
+            db,
+            business_id=business.id,
+            user_id=UUID(str(current_user["user_id"])),
+            action="business.contact_updated",
+            entity_type="business",
+            entity_id=business.id,
+            details={"changes": changes},
+            notes="Business details were updated.",
+        )
+
+    db.commit()
+    db.refresh(business)
+
+    return business
+
+
 @router.patch(
     "/{business_id}/cover-policy",
     response_model=BusinessResponse,

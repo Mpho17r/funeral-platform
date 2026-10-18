@@ -53,6 +53,7 @@ from app.api.membership_contributions import (
 )
 from app.api.memberships import router as memberships_router
 from app.api.imports import router as imports_router
+from app.api.onboarding import router as onboarding_router
 from app.api.members import router as members_router
 from app.api.covered_dependents import (
     router as covered_dependents_router
@@ -253,6 +254,10 @@ app.include_router(
 # Members
 app.include_router(
     imports_router
+)
+
+app.include_router(
+    onboarding_router
 )
 
 app.include_router(
