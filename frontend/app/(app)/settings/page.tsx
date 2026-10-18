@@ -197,7 +197,7 @@ export default function SettingsPage() {
 
               <button
                 type="button"
-                onClick={() => router.push("/settings/import")}
+                onClick={() => router.push("/import")}
                 className="group rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="flex items-start justify-between">

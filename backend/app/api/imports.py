@@ -15,7 +15,8 @@ from app.models.membership_payment import MembershipPayment
 from app.services.audit_service import create_audit_log
 from app.services.branch_service import BranchError, resolve_branch_id
 from app.services.membership_status import recalculate_membership_status
-from app.services import payment_import
+from app.models.funeral_case import FuneralCase
+from app.services import case_import, payment_import
 from app.services.member_import import (
     ImportFileError,
     RowResult,
@@ -393,5 +394,137 @@ async def import_payments_file(
         imported_amount=str(total),
         skipped=skipped,
     )
+
+    return summary
+
+
+# ============================================================
+# OPEN CASES
+# ============================================================
+
+def _case_summary(rows, ignored: list[str]) -> dict:
+    return {
+        "total": len(rows),
+        "ready": sum(1 for r in rows if r.ok),
+        "with_errors": sum(1 for r in rows if not r.ok),
+        "ignored_columns": ignored,
+        "rows": [
+            {
+                "line": r.line,
+                "member_number": r.values.get("case_number", ""),
+                "name": r.values.get("deceased_full_name", ""),
+                "plan": "",
+                "ok": r.ok,
+                "errors": r.errors,
+                "warnings": r.warnings,
+            }
+            for r in rows
+        ],
+    }
+
+
+def _case_results(db, current_user, raw: bytes):
+    try:
+        rows = case_import.read_rows(raw)
+    except ImportFileError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        )
+
+    return case_import.check_rows(
+        db, UUID(str(current_user["business_id"])), rows
+    )
+
+
+@router.get("/cases/template")
+def cases_template(
+    current_user: dict = Depends(require_permission("imports.run")),
+):
+    return Response(
+        content=case_import.template_csv(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="cases-template.csv"'
+        },
+    )
+
+
+@router.post("/cases/check")
+async def check_cases_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("imports.run")),
+):
+    """Report what would happen. Saves nothing."""
+
+    rows, ignored = _case_results(db, current_user, await _read(file))
+
+    return _case_summary(rows, ignored)
+
+
+@router.post("/cases")
+async def import_cases_file(
+    file: UploadFile = File(...),
+    branch_id: UUID | None = None,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("imports.run")),
+):
+    """Save every case that passed the check, as it stands today."""
+
+    business_id = UUID(str(current_user["business_id"]))
+    actor = UUID(str(current_user["user_id"]))
+
+    rows, ignored = _case_results(db, current_user, await _read(file))
+
+    try:
+        branch = resolve_branch_id(
+            db,
+            business_id=business_id,
+            requested=branch_id,
+            acting_user_id=current_user["user_id"],
+        )
+    except BranchError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail=error.detail,
+        )
+
+    created = 0
+
+    for row in rows:
+        if not row.ok:
+            continue
+
+        db.add(
+            FuneralCase(
+                business_id=business_id,
+                branch_id=branch,
+                **row.data,
+            )
+        )
+        created += 1
+
+    skipped = sum(1 for r in rows if not r.ok)
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=actor,
+        action="import.cases",
+        entity_type="import",
+        entity_id=None,
+        details={
+            "filename": (file.filename or "")[:200],
+            "cases_created": created,
+            "rows_skipped": skipped,
+        },
+        notes=f"Imported {created} cases from a file.",
+    )
+
+    db.commit()
+
+    summary = _case_summary(rows, ignored)
+    summary.update(imported=created, skipped=skipped)
 
     return summary
