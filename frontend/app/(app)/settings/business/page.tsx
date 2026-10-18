@@ -164,7 +164,7 @@ export default function BusinessDetailsPage() {
           <button
             type="submit"
             disabled={saving || !loaded}
-            className="rounded-xl bg-[var(--fos-primary)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--fos-primary-hover)] disabled:opacity-50"
+            className="rounded-xl bg-[var(--fos-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--fos-on-primary)] transition hover:bg-[var(--fos-primary-hover)] disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save details"}
           </button>

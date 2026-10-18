@@ -123,9 +123,7 @@ export function SetupChecklist() {
               <span className="min-w-0 flex-1">
                 <span
                   className={`block text-sm font-medium ${
-                    step.done
-                      ? "text-[var(--fos-text-muted)] line-through"
-                      : ""
+                    step.done ? "text-[var(--fos-text-muted)] line-through" : ""
                   }`}
                 >
                   {step.title}

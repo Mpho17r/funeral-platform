@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.constants import (
@@ -11,6 +12,7 @@ from app.constants import (
     ROLE_STAFF,
 )
 from app.database import get_db
+from app.dependencies.auth import get_current_user
 from app.dependencies.roles import require_permission
 from app.services.branch_service import (
     BranchError,
@@ -24,6 +26,7 @@ from app.schemas.user import (
     UserUpdate,
 )
 from app.security import hash_password
+from app.services import avatar_storage
 from app.services.audit_service import (
     build_audit_changes,
     create_audit_log,
@@ -218,6 +221,98 @@ def create_user(
     db.refresh(user)
 
     return user
+
+
+@router.post("/me/avatar")
+async def upload_my_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Set your own profile photo. Anyone signed in may change their own."""
+
+    user = db.get(User, current_user["user_id"])
+
+    try:
+        avatar_storage.save_avatar(
+            user.business_id, user.id, await file.read()
+        )
+    except avatar_storage.AvatarError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        )
+
+    user.avatar_updated_at = datetime.now(timezone.utc)
+
+    create_audit_log(
+        db,
+        business_id=user.business_id,
+        user_id=user.id,
+        action="user.avatar_changed",
+        entity_type="user",
+        entity_id=user.id,
+        details={"removed": False},
+    )
+
+    db.commit()
+
+    return {"avatar_updated_at": user.avatar_updated_at}
+
+
+@router.delete("/me/avatar", status_code=status.HTTP_204_NO_CONTENT)
+def remove_my_avatar(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    user = db.get(User, current_user["user_id"])
+
+    avatar_storage.remove_avatar(user.business_id, user.id)
+
+    if user.avatar_updated_at is not None:
+        user.avatar_updated_at = None
+
+        create_audit_log(
+            db,
+            business_id=user.business_id,
+            user_id=user.id,
+            action="user.avatar_changed",
+            entity_type="user",
+            entity_id=user.id,
+            details={"removed": True},
+        )
+
+    db.commit()
+
+    return None
+
+
+@router.get("/{user_id}/avatar")
+def get_user_avatar(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """A colleague's photo. Only people in the same business can see it."""
+
+    user = get_business_user(user_id, db, current_user)
+    found = (
+        avatar_storage.find_avatar(user.business_id, user.id)
+        if user.avatar_updated_at is not None
+        else None
+    )
+
+    if found is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No profile photo",
+        )
+
+    return FileResponse(
+        found[0],
+        media_type=found[1],
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 @router.get(
