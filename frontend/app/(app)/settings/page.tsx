@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft,
+  Building2,
   Clock3,
   FileSpreadsheet,
   KeyRound,
@@ -67,6 +68,31 @@ export default function SettingsPage() {
             )}
 
             <div className="grid gap-6 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => router.push("/settings/business")}
+                className="group rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]">
+                    <Building2 size={22} />
+                  </div>
+
+                  <span className="text-sm text-[var(--fos-text-muted)] transition group-hover:text-[var(--fos-text-secondary)]">
+                    Edit →
+                  </span>
+                </div>
+
+                <h3 className="mt-5 text-lg font-semibold text-[var(--fos-text)]">
+                  Business details
+                </h3>
+
+                <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
+                  Your business name, phone number, email and address, as
+                  shown to families.
+                </p>
+              </button>
+
               {/* BUSINESS BRANDING */}
               <button
                 type="button"
