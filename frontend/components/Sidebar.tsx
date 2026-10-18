@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import {
   CalendarDays,
   CreditCard,
@@ -35,12 +33,6 @@ import { useRouter, usePathname } from "next/navigation";
 
 import { removeToken } from "@/lib/auth";
 import { useBranding } from "@/components/BrandingProvider";
-import {
-  initialsOf,
-  titleOf,
-  useCurrentUser,
-} from "@/components/CurrentUserProvider";
-import { ProfileDialog } from "@/components/ProfileDialog";
 import { useTheme } from "@/components/ThemeProvider";
 
 type SidebarProps = {
@@ -48,18 +40,12 @@ type SidebarProps = {
   onNavigate?: () => void;
 };
 
-function isSidebarPathActive(
-  pathname: string,
-  path: string,
-) {
+function isSidebarPathActive(pathname: string, path: string) {
   if (path === "/dashboard") {
     return pathname === "/dashboard";
   }
 
-  return (
-    pathname === path ||
-    pathname.startsWith(`${path}/`)
-  );
+  return pathname === path || pathname.startsWith(`${path}/`);
 }
 
 function NavItem({
@@ -102,9 +88,7 @@ function NavItem({
       style={
         active
           ? {
-              backgroundColor:
-                branding?.primary_color ||
-                "#0f172a",
+              backgroundColor: branding?.primary_color || "#0f172a",
             }
           : undefined
       }
@@ -117,26 +101,18 @@ function NavItem({
                 color: "#ffffff",
               }
             : {
-                color:
-                  branding?.secondary_color ||
-                  "currentColor",
+                color: branding?.secondary_color || "currentColor",
               }
         }
       >
         {icon}
       </span>
-      <span className="truncate">
-        {label}
-      </span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
 
-function SectionTitle({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function SectionTitle({ children }: { children: React.ReactNode }) {
   const { resolvedTheme } = useTheme();
 
   return (
@@ -144,11 +120,7 @@ function SectionTitle({
       className={`
         px-3 pb-2 pt-5 text-[10px]
         font-semibold uppercase tracking-[0.14em]
-        ${
-          resolvedTheme === "dark"
-            ? "text-slate-500"
-            : "text-slate-400"
-        }
+        ${resolvedTheme === "dark" ? "text-slate-500" : "text-slate-400"}
       `}
     >
       {children}
@@ -156,25 +128,16 @@ function SectionTitle({
   );
 }
 
-export default function Sidebar({
-  onLogout,
-  onNavigate,
-}: SidebarProps) {
+export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
   const router = useRouter();
 
-  const {
-    branding,
-    logoObjectUrl,
-  } = useBranding();
+  const { branding, logoObjectUrl } = useBranding();
 
   const { resolvedTheme } = useTheme();
 
   function navigate(path: string) {
     router.push(path);
   }
-
-  const { user: currentUser } = useCurrentUser();
-  const [profileOpen, setProfileOpen] = useState(false);
 
   function handleLogout() {
     removeToken();
@@ -346,14 +309,11 @@ export default function Sidebar({
     },
   ];
 
-  const businessName =
-    branding?.name || "FuneralOS";
+  const businessName = branding?.name || "FuneralOS";
 
-  const primary =
-    branding?.primary_color || "#0f172a";
+  const primary = branding?.primary_color || "#0f172a";
 
-  const secondary =
-    branding?.secondary_color || "#64748b";
+  const secondary = branding?.secondary_color || "#64748b";
 
   return (
     <aside
@@ -363,10 +323,7 @@ export default function Sidebar({
         transition-colors duration-200
       "
       style={{
-        backgroundColor:
-          resolvedTheme === "dark"
-            ? "#0f172a"
-            : "#ffffff",
+        backgroundColor: resolvedTheme === "dark" ? "#0f172a" : "#ffffff",
 
         borderColor:
           resolvedTheme === "dark"
@@ -403,9 +360,7 @@ export default function Sidebar({
               />
             ) : (
               <span className="text-lg font-bold text-white">
-                {businessName
-                  .charAt(0)
-                  .toUpperCase()}
+                {businessName.charAt(0).toUpperCase()}
               </span>
             )}
           </div>
@@ -414,11 +369,7 @@ export default function Sidebar({
             <h1
               className={`
                 truncate font-bold
-                ${
-                  resolvedTheme === "dark"
-                    ? "text-white"
-                    : "text-slate-950"
-                }
+                ${resolvedTheme === "dark" ? "text-white" : "text-slate-950"}
               `}
             >
               {businessName}
@@ -445,9 +396,7 @@ export default function Sidebar({
           onNavigate={onNavigate}
         />
 
-        <SectionTitle>
-          Operations
-        </SectionTitle>
+        <SectionTitle>Operations</SectionTitle>
 
         {operations.map((item) => (
           <NavItem
@@ -459,9 +408,7 @@ export default function Sidebar({
           />
         ))}
 
-        <SectionTitle>
-          Membership
-        </SectionTitle>
+        <SectionTitle>Membership</SectionTitle>
 
         {membership.map((item) => (
           <NavItem
@@ -473,9 +420,7 @@ export default function Sidebar({
           />
         ))}
 
-        <SectionTitle>
-          Records
-        </SectionTitle>
+        <SectionTitle>Records</SectionTitle>
 
         {records.map((item) => (
           <NavItem
@@ -487,9 +432,7 @@ export default function Sidebar({
           />
         ))}
 
-        <SectionTitle>
-          Workspace
-        </SectionTitle>
+        <SectionTitle>Workspace</SectionTitle>
 
         {workspace.map((item) => (
           <NavItem
@@ -501,9 +444,7 @@ export default function Sidebar({
           />
         ))}
 
-        <SectionTitle>
-          Administration
-        </SectionTitle>
+        <SectionTitle>Administration</SectionTitle>
 
         {administration.map((item) => (
           <NavItem
@@ -540,54 +481,6 @@ export default function Sidebar({
               : "rgba(15,23,42,0.08)",
         }}
       >
-        {currentUser && (
-          <button
-            type="button"
-            onClick={() => setProfileOpen(true)}
-            aria-label="Edit your profile"
-            title={currentUser.email ?? "Edit your profile"}
-            className={`mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
-              resolvedTheme === "dark"
-                ? "hover:bg-white/10"
-                : "hover:bg-black/5"
-            }`}
-          >
-            <div
-              aria-hidden="true"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-              style={{ backgroundColor: primary }}
-            >
-              {initialsOf(currentUser.full_name)}
-            </div>
-
-            <div className="min-w-0">
-              <p
-                className={`truncate text-sm font-semibold ${
-                  resolvedTheme === "dark"
-                    ? "text-white"
-                    : "text-slate-900"
-                }`}
-              >
-                {currentUser.full_name ?? "Signed in"}
-              </p>
-
-              <p
-                className={`truncate text-xs ${
-                  resolvedTheme === "dark"
-                    ? "text-slate-400"
-                    : "text-slate-500"
-                }`}
-              >
-                {titleOf(currentUser)}
-              </p>
-            </div>
-          </button>
-        )}
-
-        {profileOpen && (
-          <ProfileDialog onClose={() => setProfileOpen(false)} />
-        )}
-
         <button
           type="button"
           onClick={handleLogout}

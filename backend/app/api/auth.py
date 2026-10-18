@@ -400,4 +400,9 @@ def get_me(
         "job_title": user.job_title if user else None,
         "branch_id": user.branch_id if user else None,
         "branch_name": branch.name if branch else None,
+        "avatar_updated_at": user.avatar_updated_at if user else None,
+        "member_since": user.created_at if user else None,
+        "business_name": (
+            db.get(Business, user.business_id).name if user else None
+        ),
     }

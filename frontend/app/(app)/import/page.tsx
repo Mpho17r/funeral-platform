@@ -231,7 +231,7 @@ export default function ImportPage() {
               onClick={() => switchKind(k)}
               className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
                 kind === k
-                  ? "bg-[var(--fos-primary)] text-white"
+                  ? "bg-[var(--fos-primary)] text-[var(--fos-on-primary)]"
                   : "text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
               }`}
             >
@@ -291,7 +291,7 @@ export default function ImportPage() {
                 type="button"
                 disabled={!file || busy || done}
                 onClick={() => send(`${base}/check`)}
-                className="ml-auto rounded-xl bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--fos-primary-hover)] disabled:opacity-50"
+                className="ml-auto rounded-xl bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-[var(--fos-on-primary)] transition hover:bg-[var(--fos-primary-hover)] disabled:opacity-50"
               >
                 {busy && !report ? "Checking…" : "Check file"}
               </button>
@@ -437,7 +437,7 @@ export default function ImportPage() {
                     type="button"
                     disabled={busy || report.ready === 0}
                     onClick={() => send(base)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--fos-primary-hover)] disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-[var(--fos-on-primary)] transition hover:bg-[var(--fos-primary-hover)] disabled:opacity-50"
                   >
                     <Upload size={16} />
                     {busy
@@ -459,7 +459,7 @@ export default function ImportPage() {
                 <button
                   type="button"
                   onClick={() => router.push(WHERE[kind].path)}
-                  className="mt-4 rounded-xl bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-white"
+                  className="mt-4 rounded-xl bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-[var(--fos-on-primary)]"
                 >
                   {WHERE[kind].view}
                 </button>

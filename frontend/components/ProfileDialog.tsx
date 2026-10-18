@@ -1,21 +1,68 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 
 import api from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/format";
 import { roleLabel, useCurrentUser } from "@/components/CurrentUserProvider";
 import { Dialog, DialogFooter, Field, inputClass } from "@/components/Dialog";
 import { ErrorNote } from "@/components/Notices";
+import { UserAvatar } from "@/components/UserAvatar";
 
 /** The signed-in person edits how their own name and job title appear. */
 export function ProfileDialog({ onClose }: { onClose: () => void }) {
-  const { user, refresh } = useCurrentUser();
+  const { user, avatarUrl, refresh } = useCurrentUser();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const [fullName, setFullName] = useState(user?.full_name ?? "");
   const [jobTitle, setJobTitle] = useState(user?.job_title ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  async function uploadPhoto(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError("The picture is larger than 2 MB.");
+      return;
+    }
+
+    try {
+      setPhotoBusy(true);
+      setError("");
+
+      const form = new FormData();
+      form.append("file", file);
+
+      await api.post("/users/me/avatar", form);
+      await refresh();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not save the picture."));
+    } finally {
+      setPhotoBusy(false);
+
+      if (fileInput.current) {
+        fileInput.current.value = "";
+      }
+    }
+  }
+
+  async function removePhoto() {
+    try {
+      setPhotoBusy(true);
+      setError("");
+
+      await api.delete("/users/me/avatar");
+      await refresh();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not remove the picture."));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -48,9 +95,53 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Dialog title="Your profile" onClose={onClose}>
+    <Dialog title="Edit your profile" onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         {error && <ErrorNote message={error} />}
+
+        <div className="flex items-center gap-4">
+          <UserAvatar name={user?.full_name} src={avatarUrl} size={72} />
+
+          <div>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="sr-only"
+              onChange={(event) => uploadPhoto(event.target.files?.[0])}
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={photoBusy}
+                onClick={() => fileInput.current?.click()}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                {photoBusy
+                  ? "Working…"
+                  : avatarUrl
+                    ? "Change photo"
+                    : "Add a photo"}
+              </button>
+
+              {avatarUrl && (
+                <button
+                  type="button"
+                  disabled={photoBusy}
+                  onClick={removePhoto}
+                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+
+            <p className="mt-1.5 text-xs text-slate-500">
+              PNG, JPEG or WebP, up to 2 MB. A square picture works best.
+            </p>
+          </div>
+        </div>
 
         <Field label="Name">
           <input

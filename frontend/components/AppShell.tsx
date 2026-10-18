@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useBranding } from "@/components/BrandingProvider";
 import { CurrentUserProvider } from "@/components/CurrentUserProvider";
+import { ProfileMenu } from "@/components/ProfileMenu";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -83,6 +84,11 @@ export default function AppShell({ children }: AppShellProps) {
 
         {/* Main application area */}
         <div className="relative min-w-0 flex-1">
+          {/* Desktop top bar: who is signed in */}
+          <div className="sticky top-0 z-40 hidden h-16 items-center justify-end border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-6 backdrop-blur lg:flex">
+            <ProfileMenu />
+          </div>
+
           {/* Mobile top bar */}
           <div className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-4 backdrop-blur lg:hidden">
             <button
@@ -106,6 +112,10 @@ export default function AppShell({ children }: AppShellProps) {
               <span className="truncate text-sm font-semibold">
                 {businessName}
               </span>
+            </div>
+
+            <div className="ml-auto">
+              <ProfileMenu />
             </div>
           </div>
 

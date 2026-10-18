@@ -65,6 +65,13 @@ class User(Base):
         nullable=True,
     )
 
+    # When the profile photo was last set; None means no photo. The file
+    # itself lives in storage/avatars (see services/avatar_storage.py).
+    avatar_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,

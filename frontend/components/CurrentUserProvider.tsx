@@ -20,6 +20,9 @@ export type CurrentUser = {
   job_title: string | null;
   branch_id: string | null;
   branch_name: string | null;
+  business_name: string | null;
+  avatar_updated_at: string | null;
+  member_since: string | null;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -72,6 +75,8 @@ export function titleOf(
 type CurrentUserContextValue = {
   user: CurrentUser | null;
   loading: boolean;
+  /** The profile photo, ready to use as an image source, or null. */
+  avatarUrl: string | null;
   /** Re-read who is signed in, e.g. after they change their profile. */
   refresh: () => Promise<void>;
 };
@@ -79,6 +84,7 @@ type CurrentUserContextValue = {
 const CurrentUserContext = createContext<CurrentUserContextValue>({
   user: null,
   loading: true,
+  avatarUrl: null,
   refresh: async () => {},
 });
 
@@ -89,6 +95,7 @@ export function CurrentUserProvider({
 }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -108,9 +115,48 @@ export function CurrentUserProvider({
     void refresh();
   }, [refresh]);
 
+  // The photo needs the sign-in token, so it is fetched as a file and shown
+  // from a local address. It is fetched again only when it changes.
+  const userId = user?.user_id;
+  const avatarVersion = user?.avatar_updated_at;
+
+  useEffect(() => {
+    if (!userId || !avatarVersion) {
+      setAvatarUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+    let created: string | null = null;
+
+    api
+      .get(`/users/${userId}/avatar`, { responseType: "blob" })
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+
+        created = URL.createObjectURL(response.data);
+        setAvatarUrl(created);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvatarUrl(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+
+      if (created) {
+        URL.revokeObjectURL(created);
+      }
+    };
+  }, [userId, avatarVersion]);
+
   const value = useMemo(
-    () => ({ user, loading, refresh }),
-    [user, loading, refresh],
+    () => ({ user, loading, avatarUrl, refresh }),
+    [user, loading, avatarUrl, refresh],
   );
 
   return (

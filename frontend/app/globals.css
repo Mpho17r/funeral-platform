@@ -97,6 +97,7 @@
   --fos-text-muted: #667772;
 
   --fos-primary: #162620;
+  --fos-on-primary: #ffffff;
   --fos-primary-hover: #25322e;
 
   --fos-focus: #2f8a73;
@@ -132,6 +133,7 @@ html.dark {
   --fos-text-muted: #8e9d97;
 
   --fos-primary: #f2f6f4;
+  --fos-on-primary: #0d1512;
   --fos-primary-hover: #dce3e0;
 
   --fos-focus: #5fc4a8;
