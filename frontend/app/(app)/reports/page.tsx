@@ -15,6 +15,7 @@ import {
   BranchFilter,
 } from "@/components/BranchControls";
 import { Banner } from "@/components/Notices";
+import OwnerOverview, { type OverviewData } from "@/components/OwnerOverview";
 
 /* ============================================================
    TYPES
@@ -79,7 +80,7 @@ type MembershipReport = {
   }[];
 };
 
-type Tab = "cases" | "financial" | "membership";
+type Tab = "overview" | "cases" | "financial" | "membership";
 
 type Preset = "month" | "30" | "year" | "all" | "custom";
 
@@ -126,6 +127,7 @@ const PRESETS: { id: Preset; label: string }[] = [
 ];
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: "overview", label: "Overview" },
   { id: "cases", label: "Cases" },
   { id: "financial", label: "Financial" },
   { id: "membership", label: "Membership" },
@@ -484,7 +486,7 @@ function MembershipBody({ data }: { data: MembershipReport }) {
 export default function ReportsPage() {
   const branchData = useBranches();
 
-  const [tab, setTab] = useState<Tab>("cases");
+  const [tab, setTab] = useState<Tab>("overview");
   const [preset, setPreset] = useState<Preset>("month");
   const [range, setRange] = useState<[string, string]>(() =>
     presetRange("month")
@@ -506,7 +508,7 @@ export default function ReportsPage() {
   );
 
   useEffect(() => {
-    if (invalidRange) {
+    if (invalidRange || (tab === "overview" && (!from || !to))) {
       return;
     }
 
@@ -544,6 +546,15 @@ export default function ReportsPage() {
   const loading = !invalidRange && report?.key !== key && !error;
   const current = report?.key === key ? report.data : null;
 
+  function chooseTab(next: Tab) {
+    setTab(next);
+
+    // The overview compares periods, so it always needs both dates.
+    if (next === "overview" && (!from || !to)) {
+      choosePreset("month");
+    }
+  }
+
   function choosePreset(next: Preset) {
     setPreset(next);
 
@@ -565,7 +576,7 @@ export default function ReportsPage() {
       <div className="flex flex-wrap items-end gap-3">
         <div
           role="tablist"
-          className="inline-flex rounded-lg border border-gray-300 bg-white p-1"
+          className="inline-flex max-w-full overflow-x-auto rounded-lg border border-gray-300 bg-white p-1"
         >
           {TABS.map((item) => (
             <button
@@ -573,7 +584,7 @@ export default function ReportsPage() {
               type="button"
               role="tab"
               aria-selected={tab === item.id}
-              onClick={() => setTab(item.id)}
+              onClick={() => chooseTab(item.id)}
               className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
                 tab === item.id
                   ? "bg-gray-900 text-white"
@@ -586,7 +597,7 @@ export default function ReportsPage() {
         </div>
 
         <div className="inline-flex flex-wrap rounded-lg border border-gray-300 bg-white p-1">
-          {PRESETS.map((item) => (
+          {PRESETS.filter((item) => tab !== "overview" || item.id !== "all").map((item) => (
             <button
               key={item.id}
               type="button"
@@ -659,6 +670,12 @@ export default function ReportsPage() {
         </div>
       ) : current ? (
         <>
+          {tab === "overview" && (
+            <OwnerOverview
+              data={current as OverviewData}
+              branchId={branch === ALL_BRANCHES ? null : branch}
+            />
+          )}
           {tab === "cases" && (
             <CasesBody data={current as CasesReport} />
           )}
