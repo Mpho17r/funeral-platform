@@ -26,6 +26,7 @@ import {
   Snowflake,
   MessageSquare,
   Activity,
+  FileUp,
   HeartHandshake,
 } from "lucide-react";
 
@@ -321,6 +322,11 @@ export default function Sidebar({
       label: "Reports",
       icon: <Activity size={18} />,
       path: "/reports",
+    },
+    {
+      label: "Import data",
+      icon: <FileUp size={18} />,
+      path: "/import",
     },
     {
       label: "Audit trail",

@@ -71,7 +71,7 @@ def onboarding_status(
             "key": "members",
             "title": "Bring in your members",
             "detail": "Import the list you already keep in a spreadsheet.",
-            "path": "/settings/import",
+            "path": "/import",
             "done": members > 0,
             "required": True,
         },
