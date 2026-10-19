@@ -49,6 +49,7 @@ from app.models.inventory import InventoryItem, StockMovement, Supplier
 from app.models.arrangement import CaseCollection, FuneralArrangement
 from app.models.death_record import CasePaperworkItem, DeathRecord
 from app.models.mortuary import CustodyEvent, MortuaryLocation, RemainsRecord
+from app.models.chat import ChatConversation, ChatMessage, ChatParticipant
 from app.models.communication import (
     CommunicationMessage,
     MemberCommunicationPreference,
