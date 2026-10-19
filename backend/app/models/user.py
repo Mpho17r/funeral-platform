@@ -65,6 +65,15 @@ class User(Base):
         nullable=True,
     )
 
+    # Which part of the business a staff member works in. It narrows
+    # what a "staff" account may do (see services/work_areas.py).
+    work_area: Mapped[str] = mapped_column(
+        String(20),
+        default="general",
+        server_default="general",
+        nullable=False,
+    )
+
     # When the profile photo was last set; None means no photo. The file
     # itself lives in storage/avatars (see services/avatar_storage.py).
     avatar_updated_at: Mapped[datetime | None] = mapped_column(

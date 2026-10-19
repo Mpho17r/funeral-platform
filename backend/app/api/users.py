@@ -39,7 +39,12 @@ router = APIRouter(
     tags=["Users"],
 )
 
-AUDITED_USER_FIELDS = ("full_name", "role", "is_active", "job_title")
+from app.services.work_areas import GENERAL, VALID_AREAS, catalogue
+from app.services.permission_service import effective_permissions
+
+AUDITED_USER_FIELDS = (
+    "full_name", "role", "is_active", "job_title", "work_area",
+)
 
 
 def audit_user_change(
@@ -61,6 +66,8 @@ def audit_user_change(
 
     if "role" in changes:
         action = "user.role_changed"
+    elif "work_area" in changes:
+        action = "user.work_area_changed"
     elif "is_active" in changes:
         action = (
             "user.reactivated" if user.is_active else "user.deactivated"
@@ -77,6 +84,27 @@ def audit_user_change(
         entity_id=user.id,
         details={"changes": changes},
     )
+
+
+def check_work_area(area: str, role: str) -> str:
+    """A valid work area, and only for staff accounts."""
+
+    if area not in VALID_AREAS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Unknown work area",
+        )
+
+    if area != GENERAL and role != "staff":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Work areas apply to staff accounts. Managers see "
+                "everything their permissions allow."
+            ),
+        )
+
+    return area
 
 
 def can_manage_role(current_role: str, target_role: str) -> bool:
@@ -196,6 +224,7 @@ def create_user(
         password_hash=hash_password(data.password),
         role=data.role,
         job_title=data.job_title,
+        work_area=check_work_area(data.work_area, data.role),
         is_active=True,
     )
 
@@ -221,6 +250,29 @@ def create_user(
     db.refresh(user)
 
     return user
+
+
+@router.get("/me/access")
+def my_access(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """What this person may do, so the screens can show only that."""
+
+    user = db.get(User, current_user["user_id"])
+
+    return {
+        "role": user.role,
+        "work_area": user.work_area,
+        "permissions": sorted(effective_permissions(db, user=user)),
+    }
+
+
+@router.get("/work-areas")
+def work_areas(
+    current_user: dict = Depends(require_permission("users.view")),
+):
+    return catalogue()
 
 
 @router.post("/me/avatar")
@@ -400,6 +452,9 @@ def update_user(
 
     if "job_title" in data.model_fields_set:
         user.job_title = data.job_title
+
+    if data.work_area is not None:
+        user.work_area = check_work_area(data.work_area, user.role)
 
     if data.is_active is not None:
         user.is_active = data.is_active
