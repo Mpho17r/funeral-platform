@@ -99,6 +99,8 @@ PERMISSIONS = {
         "Remove other people's messages and members from channels"
     ),
 
+    "meetings.use": "Schedule and join meetings and calls",
+
     # Staff presence
     "presence.view": "View staff presence",
     "presence.manage": "Manage staff presence",

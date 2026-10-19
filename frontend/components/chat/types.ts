@@ -20,7 +20,49 @@ export type Conversation = {
   } | null;
   last_message_at: string;
   unread: number;
+  mentioned: boolean;
 };
+
+export type Reaction = { emoji: string; count: number; mine: boolean };
+
+export type Attachment = {
+  id: string;
+  filename: string;
+  media_type: string;
+  size_bytes: number;
+  is_image: boolean;
+};
+
+export type MeetingInvitee = {
+  id: string;
+  name: string;
+  response: "pending" | "accepted" | "declined";
+};
+
+export type Meeting = {
+  id: string;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string;
+  join_url: string | null;
+  organizer_id: string | null;
+  organizer_name: string;
+  conversation_id: string | null;
+  cancelled: boolean;
+  my_response: "pending" | "accepted" | "declined" | null;
+  is_organizer: boolean;
+  invitees: MeetingInvitee[];
+  conflicts?: { user_name: string; title: string }[];
+};
+
+export const REACTIONS = ["👍", "❤️", "😂", "🙏", "✅", "😮"];
+
+export function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export type Message = {
   id: string;
@@ -30,6 +72,9 @@ export type Message = {
   kind: string;
   body: string;
   meta: Record<string, unknown> | null;
+  mention_ids: string[];
+  reactions: Reaction[];
+  attachments: Attachment[];
   reply_to_id: string | null;
   created_at: string;
   edited_at: string | null;

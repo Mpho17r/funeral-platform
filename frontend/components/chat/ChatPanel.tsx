@@ -10,14 +10,21 @@ import {
 import {
   ArrowLeft,
   Check,
+  AtSign,
+  Bell,
+  BellOff,
+  CalendarPlus,
   CornerUpLeft,
   Hash,
   Loader2,
   Pencil,
   Plus,
+  Paperclip,
   Search,
   SendHorizontal,
+  Smile,
   Trash2,
+  Video,
   X,
 } from "lucide-react";
 
@@ -28,10 +35,16 @@ import { useCurrentUser } from "@/components/CurrentUserProvider";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Dialog, Field, inputClass } from "@/components/Dialog";
 import { Banner } from "@/components/Notices";
+import { AttachmentView } from "@/components/chat/AttachmentView";
+import { MeetingCard } from "@/components/chat/MeetingCard";
+import ScheduleDialog from "@/components/chat/ScheduleDialog";
 import {
+  type Attachment,
   type Conversation,
   type Message,
   type Person,
+  REACTIONS,
+  fileSize,
   presenceColor,
   presenceLabel,
 } from "@/components/chat/types";
@@ -303,8 +316,17 @@ function Thread({
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [editing, setEditing] = useState<Message | null>(null);
   const [sending, setSending] = useState(false);
+  const [files, setFiles] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [mentions, setMentions] = useState<{ id: string; name: string }[]>(
+    []
+  );
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [scheduling, setScheduling] = useState(false);
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const stickRef = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const latestRef = useRef("");
@@ -328,7 +350,12 @@ function Thread({
 
         const newest = data.messages[data.messages.length - 1];
         const signature = data.messages
-          .map((m) => `${m.id}${m.edited_at ?? ""}${m.deleted}`)
+          .map(
+            (m) =>
+              `${m.id}${m.edited_at ?? ""}${m.deleted}${m.reactions
+                .map((r) => r.emoji + r.count)
+                .join("")}`
+          )
           .join("|");
 
         if (first || signature !== latestRef.current) {
@@ -373,6 +400,9 @@ function Thread({
     setReplyTo(null);
     setEditing(null);
     setDraft("");
+    setFiles([]);
+    setMentions([]);
+    setMentionQuery(null);
     /* eslint-enable react-hooks/set-state-in-effect */
     fetchLatest(true).then(markRead);
 
@@ -385,9 +415,17 @@ function Thread({
   }, [id]);
 
   useEffect(() => {
-    if (stickRef.current) {
-      bottomRef.current?.scrollIntoView({ block: "end" });
-    }
+    const down = () => {
+      if (stickRef.current) {
+        bottomRef.current?.scrollIntoView({ block: "end" });
+      }
+    };
+
+    down();
+    // Cards and pictures finish loading a moment later and grow the page.
+    const timer = window.setTimeout(down, 400);
+
+    return () => window.clearTimeout(timer);
   }, [messages]);
 
   async function loadOlder() {
@@ -415,7 +453,7 @@ function Thread({
 
   async function send() {
     const body = draft.trim();
-    if (!body || sending) return;
+    if ((!body && files.length === 0) || sending || uploading) return;
 
     setSending(true);
     setError("");
@@ -431,7 +469,14 @@ function Thread({
       } else {
         const { data } = await api.post<Message>(
           `/chat/conversations/${id}/messages`,
-          { body, reply_to_id: replyTo?.id ?? null }
+          {
+            body,
+            reply_to_id: replyTo?.id ?? null,
+            mention_ids: mentions
+              .filter((m) => body.includes(`@${m.name}`))
+              .map((m) => m.id),
+            attachment_ids: files.map((f) => f.id),
+          }
         );
         stickRef.current = true;
         setMessages((m) =>
@@ -441,6 +486,8 @@ function Thread({
       }
 
       setDraft("");
+      setFiles([]);
+      setMentions([]);
       setReplyTo(null);
       setEditing(null);
       onActivity();
@@ -464,6 +511,90 @@ function Thread({
       setError(getApiErrorMessage(err, "Could not delete that."));
     }
   }
+
+  async function attach(list: FileList | null) {
+    if (!list || list.length === 0) return;
+    setUploading(true);
+    setError("");
+
+    try {
+      for (const file of Array.from(list)) {
+        if (files.length >= 5) break;
+        const form = new FormData();
+        form.append("file", file);
+        const { data } = await api.post<Attachment>(
+          `/chat/conversations/${id}/attachments`,
+          form
+        );
+        setFiles((cur) => [...cur, data]);
+      }
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not upload that file."));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function react(message: Message, emoji: string) {
+    setPickerFor(null);
+    try {
+      const { data } = await api.post(
+        `/chat/messages/${message.id}/reactions`,
+        { emoji }
+      );
+      setMessages((cur) =>
+        cur.map((x) => (x.id === message.id ? { ...x, reactions: data } : x))
+      );
+      latestRef.current = "";
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not react."));
+    }
+  }
+
+  async function startCall() {
+    try {
+      const { data } = await api.post<{ join_url: string }>(
+        "/meetings/huddle",
+        { conversation_id: id }
+      );
+      window.open(data.join_url, "_blank", "noopener,noreferrer");
+      stickRef.current = true;
+      latestRef.current = "";
+      fetchLatest();
+      onActivity();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not start the call."));
+    }
+  }
+
+  function onDraftChange(value: string) {
+    setDraft(value);
+    const match = /(?:^|\s)@([^\s@]{0,30})$/.exec(value);
+    setMentionQuery(match ? match[1].toLowerCase() : null);
+  }
+
+  function pickMention(person: { id: string; name: string }) {
+    setDraft((d) => d.replace(/@([^\s@]{0,30})$/, `@${person.name} `));
+    setMentions((cur) =>
+      cur.some((m) => m.id === person.id) ? cur : [...cur, person]
+    );
+    setMentionQuery(null);
+
+    requestAnimationFrame(() => {
+      const box = inputRef.current;
+      if (box) {
+        box.focus();
+        box.setSelectionRange(box.value.length, box.value.length);
+      }
+    });
+  }
+
+  const mentionable = conversation.participants.filter(
+    (p) =>
+      p.id !== me &&
+      mentionQuery !== null &&
+      p.name.toLowerCase().includes(mentionQuery)
+  );
 
   const byId = useMemo(
     () => new Map(messages.map((m) => [m.id, m])),
@@ -501,6 +632,46 @@ function Thread({
           >
             {m.sender_name} {m.body}
           </p>
+        );
+        prev = null;
+        continue;
+      }
+
+      if (m.kind === "meeting" || m.kind === "call") {
+        const meetingId = (m.meta?.meeting_id as string | undefined) ?? null;
+        const joinUrl = (m.meta?.join_url as string | undefined) ?? null;
+
+        out.push(
+          <div
+            key={m.id}
+            className="my-4 flex flex-col items-center gap-2"
+          >
+            <p className="text-xs text-[var(--fos-text-muted)]">
+              {m.sender_name} {m.body} · {formatTime(m.created_at)}
+            </p>
+            {meetingId ? (
+              <MeetingCard meetingId={meetingId} />
+            ) : (
+              <div className="flex w-72 items-center gap-3 rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                  <Video size={20} />
+                </span>
+                <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--fos-text)]">
+                  Call in progress
+                </span>
+                {joinUrl && (
+                  <a
+                    href={joinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg bg-[var(--fos-primary)] px-3 py-1.5 text-sm font-semibold text-[var(--fos-on-primary)]"
+                  >
+                    Join
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
         );
         prev = null;
         continue;
@@ -544,15 +715,22 @@ function Thread({
               </p>
             )}
 
-            <div className="flex items-center gap-1">
+            <div className="relative flex items-center gap-1">
               {mine && !m.deleted && (
                 <Actions
                   onReply={() => setReplyTo(m)}
-                  onEdit={() => {
-                    setEditing(m);
-                    setReplyTo(null);
-                    setDraft(m.body);
-                  }}
+                  onReact={() =>
+                    setPickerFor((cur) => (cur === m.id ? null : m.id))
+                  }
+                  onEdit={
+                    m.body
+                      ? () => {
+                          setEditing(m);
+                          setReplyTo(null);
+                          setDraft(m.body);
+                        }
+                      : undefined
+                  }
                   onDelete={() => remove(m)}
                 />
               )}
@@ -564,6 +742,10 @@ function Thread({
                     : mine
                       ? "rounded-br-md bg-[var(--fos-primary)] text-[var(--fos-on-primary)]"
                       : "rounded-bl-md bg-[var(--fos-surface-muted)] text-[var(--fos-text)]"
+                } ${
+                  !m.deleted && m.mention_ids.includes(me)
+                    ? "ring-2 ring-amber-400"
+                    : ""
                 }`}
               >
                 {parent && !m.deleted && (
@@ -574,9 +756,20 @@ function Thread({
                     : {parent.deleted ? "Message deleted" : parent.body}
                   </p>
                 )}
-                <span className="whitespace-pre-wrap break-words">
-                  {m.deleted ? "This message was deleted" : m.body}
-                </span>
+                {m.attachments.length > 0 && (
+                  <div className="mb-1 flex flex-col gap-2">
+                    {m.attachments.map((f) => (
+                      <AttachmentView key={f.id} file={f} />
+                    ))}
+                  </div>
+                )}
+                {(m.deleted || m.body) && (
+                  <span className="whitespace-pre-wrap break-words">
+                    {m.deleted
+                      ? "This message was deleted"
+                      : withMentions(m.body, conversation.participants)}
+                  </span>
+                )}
                 {m.edited_at && !m.deleted && (
                   <span className="ml-2 text-[10px] opacity-60">
                     edited
@@ -585,9 +778,52 @@ function Thread({
               </div>
 
               {!mine && !m.deleted && (
-                <Actions onReply={() => setReplyTo(m)} />
+                <Actions
+                  onReply={() => setReplyTo(m)}
+                  onReact={() =>
+                    setPickerFor((cur) => (cur === m.id ? null : m.id))
+                  }
+                />
+              )}
+
+              {pickerFor === m.id && (
+                <div
+                  className={`absolute -top-11 z-10 flex gap-1 rounded-full border border-[var(--fos-border)] bg-[var(--fos-surface)] px-2 py-1 shadow-lg ${
+                    mine ? "right-0" : "left-0"
+                  }`}
+                >
+                  {REACTIONS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => react(m, emoji)}
+                      className="rounded-full px-1 text-lg transition hover:scale-125"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
+
+            {m.reactions.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {m.reactions.map((r) => (
+                  <button
+                    key={r.emoji}
+                    type="button"
+                    onClick={() => react(m, r.emoji)}
+                    className={`rounded-full border px-2 py-0.5 text-xs ${
+                      r.mine
+                        ? "border-[var(--fos-primary)] bg-[var(--fos-surface-muted)] font-semibold"
+                        : "border-[var(--fos-border)] bg-[var(--fos-surface)]"
+                    }`}
+                  >
+                    {r.emoji} {r.count}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       );
@@ -595,7 +831,7 @@ function Thread({
     }
 
     return out;
-  }, [messages, me, byId]);
+  }, [messages, me, byId, pickerFor, conversation.participants]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -627,6 +863,26 @@ function Thread({
                   }`
                 : ""}
           </p>
+        </div>
+        <div className="ml-auto flex gap-1">
+          <button
+            type="button"
+            onClick={startCall}
+            aria-label="Start a call"
+            title="Start a call"
+            className="rounded-lg p-2 text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
+          >
+            <Video size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setScheduling(true)}
+            aria-label="Schedule a meeting"
+            title="Schedule a meeting"
+            className="rounded-lg p-2 text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
+          >
+            <CalendarPlus size={20} />
+          </button>
         </div>
       </header>
 
@@ -698,13 +954,76 @@ function Thread({
           </div>
         )}
 
+        {files.length > 0 && (
+          <ul className="mb-2 flex flex-wrap gap-2">
+            {files.map((f) => (
+              <li
+                key={f.id}
+                className="flex items-center gap-2 rounded-lg bg-[var(--fos-surface-muted)] px-2.5 py-1.5 text-xs text-[var(--fos-text-secondary)]"
+              >
+                <Paperclip size={13} />
+                <span className="max-w-40 truncate">{f.filename}</span>
+                <span className="opacity-60">{fileSize(f.size_bytes)}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${f.filename}`}
+                  onClick={() =>
+                    setFiles((cur) => cur.filter((x) => x.id !== f.id))
+                  }
+                >
+                  <X size={13} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {mentionQuery !== null && mentionable.length > 0 && (
+          <ul className="mb-2 max-h-40 overflow-y-auto rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-lg">
+            {mentionable.slice(0, 6).map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => pickMention(p)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--fos-surface-muted)]"
+                >
+                  <AtSign size={14} className="text-[var(--fos-text-muted)]" />
+                  {p.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
         <div className="flex items-end gap-2">
+          <label
+            title="Attach a file"
+            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
+          >
+            {uploading ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Paperclip size={18} />
+            )}
+            <input
+              type="file"
+              multiple
+              className="sr-only"
+              aria-label="Attach a file"
+              disabled={uploading || files.length >= 5 || !!editing}
+              onChange={(e) => {
+                attach(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </label>
           <textarea
+            ref={inputRef}
             rows={1}
             value={draft}
             maxLength={4000}
             placeholder={`Message ${conversation.title}`}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => onDraftChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -716,7 +1035,9 @@ function Thread({
           <button
             type="button"
             onClick={send}
-            disabled={!draft.trim() || sending}
+            disabled={
+              (!draft.trim() && files.length === 0) || sending || uploading
+            }
             aria-label="Send"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--fos-primary)] text-[var(--fos-on-primary)] transition hover:opacity-90 disabled:opacity-40"
           >
@@ -728,19 +1049,63 @@ function Thread({
           </button>
         </div>
         <p className="mt-1 hidden text-[11px] text-[var(--fos-text-muted)] md:block">
-          Enter to send · Shift+Enter for a new line
+          Enter to send · Shift+Enter for a new line · @ to mention
         </p>
       </div>
+
+      {scheduling && (
+        <ScheduleDialog
+          people={people}
+          conversationId={conversation.id}
+          conversationTitle={conversation.title}
+          onClose={() => setScheduling(false)}
+          onCreated={() => {
+            setScheduling(false);
+            stickRef.current = true;
+            latestRef.current = "";
+            fetchLatest();
+            onActivity();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** Message text with @Name marked where it names someone in the chat. */
+function withMentions(
+  text: string,
+  people: { id: string; name: string }[]
+): React.ReactNode {
+  const names = people
+    .map((p) => p.name)
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+
+  if (names.length === 0 || !text.includes("@")) return text;
+
+  const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const pattern = new RegExp(`(@(?:${escaped.join("|")}))`, "g");
+
+  return text.split(pattern).map((part, i) =>
+    i % 2 === 1 ? (
+      <strong key={i} className="rounded bg-amber-300/30 px-0.5">
+        {part}
+      </strong>
+    ) : (
+      part
+    )
   );
 }
 
 function Actions({
   onReply,
+  onReact,
   onEdit,
   onDelete,
 }: {
   onReply: () => void;
+  onReact?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
@@ -752,6 +1117,11 @@ function Actions({
       <button type="button" aria-label="Reply" onClick={onReply} className={base}>
         <CornerUpLeft size={14} />
       </button>
+      {onReact && (
+        <button type="button" aria-label="React" onClick={onReact} className={base}>
+          <Smile size={14} />
+        </button>
+      )}
       {onEdit && (
         <button type="button" aria-label="Edit" onClick={onEdit} className={base}>
           <Pencil size={14} />
@@ -784,9 +1154,48 @@ export default function ChatPanel() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
+  const [notify, setNotify] = useState<
+    "on" | "off" | "unsupported" | "unknown"
+  >("unknown");
+
+  useEffect(() => {
+    // Browser support is only known after the page has loaded.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNotify(
+      !("Notification" in window)
+        ? "unsupported"
+        : Notification.permission === "granted"
+          ? "on"
+          : "off"
+    );
+  }, []);
+  const seenUnread = useRef<Map<string, number> | null>(null);
+
   const loadConversations = useCallback(async () => {
     try {
       const { data } = await api.get<Conversation[]>("/chat/conversations");
+
+      // Desktop alert when something new arrives and the tab is hidden.
+      const before = seenUnread.current;
+      const next = new Map(data.map((c) => [c.id, c.unread]));
+      if (
+        before &&
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission === "granted" &&
+        document.hidden
+      ) {
+        for (const c of data) {
+          if (c.unread > (before.get(c.id) ?? 0) && c.last_message) {
+            new Notification(c.title, {
+              body: `${c.last_message.sender_name}: ${c.last_message.body}`,
+              tag: c.id,
+            });
+          }
+        }
+      }
+      seenUnread.current = next;
+
       setConversations(data);
       setError("");
     } catch (err) {
@@ -833,6 +1242,22 @@ export default function ChatPanel() {
     0
   );
 
+  async function toggleNotifications() {
+    if (notify === "unsupported" || notify === "unknown") return;
+    if (Notification.permission === "default") {
+      const result = await Notification.requestPermission();
+      setNotify(result === "granted" ? "on" : "off");
+      return;
+    }
+    if (Notification.permission === "denied") {
+      setError(
+        "Notifications are blocked. Allow them for this site in your browser settings."
+      );
+      return;
+    }
+    setNotify("on");
+  }
+
   function select(id: string) {
     setActiveId(id);
     setShowList(false);
@@ -859,6 +1284,25 @@ export default function ChatPanel() {
               className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] py-2 pl-9 pr-3 text-sm text-[var(--fos-text)] outline-none focus:border-[var(--fos-primary)]"
             />
           </div>
+          {(notify === "on" || notify === "off") && (
+            <button
+              type="button"
+              onClick={toggleNotifications}
+              aria-label={
+                notify === "on"
+                  ? "Desktop alerts are on"
+                  : "Turn on desktop alerts"
+              }
+              title={
+                notify === "on"
+                  ? "Desktop alerts are on"
+                  : "Turn on desktop alerts"
+              }
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--fos-border)] text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
+            >
+              {notify === "on" ? <Bell size={16} /> : <BellOff size={16} />}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setCreating(true)}
@@ -937,6 +1381,14 @@ export default function ChatPanel() {
                             }: ${c.last_message.body}`
                           : "No messages yet"}
                       </span>
+                      {c.mentioned && (
+                        <span
+                          title="You were mentioned"
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[11px] font-bold text-black"
+                        >
+                          @
+                        </span>
+                      )}
                       {c.unread > 0 && (
                         <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--fos-primary)] px-1.5 text-[11px] font-bold text-[var(--fos-on-primary)]">
                           {c.unread > 99 ? "99+" : c.unread}

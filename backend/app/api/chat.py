@@ -8,23 +8,40 @@ audit log.
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
-from app.models.chat import ChatConversation, ChatMessage, ChatParticipant
+from app.models.chat import (
+    ChatAttachment,
+    ChatConversation,
+    ChatMessage,
+    ChatParticipant,
+    ChatReaction,
+)
 from app.models.group import Group, GroupMember
 from app.models.staff_presence import StaffPresence
 from app.models.user import User
+from app.services import chat_files
 from app.services.permission_service import has_permission
 
 router = APIRouter(prefix="/chat", tags=["Staff Chat"])
 
 MAX_BODY = 4000
 MAX_PAGE = 100
+EMOJI = {"👍", "❤️", "😂", "🙏", "✅", "😮"}
 
 
 # ---- request bodies ---------------------------------------------------
@@ -39,8 +56,16 @@ class ConversationCreate(BaseModel):
 
 
 class MessageCreate(BaseModel):
-    body: str = Field(max_length=MAX_BODY)
+    body: str = Field(default="", max_length=MAX_BODY)
     reply_to_id: UUID | None = None
+    mention_ids: list[UUID] = Field(default=[], max_length=50)
+    attachment_ids: list[UUID] = Field(
+        default=[], max_length=chat_files.MAX_PER_MESSAGE
+    )
+
+
+class ReactionToggle(BaseModel):
+    emoji: str = Field(max_length=16)
 
 
 class MessageEdit(BaseModel):
@@ -107,7 +132,12 @@ def _can_manage(db: Session, user: dict) -> bool:
     )
 
 
-def _message_out(m: ChatMessage, names: dict) -> dict:
+def _message_out(
+    m: ChatMessage,
+    names: dict,
+    reactions: list | None = None,
+    attachments: list | None = None,
+) -> dict:
     deleted = m.deleted_at is not None
     return {
         "id": str(m.id),
@@ -117,10 +147,70 @@ def _message_out(m: ChatMessage, names: dict) -> dict:
         "kind": m.kind,
         "body": "" if deleted else m.body,
         "meta": None if deleted else m.meta,
+        "mention_ids": [] if deleted else (m.meta or {}).get("mentions", []),
         "reply_to_id": str(m.reply_to_id) if m.reply_to_id else None,
         "created_at": m.created_at.isoformat(),
         "edited_at": m.edited_at.isoformat() if m.edited_at else None,
         "deleted": deleted,
+        "reactions": [] if deleted else (reactions or []),
+        "attachments": [] if deleted else (attachments or []),
+    }
+
+
+def _out_many(db: Session, user: dict, messages: list) -> list:
+    """Messages with their senders, reactions and files filled in."""
+
+    if not messages:
+        return []
+
+    names = _names(db, user["business_id"], [m.sender_id for m in messages])
+    ids = [m.id for m in messages]
+
+    reaction_rows = (
+        db.query(ChatReaction)
+        .filter(ChatReaction.message_id.in_(ids))
+        .order_by(ChatReaction.created_at)
+        .all()
+    )
+    by_message: dict = {}
+    for r in reaction_rows:
+        by_message.setdefault(r.message_id, {}).setdefault(
+            r.emoji, []
+        ).append(r.user_id)
+
+    file_rows = (
+        db.query(ChatAttachment)
+        .filter(ChatAttachment.message_id.in_(ids))
+        .order_by(ChatAttachment.created_at)
+        .all()
+    )
+    files: dict = {}
+    for f in file_rows:
+        files.setdefault(f.message_id, []).append(_file_out(f))
+
+    out = []
+    for m in messages:
+        grouped = by_message.get(m.id, {})
+        reactions = [
+            {
+                "emoji": emoji,
+                "count": len(users),
+                "mine": user["user_id"] in users,
+            }
+            for emoji, users in grouped.items()
+        ]
+        out.append(_message_out(m, names, reactions, files.get(m.id, [])))
+
+    return out
+
+
+def _file_out(f: ChatAttachment) -> dict:
+    return {
+        "id": str(f.id),
+        "filename": f.filename,
+        "media_type": f.media_type,
+        "size_bytes": f.size_bytes,
+        "is_image": f.media_type in chat_files.IMAGE_TYPES,
     }
 
 
@@ -147,6 +237,20 @@ def _unread(db: Session, conversation_id, me, since) -> int:
                 ChatMessage.sender_id != me,
                 ChatMessage.sender_id.is_(None),
             ),
+        )
+        .scalar()
+        or 0
+    )
+
+
+def _unread_mentions(db: Session, conversation_id, me, since) -> int:
+    return (
+        db.query(func.count(ChatMessage.id))
+        .filter(
+            ChatMessage.conversation_id == conversation_id,
+            ChatMessage.created_at > since,
+            ChatMessage.deleted_at.is_(None),
+            ChatMessage.meta["mentions"].contains([str(me)]),
         )
         .scalar()
         or 0
@@ -193,7 +297,7 @@ def _conversation_out(db, user, conv, seat) -> dict:
         ],
         "last_message": (
             {
-                "body": last.body[:140],
+                "body": (last.body or "📎 Attachment")[:140],
                 "sender_name": names.get(last.sender_id)
                 or _names(db, user["business_id"], [last.sender_id]).get(
                     last.sender_id, "Former colleague"
@@ -205,6 +309,10 @@ def _conversation_out(db, user, conv, seat) -> dict:
         ),
         "last_message_at": conv.last_message_at.isoformat(),
         "unread": _unread(db, conv.id, user["user_id"], seat.last_read_at),
+        "mentioned": _unread_mentions(
+            db, conv.id, user["user_id"], seat.last_read_at
+        )
+        > 0,
     }
 
 
@@ -288,7 +396,13 @@ def unread_count(
         "unread": sum(
             _unread(db, s.conversation_id, user["user_id"], s.last_read_at)
             for s in rows
-        )
+        ),
+        "mentions": sum(
+            _unread_mentions(
+                db, s.conversation_id, user["user_id"], s.last_read_at
+            )
+            for s in rows
+        ),
     }
 
 
@@ -432,9 +546,8 @@ def list_messages(
             )
         )
 
-    names = _names(db, user["business_id"], [m.sender_id for m in rows])
     return {
-        "messages": [_message_out(m, names) for m in rows],
+        "messages": _out_many(db, user, rows),
         "has_more": after is None and len(rows) == limit,
     }
 
@@ -450,7 +563,10 @@ def send_message(
     user: dict = Depends(require_permission("chat.use")),
 ):
     conv, seat = _membership(db, user, conversation_id)
-    body = _clean(payload.body)
+    body = (payload.body or "").strip()
+
+    if not body and not payload.attachment_ids:
+        raise HTTPException(422, "Write a message first.")
 
     if payload.reply_to_id is not None:
         parent = (
@@ -464,26 +580,62 @@ def send_message(
         if parent is None:
             raise HTTPException(404, "The message you replied to is gone.")
 
+    mentions: list[str] = []
+    if payload.mention_ids:
+        wanted = set(payload.mention_ids)
+        seated = {
+            p[0]
+            for p in db.query(ChatParticipant.user_id).filter(
+                ChatParticipant.conversation_id == conv.id,
+                ChatParticipant.user_id.in_(list(wanted)),
+            )
+        }
+        if seated != wanted:
+            raise HTTPException(
+                422, "You can only mention people in this conversation."
+            )
+        mentions = sorted(str(i) for i in wanted if i != user["user_id"])
+
+    files = []
+    if payload.attachment_ids:
+        files = (
+            db.query(ChatAttachment)
+            .filter(
+                ChatAttachment.id.in_(payload.attachment_ids),
+                ChatAttachment.conversation_id == conv.id,
+                ChatAttachment.business_id == user["business_id"],
+                ChatAttachment.uploaded_by == user["user_id"],
+                ChatAttachment.message_id.is_(None),
+            )
+            .all()
+        )
+        if len(files) != len(set(payload.attachment_ids)):
+            raise HTTPException(404, "An attached file was not found.")
+
     now = _now()
     message = ChatMessage(
         business_id=user["business_id"],
         conversation_id=conv.id,
         sender_id=user["user_id"],
         body=body,
+        meta={"mentions": mentions} if mentions else None,
         reply_to_id=payload.reply_to_id,
         created_at=now,
     )
     db.add(message)
+    db.flush()
+    for f in files:
+        f.message_id = message.id
     conv.last_message_at = now
     seat.last_read_at = now
     db.commit()
 
-    return _message_out(
-        message, _names(db, user["business_id"], [user["user_id"]])
-    )
+    return _out_many(db, user, [message])[0]
 
 
 def _own_message(db, user, message_id) -> ChatMessage:
+    """A message in a conversation the caller is part of, or 404."""
+
     message = (
         db.query(ChatMessage)
         .join(
@@ -522,9 +674,7 @@ def edit_message(
     message.edited_at = _now()
     db.commit()
 
-    return _message_out(
-        message, _names(db, user["business_id"], [message.sender_id])
-    )
+    return _out_many(db, user, [message])[0]
 
 
 @router.delete("/messages/{message_id}", status_code=204)
@@ -541,6 +691,14 @@ def delete_message(
 
     if message.deleted_at is None:
         message.deleted_at = _now()
+        gone = (
+            db.query(ChatAttachment)
+            .filter(ChatAttachment.message_id == message.id)
+            .all()
+        )
+        for f in gone:
+            chat_files.remove(f.business_id, f.id)
+            db.delete(f)
         db.commit()
 
 
@@ -600,3 +758,129 @@ def remove_participant(
         ChatParticipant.user_id == user_id,
     ).delete()
     db.commit()
+
+
+# ---- reactions --------------------------------------------------------
+
+@router.post("/messages/{message_id}/reactions")
+def toggle_reaction(
+    message_id: UUID,
+    payload: ReactionToggle,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_permission("chat.use")),
+):
+    """React with an emoji, or take your reaction back."""
+
+    if payload.emoji not in EMOJI:
+        raise HTTPException(422, "That reaction is not available.")
+
+    message = _own_message(db, user, message_id)
+    if message.deleted_at is not None:
+        raise HTTPException(409, "That message was deleted.")
+
+    existing = (
+        db.query(ChatReaction)
+        .filter(
+            ChatReaction.message_id == message.id,
+            ChatReaction.user_id == user["user_id"],
+            ChatReaction.emoji == payload.emoji,
+        )
+        .first()
+    )
+    if existing is None:
+        db.add(
+            ChatReaction(
+                message_id=message.id,
+                user_id=user["user_id"],
+                emoji=payload.emoji,
+            )
+        )
+    else:
+        db.delete(existing)
+    db.commit()
+
+    return _out_many(db, user, [message])[0]["reactions"]
+
+
+# ---- files ------------------------------------------------------------
+
+@router.post(
+    "/conversations/{conversation_id}/attachments",
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_attachment(
+    conversation_id: UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_permission("chat.use")),
+):
+    """Upload a file; send it by naming its id when posting a message."""
+
+    conv, _ = _membership(db, user, conversation_id)
+
+    contents = await file.read(chat_files.MAX_BYTES + 1)
+    name = chat_files.clean_name(file.filename)
+
+    try:
+        media_type = chat_files.detect(name, contents)
+    except chat_files.ChatFileError as error:
+        raise HTTPException(400, str(error))
+
+    attachment = ChatAttachment(
+        business_id=user["business_id"],
+        conversation_id=conv.id,
+        uploaded_by=user["user_id"],
+        filename=name,
+        media_type=media_type,
+        size_bytes=len(contents),
+    )
+    db.add(attachment)
+    db.flush()
+    chat_files.save(user["business_id"], attachment.id, contents)
+    db.commit()
+
+    return _file_out(attachment)
+
+
+@router.get("/attachments/{attachment_id}")
+def download_attachment(
+    attachment_id: UUID,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_permission("chat.use")),
+):
+    row = (
+        db.query(ChatAttachment)
+        .join(
+            ChatParticipant,
+            and_(
+                ChatParticipant.conversation_id
+                == ChatAttachment.conversation_id,
+                ChatParticipant.user_id == user["user_id"],
+            ),
+        )
+        .join(ChatMessage, ChatMessage.id == ChatAttachment.message_id)
+        .filter(
+            ChatAttachment.id == attachment_id,
+            ChatAttachment.business_id == user["business_id"],
+            ChatMessage.deleted_at.is_(None),
+        )
+        .first()
+    )
+    path = (
+        chat_files.locate(row.business_id, row.id) if row is not None else None
+    )
+    if row is None or path is None:
+        raise HTTPException(404, "File not found.")
+
+    inline = row.media_type in chat_files.IMAGE_TYPES
+
+    return FileResponse(
+        path,
+        media_type=row.media_type,
+        filename=row.filename,
+        content_disposition_type="inline" if inline else "attachment",
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, max-age=300",
+        },
+    )
