@@ -1,5 +1,7 @@
 "use client";
 
+import ChatPanel from "@/components/chat/ChatPanel";
+
 import {
   Coffee,
   Clock3,
@@ -196,7 +198,7 @@ function formatElapsed(value: string | null) {
   return `${minutes}m`;
 }
 
-export default function StaffWorkspacePage() {
+function AttendanceView() {
   const router = useRouter();
 
   const [attendance, setAttendance] =
@@ -906,5 +908,52 @@ export default function StaffWorkspacePage() {
         </span>
       </div>
     </main>
+  );
+}
+
+type WorkspaceTab = "chat" | "attendance";
+
+export default function StaffWorkspacePage() {
+  const [tab, setTab] = useState<WorkspaceTab>("chat");
+
+  return (
+    <>
+      <div className="px-6 pt-6">
+        <div
+          role="tablist"
+          className="inline-flex rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-1"
+        >
+          {(
+            [
+              ["chat", "Chat"],
+              ["attendance", "Attendance & team"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+                tab === id
+                  ? "bg-[var(--fos-primary)] text-[var(--fos-on-primary)]"
+                  : "text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "chat" ? (
+        <main className="p-6">
+          <ChatPanel />
+        </main>
+      ) : (
+        <AttendanceView />
+      )}
+    </>
   );
 }

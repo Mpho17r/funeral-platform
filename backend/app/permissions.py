@@ -93,6 +93,12 @@ PERMISSIONS = {
     "employees.view": "View employees",
     "employees.manage": "Manage employees",
 
+    # Staff chat
+    "chat.use": "Message colleagues and join channels",
+    "chat.manage": (
+        "Remove other people's messages and members from channels"
+    ),
+
     # Staff presence
     "presence.view": "View staff presence",
     "presence.manage": "Manage staff presence",

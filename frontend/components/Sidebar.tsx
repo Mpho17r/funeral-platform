@@ -29,7 +29,10 @@ import {
   HeartHandshake,
 } from "lucide-react";
 
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+
+import api from "@/lib/api";
 
 import { removeToken } from "@/lib/auth";
 import { useBranding } from "@/components/BrandingProvider";
@@ -53,11 +56,13 @@ function NavItem({
   icon,
   path,
   onNavigate,
+  badge = 0,
 }: {
   label: string;
   icon: React.ReactNode;
   path: string;
   onNavigate?: () => void;
+  badge?: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -108,6 +113,14 @@ function NavItem({
         {icon}
       </span>
       <span className="truncate">{label}</span>
+      {badge > 0 && (
+        <span
+          aria-label={`${badge} unread`}
+          className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white"
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </button>
   );
 }
@@ -128,8 +141,38 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+function useChatUnread(): number {
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    let stopped = false;
+
+    function load() {
+      if (document.hidden) return;
+
+      api
+        .get<{ unread: number }>("/chat/unread-count")
+        .then((response) => {
+          if (!stopped) setUnread(response.data.unread);
+        })
+        .catch(() => {});
+    }
+
+    load();
+    const timer = window.setInterval(load, 10000);
+
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  return unread;
+}
+
 export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
   const router = useRouter();
+  const chatUnread = useChatUnread();
 
   const { branding, logoObjectUrl } = useBranding();
 
@@ -441,6 +484,7 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
             icon={item.icon}
             path={item.path}
             onNavigate={onNavigate}
+            badge={item.path === "/staff" ? chatUnread : 0}
           />
         ))}
 
