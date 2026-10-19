@@ -546,6 +546,61 @@ def build_plan(
     )
 
 
+@router.get("/communications/reminders/automation")
+def read_automation(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("communications.view")),
+):
+    business = get_business_or_404(db, get_business_id(current_user))
+
+    return {
+        "enabled": business.auto_reminders_enabled,
+        "last_run_at": business.auto_reminders_last_run_at,
+        "last_count": business.auto_reminders_last_count,
+    }
+
+
+@router.put("/communications/reminders/automation")
+def update_automation(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("communications.send")),
+):
+    enabled = payload.get("enabled")
+
+    if not isinstance(enabled, bool) or set(payload) != {"enabled"}:
+        raise HTTPException(
+            status_code=422,
+            detail="Send {\"enabled\": true} or {\"enabled\": false}.",
+        )
+
+    business_id = get_business_id(current_user)
+    business = get_business_or_404(db, business_id)
+
+    if business.auto_reminders_enabled != enabled:
+        business.auto_reminders_enabled = enabled
+
+        create_audit_log(
+            db,
+            business_id=business_id,
+            user_id=get_user_id(current_user),
+            action="communication.automation_changed",
+            entity_type="business",
+            entity_id=business_id,
+            details={"enabled": enabled},
+            notes="Automatic daily reminders were "
+            + ("switched on." if enabled else "switched off."),
+        )
+
+    db.commit()
+
+    return {
+        "enabled": business.auto_reminders_enabled,
+        "last_run_at": business.auto_reminders_last_run_at,
+        "last_count": business.auto_reminders_last_count,
+    }
+
+
 @router.post(
     "/communications/reminders/preview",
     response_model=ReminderPlanResponse,
