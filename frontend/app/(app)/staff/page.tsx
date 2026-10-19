@@ -2,14 +2,12 @@
 
 import ChatPanel from "@/components/chat/ChatPanel";
 import MeetingsPanel from "@/components/chat/MeetingsPanel";
+import WorkdayCard from "@/components/workday/WorkdayCard";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 import {
-  Coffee,
   Clock3,
-  LogIn,
-  LogOut,
   RefreshCw,
-  Utensils,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -123,10 +121,6 @@ function getStatusClasses(status: PresenceStatus) {
   }
 }
 
-function getBreakLabel(breakType: "tea" | "lunch") {
-  return breakType === "tea" ? "Tea Break" : "Lunch Break";
-}
-
 function formatDateTime(value: string | null) {
   if (!value) {
     return "—";
@@ -147,59 +141,12 @@ function formatDateTime(value: string | null) {
   });
 }
 
-function formatRemainingBreakTime(
-  expiryValue: string | null,
-  now: number
-) {
-  if (!expiryValue) {
-    return "—";
-  }
 
-  const expiry = new Date(expiryValue).getTime();
+type WorkspaceTab = "chat" | "meetings" | "team";
 
-  if (Number.isNaN(expiry)) {
-    return "—";
-  }
-
-  const seconds = Math.max(
-    0,
-    Math.ceil((expiry - now) / 1000)
-  );
-
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
-}
-
-
-function formatElapsed(value: string | null) {
-  if (!value) {
-    return "—";
-  }
-
-  const start = new Date(value).getTime();
-
-  if (Number.isNaN(start)) {
-    return "—";
-  }
-
-  const seconds = Math.max(
-    0,
-    Math.floor((Date.now() - start) / 1000)
-  );
-
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-
-  return `${minutes}m`;
-}
-
-function AttendanceView() {
+export default function StaffWorkspacePage() {
+  const { user } = useCurrentUser();
+  const [tab, setTab] = useState<WorkspaceTab>("chat");
   const router = useRouter();
 
   const [attendance, setAttendance] =
@@ -213,7 +160,6 @@ function AttendanceView() {
   const [error, setError] = useState("");
 
   const mountedRef = useRef(true);
-  const [currentTime, setCurrentTime] = useState(() => Date.now());
 
   const loadWorkspace = useCallback(
     async (showRefreshState = false) => {
@@ -394,23 +340,8 @@ function AttendanceView() {
     };
   }, [attendance?.attendance, loadWorkspace]);
 
-  useEffect(() => {
-    if (!attendance?.current_break) {
-      return;
-    }
 
-    const timer = window.setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 1000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [attendance?.current_break]);
-
-  const isCheckedIn = Boolean(attendance?.attendance);
   const currentBreak = attendance?.current_break ?? null;
-  const currentPresence = attendance?.presence ?? "offline";
 
   const onlineCount = presence.filter(
     (person) => person.status === "online"
@@ -430,9 +361,6 @@ function AttendanceView() {
   const breakExpiresAt = attendance?.break_expires_at ?? null;
   const breakWarningActive =
     attendance?.break_warning_active ?? false;
-  const remainingBreakTime = breakExpiresAt
-    ? formatRemainingBreakTime(breakExpiresAt, currentTime)
-    : "—";
 
   return (
     <main className="space-y-6 p-6">
@@ -467,267 +395,53 @@ function AttendanceView() {
         </div>
       )}
 
-      {/* MY ATTENDANCE */}
-      <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <UserCheck
-                size={20}
-                className="text-[var(--fos-text-muted)]"
-              />
+      <WorkdayCard
+        firstName={(user?.full_name ?? "").split(" ")[0]}
+        loaded={attendance !== null}
+        checkedInAt={attendance?.attendance?.checked_in_at ?? null}
+        currentBreak={currentBreak}
+        breakExpiresAt={breakExpiresAt}
+        warning={breakWarningActive}
+        action={action}
+        onCheckIn={checkIn}
+        onCheckOut={checkOut}
+        onStartBreak={startBreak}
+        onEndBreak={endBreak}
+      />
 
-              <h2 className="font-semibold text-[var(--fos-text)] dark:text-white">
-                My Attendance
-              </h2>
-            </div>
+      <div
+        role="tablist"
+        className="inline-flex rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-1"
+      >
+        {(
+          [
+            ["chat", "Chat"],
+            ["meetings", "Meetings"],
+            ["team", "Team"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+              tab === id
+                ? "bg-[var(--fos-primary)] text-[var(--fos-on-primary)]"
+                : "text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-            <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
-              Check in when you start work and check out when your workday ends.
-            </p>
+      {tab === "chat" && <ChatPanel />}
+      {tab === "meetings" && <MeetingsPanel />}
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span
-                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClasses(
-                  currentPresence
-                )}`}
-              >
-                {getStatusLabel(currentPresence)}
-              </span>
-
-              {currentBreak && (
-                <span className="inline-flex rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700 dark:bg-purple-500/10 dark:text-purple-300">
-                  {getBreakLabel(currentBreak.break_type)}
-                </span>
-              )}
-            </div>
-
-            {attendance?.attendance && (
-              <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                <div>
-                  <p className="text-xs text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
-                    Checked in
-                  </p>
-
-                  <p className="font-medium text-[var(--fos-text)] dark:text-white">
-                    {formatDateTime(
-                      attendance.attendance.checked_in_at
-                    )}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
-                    Current session
-                  </p>
-
-                  <p className="font-medium text-[var(--fos-text)] dark:text-white">
-                    {formatElapsed(
-                      attendance.attendance.checked_in_at
-                    )}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
-            {currentBreak && breakExpiresAt && (
-              <div
-                className={`relative flex h-28 w-28 shrink-0 items-center justify-center rounded-full ${
-                  breakWarningActive
-                    ? "bg-amber-50 dark:bg-amber-950/20"
-                    : "bg-purple-50 dark:bg-purple-950/20"
-                }`}
-              >
-                {(() => {
-                  const startedAt = new Date(
-                    currentBreak.started_at
-                  ).getTime();
-                  const expiresAt = new Date(
-                    breakExpiresAt
-                  ).getTime();
-
-                  const totalSeconds = Math.max(
-                    1,
-                    Math.ceil(
-                      (expiresAt - startedAt) / 1000
-                    )
-                  );
-
-                  const remainingSeconds = Math.max(
-                    0,
-                    Math.ceil(
-                      (expiresAt - currentTime) / 1000
-                    )
-                  );
-
-                  const progress = Math.min(
-                    1,
-                    remainingSeconds / totalSeconds
-                  );
-
-                  const radius = 46;
-                  const circumference = 2 * Math.PI * radius;
-                  const dashOffset =
-                    circumference * (1 - progress);
-
-                  return (
-                    <>
-                      <svg
-                        className="absolute inset-0 h-28 w-28 -rotate-90"
-                        viewBox="0 0 112 112"
-                        aria-hidden="true"
-                      >
-                        <circle
-                          cx="56"
-                          cy="56"
-                          r={radius}
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="7"
-                          className="text-slate-200 dark:text-[var(--fos-text)]"
-                        />
-
-                        <circle
-                          cx="56"
-                          cy="56"
-                          r={radius}
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="7"
-                          strokeLinecap="round"
-                          strokeDasharray={circumference}
-                          strokeDashoffset={dashOffset}
-                          className={
-                            breakWarningActive
-                              ? "text-amber-500"
-                              : "text-purple-600"
-                          }
-                        />
-                      </svg>
-
-                      <div className="relative text-center">
-                        <p
-                          className={`text-2xl font-bold tabular-nums ${
-                            breakWarningActive
-                              ? "text-amber-700 dark:text-amber-300"
-                              : "text-purple-700 dark:text-purple-300"
-                          }`}
-                        >
-                          {remainingBreakTime}
-                        </p>
-
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
-                          remaining
-                        </p>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-            {!isCheckedIn ? (
-              <button
-                type="button"
-                onClick={checkIn}
-                disabled={action !== null || loading}
-                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[var(--fos-surface)] dark:text-[var(--fos-text)] dark:hover:bg-[var(--fos-border)]"
-              >
-                {action === "check-in" ? (
-                  <RefreshCw
-                    size={17}
-                    className="animate-spin"
-                  />
-                ) : (
-                  <LogIn size={17} />
-                )}
-                Check In
-              </button>
-            ) : (
-              <>
-                {!currentBreak && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => startBreak("tea")}
-                      disabled={action !== null}
-                      className="inline-flex items-center gap-2 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      {action === "tea" ? (
-                        <RefreshCw
-                          size={17}
-                          className="animate-spin"
-                        />
-                      ) : (
-                        <Coffee size={17} />
-                      )}
-                      Tea Break
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => startBreak("lunch")}
-                      disabled={action !== null}
-                      className="inline-flex items-center gap-2 rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm font-medium text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      {action === "lunch" ? (
-                        <RefreshCw
-                          size={17}
-                          className="animate-spin"
-                        />
-                      ) : (
-                        <Utensils size={17} />
-                      )}
-                      Lunch Break
-                    </button>
-                  </>
-                )}
-
-                {currentBreak && (
-                  <button
-                    type="button"
-                    onClick={endBreak}
-                    disabled={action !== null}
-                    className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {action === "end-break" ? (
-                      <RefreshCw
-                        size={17}
-                        className="animate-spin"
-                      />
-                    ) : (
-                      <Clock3 size={17} />
-                    )}
-                    End Break
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={checkOut}
-                  disabled={action !== null}
-                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300 dark:hover:bg-red-950/40"
-                >
-                  {action === "check-out" ? (
-                    <RefreshCw
-                      size={17}
-                      className="animate-spin"
-                    />
-                  ) : (
-                    <LogOut size={17} />
-                  )}
-                  Check Out
-                </button>
-              </>
-            )}
-            </div>
-          </div>
-        </div>
-      </section>
-
+      {tab === "team" && (
+        <>
       {/* SUMMARY */}
       <section className="grid gap-4 md:grid-cols-4">
         <div className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -802,27 +516,6 @@ function AttendanceView() {
           </div>
         </div>
       </section>
-
-      {/* CURRENT BREAK */}
-      {currentBreak && (
-        <section className="rounded-2xl border border-purple-200 bg-purple-50 p-5 dark:border-purple-900/50 dark:bg-purple-950/20">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-purple-900 dark:text-purple-200">
-                {getBreakLabel(currentBreak.break_type)} in progress
-              </p>
-
-              <p className="mt-1 text-sm text-purple-700 dark:text-purple-300">
-                Started {formatDateTime(currentBreak.started_at)}
-              </p>
-            </div>
-
-            <p className="text-sm font-medium text-purple-800 dark:text-purple-200">
-              {formatElapsed(currentBreak.started_at)}
-            </p>
-          </div>
-        </section>
-      )}
 
       {/* TEAM PRESENCE */}
       <section className="overflow-hidden rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -908,58 +601,8 @@ function AttendanceView() {
           Attendance status is updated automatically from your activity.
         </span>
       </div>
-    </main>
-  );
-}
-
-type WorkspaceTab = "chat" | "meetings" | "attendance";
-
-export default function StaffWorkspacePage() {
-  const [tab, setTab] = useState<WorkspaceTab>("chat");
-
-  return (
-    <>
-      <div className="px-6 pt-6">
-        <div
-          role="tablist"
-          className="inline-flex rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-1"
-        >
-          {(
-            [
-              ["chat", "Chat"],
-              ["meetings", "Meetings"],
-              ["attendance", "Attendance & team"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              onClick={() => setTab(id)}
-              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
-                tab === id
-                  ? "bg-[var(--fos-primary)] text-[var(--fos-on-primary)]"
-                  : "text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {tab === "chat" ? (
-        <main className="p-6">
-          <ChatPanel />
-        </main>
-      ) : tab === "meetings" ? (
-        <main className="p-6">
-          <MeetingsPanel />
-        </main>
-      ) : (
-        <AttendanceView />
+        </>
       )}
-    </>
+    </main>
   );
 }

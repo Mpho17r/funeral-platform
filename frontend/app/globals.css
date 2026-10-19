@@ -593,3 +593,57 @@ html.dark
   ):not([class*="dark:border-"]) {
   border-color: color-mix(in srgb, currentColor 35%, var(--fos-border));
 }
+
+/* ============================================================
+   WORKDAY CARD ANIMATIONS
+============================================================ */
+
+@keyframes fos-ripple {
+  0% { transform: scale(0.92); opacity: 0.5; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+
+@keyframes fos-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+@keyframes fos-steam {
+  0% { transform: translateY(4px) scaleX(1); opacity: 0; }
+  35% { opacity: 0.7; }
+  100% { transform: translateY(-20px) scaleX(1.5); opacity: 0; }
+}
+
+@keyframes fos-confetti {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  100% {
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(0.5);
+    opacity: 0;
+  }
+}
+
+@keyframes fos-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes fos-sweep {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fos-pop {
+  0% { transform: translateY(8px) scale(0.9); opacity: 0; }
+  60% { transform: translateY(0) scale(1.04); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes fos-urgent {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35); }
+  50% { box-shadow: 0 0 0 14px rgba(239, 68, 68, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fos-anim {
+    animation: none !important;
+  }
+}
