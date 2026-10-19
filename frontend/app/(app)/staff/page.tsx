@@ -1,6 +1,7 @@
 "use client";
 
 import ChatPanel from "@/components/chat/ChatPanel";
+import MeetingsPanel from "@/components/chat/MeetingsPanel";
 
 import {
   Coffee,
@@ -911,7 +912,7 @@ function AttendanceView() {
   );
 }
 
-type WorkspaceTab = "chat" | "attendance";
+type WorkspaceTab = "chat" | "meetings" | "attendance";
 
 export default function StaffWorkspacePage() {
   const [tab, setTab] = useState<WorkspaceTab>("chat");
@@ -926,6 +927,7 @@ export default function StaffWorkspacePage() {
           {(
             [
               ["chat", "Chat"],
+              ["meetings", "Meetings"],
               ["attendance", "Attendance & team"],
             ] as const
           ).map(([id, label]) => (
@@ -950,6 +952,10 @@ export default function StaffWorkspacePage() {
       {tab === "chat" ? (
         <main className="p-6">
           <ChatPanel />
+        </main>
+      ) : tab === "meetings" ? (
+        <main className="p-6">
+          <MeetingsPanel />
         </main>
       ) : (
         <AttendanceView />
