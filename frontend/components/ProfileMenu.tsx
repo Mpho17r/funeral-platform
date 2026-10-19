@@ -3,6 +3,7 @@
 import { CircleHelp, KeyRound, LogOut, Pencil, Settings } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useBranding } from "@/components/BrandingProvider";
 import {
@@ -38,6 +39,9 @@ export function ProfileMenu() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [notice, setNotice] = useState("");
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 64, right: 16 });
 
   useEffect(() => {
     if (!open) {
@@ -45,7 +49,11 @@ export function ProfileMenu() {
     }
 
     function onPointer(event: MouseEvent) {
-      if (root.current && !root.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        !root.current?.contains(target) &&
+        !menu.current?.contains(target)
+      ) {
         setOpen(false);
       }
     }
@@ -95,10 +103,22 @@ export function ProfileMenu() {
     "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text)]";
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className="relative z-[110]">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        ref={trigger}
+        onClick={(event) => {
+          if (open) {
+            setOpen(false);
+            return;
+          }
+          const rect = event.currentTarget.getBoundingClientRect();
+          setMenuPosition({
+            top: rect.bottom + 8,
+            right: Math.max(16, window.innerWidth - rect.right),
+          });
+          setOpen(true);
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Your profile and account"
@@ -121,10 +141,12 @@ export function ProfileMenu() {
         </span>
       </button>
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <div
+          ref={menu}
           role="menu"
-          className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-2 shadow-xl"
+          style={{ top: menuPosition.top, right: menuPosition.right }}
+          className="fixed z-[9999] max-h-[calc(100vh-1rem)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-2 shadow-xl"
         >
           <div className="flex items-center gap-3 px-3 py-3">
             <UserAvatar
@@ -230,7 +252,8 @@ export function ProfileMenu() {
               Log out
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {editing && <ProfileDialog onClose={() => setEditing(false)} />}

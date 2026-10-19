@@ -85,12 +85,12 @@ export default function AppShell({ children }: AppShellProps) {
         {/* Main application area */}
         <div className="relative min-w-0 flex-1">
           {/* Desktop top bar: who is signed in */}
-          <div className="sticky top-0 z-40 hidden h-16 items-center justify-end border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-6 backdrop-blur lg:flex">
+          <div className="sticky top-0 z-[100] hidden h-16 items-center justify-end border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-6 backdrop-blur lg:flex">
             <ProfileMenu />
           </div>
 
           {/* Mobile top bar */}
-          <div className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-4 backdrop-blur lg:hidden">
+          <div className="sticky top-0 z-[100] flex h-14 items-center gap-3 border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-4 backdrop-blur lg:hidden">
             <button
               type="button"
               aria-label="Open menu"

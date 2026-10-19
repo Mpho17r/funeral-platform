@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, X } from "lucide-react";
 
 export const inputClass =
@@ -17,6 +18,12 @@ export function Dialog({
   wide?: boolean;
   children: React.ReactNode;
 }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -29,9 +36,13 @@ export function Dialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 md:items-center"
+      className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 md:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -63,7 +74,8 @@ export function Dialog({
 
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
