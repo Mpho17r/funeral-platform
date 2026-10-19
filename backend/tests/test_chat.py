@@ -64,7 +64,7 @@ def test_send_read_and_unread_counts(client, test_data, auth_headers):
     assert theirs[0]["unread"] == 2
     assert theirs[0]["last_message"]["body"] == "Are you in?"
     assert call(client, auth_headers, b, "get",
-                "/unread-count").json() == {"unread": 2}
+                "/unread-count").json() == {"unread": 2, "mentions": 0}
 
     msgs = call(client, auth_headers, b, "get",
                 f"/conversations/{conv['id']}/messages").json()["messages"]
@@ -73,7 +73,7 @@ def test_send_read_and_unread_counts(client, test_data, auth_headers):
     assert call(client, auth_headers, b, "post",
                 f"/conversations/{conv['id']}/read").status_code == 204
     assert call(client, auth_headers, b, "get",
-                "/unread-count").json() == {"unread": 0}
+                "/unread-count").json() == {"unread": 0, "mentions": 0}
 
 
 def test_empty_and_overlong_messages_are_refused(
@@ -182,7 +182,7 @@ def test_deleted_messages_do_not_count_as_unread(
     msg = say(client, auth_headers, a, conv["id"], "oops").json()
     call(client, auth_headers, a, "delete", f"/messages/{msg['id']}")
     assert call(client, auth_headers, b, "get",
-                "/unread-count").json() == {"unread": 0}
+                "/unread-count").json() == {"unread": 0, "mentions": 0}
 
 
 def test_channel_lifecycle(client, test_data, auth_headers):
@@ -208,7 +208,7 @@ def test_channel_lifecycle(client, test_data, auth_headers):
 
     # A newcomer does not see the channel's history as unread.
     assert call(client, auth_headers, c, "get",
-                "/unread-count").json() == {"unread": 0}
+                "/unread-count").json() == {"unread": 0, "mentions": 0}
 
     # Leave yourself; removing others needs chat.manage (manager has it).
     assert call(client, auth_headers, b, "delete",
