@@ -1,3 +1,11 @@
+# FuneralOS
+
+FuneralOS is a multi-tenant operating system for funeral businesses. The GitHub repository is the implementation source of truth; the project blueprint and tracker capture agreed architecture, current evidence, and the next work.
+
+## Project documentation
+
+- [Product blueprint and system structure](docs/FUNERALOS_BLUEPRINT.md) — product principles, business/branch structure, case journey, department workspaces, security invariants, and roadmap.
+- [Project tracker](docs/PROJECT_TRACKER.md) — what is present in the repository, what needs review, and the next priorities.
 
 ## Running without your own computer
 
@@ -6,9 +14,9 @@
 `.github/workflows/ci.yml` runs on every push and pull request. It starts a
 temporary Postgres, then runs `alembic upgrade head`,
 `python -m app.seed_permissions`, the backend tests, `npx tsc --noEmit` and
-`npm run build`. Open the **Actions** tab (or the checks on a pull request) to
-see the result. The database is discarded afterwards, so this is a check, not
-a place to use the app.
+`npm run build`. Open the **Actions** tab (or the checks on a pull request)
+to see the result. The database is discarded afterwards, so this is a check,
+not a place to use the app.
 
 ### Use the app in the browser (GitHub Codespaces)
 
