@@ -67,11 +67,13 @@ function Avatar({
   name,
   status,
   channel,
+  userId,
   size = 40,
 }: {
   name: string;
   status?: Person["status"];
   channel?: boolean;
+  userId?: string | null;
   size?: number;
 }) {
   if (channel) {
@@ -87,7 +89,7 @@ function Avatar({
 
   return (
     <span className="relative shrink-0">
-      <UserAvatar name={name} size={size} />
+      <UserAvatar name={name} userId={userId} size={size} />
       {status && <PresenceDot status={status} />}
     </span>
   );
@@ -216,6 +218,7 @@ function NewChatDialog({
                   <Avatar
                     name={person.name}
                     status={person.status}
+                    userId={person.id}
                     size={34}
                   />
                   <span className="min-w-0 flex-1">
@@ -521,7 +524,7 @@ function Thread({
         >
           <div className="w-9 shrink-0">
             {!grouped && !mine && (
-              <UserAvatar name={m.sender_name} size={36} />
+              <UserAvatar name={m.sender_name} userId={m.sender_id} size={36} />
             )}
           </div>
 
@@ -608,6 +611,7 @@ function Thread({
         <Avatar
           name={conversation.title}
           status={other?.status}
+          userId={other?.id}
           channel={conversation.kind === "channel"}
         />
         <div className="min-w-0">
@@ -905,6 +909,7 @@ export default function ChatPanel() {
                   <Avatar
                     name={c.title}
                     status={person?.status}
+                    userId={person?.id}
                     channel={c.kind === "channel"}
                   />
                   <span className="min-w-0 flex-1">

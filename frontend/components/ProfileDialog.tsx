@@ -7,7 +7,7 @@ import { getApiErrorMessage } from "@/lib/format";
 import { roleLabel, useCurrentUser } from "@/components/CurrentUserProvider";
 import { Dialog, DialogFooter, Field, inputClass } from "@/components/Dialog";
 import { ErrorNote } from "@/components/Notices";
-import { UserAvatar } from "@/components/UserAvatar";
+import { clearUserAvatarCache, UserAvatar } from "@/components/UserAvatar";
 
 /** The signed-in person edits how their own name and job title appear. */
 export function ProfileDialog({ onClose }: { onClose: () => void }) {
@@ -38,6 +38,7 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
       form.append("file", file);
 
       await api.post("/users/me/avatar", form);
+      if (user?.user_id) clearUserAvatarCache(user.user_id);
       await refresh();
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not save the picture."));
@@ -56,6 +57,7 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
       setError("");
 
       await api.delete("/users/me/avatar");
+      if (user?.user_id) clearUserAvatarCache(user.user_id);
       await refresh();
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not remove the picture."));
