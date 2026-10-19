@@ -19,6 +19,7 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     role: str = "staff"
     job_title: str | None = Field(default=None, max_length=100)
+    work_area: str = "general"
 
     @field_validator("job_title", mode="after")
     @classmethod
@@ -37,6 +38,7 @@ class UserUpdate(BaseModel):
 
     # Send null or blank to clear it.
     job_title: str | None = Field(default=None, max_length=100)
+    work_area: str | None = None
 
     @field_validator("job_title", mode="after")
     @classmethod
@@ -53,6 +55,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: str
     job_title: str | None = None
+    work_area: str = "general"
     is_active: bool
     branch_id: UUID | None = None
     locked_until: datetime | None = None
