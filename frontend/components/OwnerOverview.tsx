@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Download, TrendingDown, TrendingUp } from "lucide-react";
 
@@ -182,12 +183,14 @@ function ListPanel({
   note,
   csv,
   onDownload,
+  extra,
   children,
 }: {
   title: string;
   note: string;
   csv: string;
   onDownload: (path: string) => void;
+  extra?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -197,6 +200,8 @@ function ListPanel({
           <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
           <p className="mt-0.5 text-xs text-gray-500">{note}</p>
         </div>
+        <div className="flex shrink-0 items-center gap-2">
+        {extra}
         <button
           type="button"
           onClick={() => onDownload(csv)}
@@ -204,6 +209,7 @@ function ListPanel({
         >
           <Download size={14} aria-hidden /> CSV
         </button>
+        </div>
       </div>
       {children}
     </section>
@@ -367,6 +373,14 @@ export default function OwnerOverview({
           }
           csv="arrears.csv"
           onDownload={download}
+          extra={
+            <Link
+              href="/communications"
+              className="inline-flex shrink-0 items-center rounded-lg bg-[var(--fos-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--fos-on-primary)]"
+            >
+              Send reminders
+            </Link>
+          }
         >
           {arrears && arrears.rows.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-gray-500">

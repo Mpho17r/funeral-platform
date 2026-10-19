@@ -46,6 +46,7 @@ import {
   inputClass,
 } from "@/components/Dialog";
 import { Banner, ErrorNote } from "@/components/Notices";
+import AutoRemindersToggle from "@/components/AutoRemindersToggle";
 
 type Tab = MessageStatus | "wording";
 
@@ -230,6 +231,8 @@ export default function CommunicationsPage() {
           </button>
         </div>
       </div>
+
+      <AutoRemindersToggle />
 
       {notice && (
         <Banner tone="success" onDismiss={() => setNotice("")}>

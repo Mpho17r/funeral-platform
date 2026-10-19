@@ -90,6 +90,25 @@ class Business(Base):
         nullable=False,
     )
 
+    # Queue due reminders every day without anyone pressing a button.
+    # They still wait for a person to send them.
+    auto_reminders_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="false",
+        nullable=False,
+    )
+
+    auto_reminders_last_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    auto_reminders_last_count: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
     reinstatement_policy: Mapped[str] = mapped_column(
         String(30),
         default="automatic",
