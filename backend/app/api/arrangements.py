@@ -33,6 +33,7 @@ from app.services.arrangement import (
     local_date,
     now_utc,
 )
+from app.services.automatic_case_lifecycle import sync_case_status_from_arrangement
 from app.services.audit_service import (
     build_audit_changes,
     create_audit_log,
@@ -295,6 +296,12 @@ def create_arrangement(
         )
 
     case_changes = sync_case(case, arrangement)
+    sync_case_status_from_arrangement(
+        db,
+        case=case,
+        arrangement=arrangement,
+        user_id=get_user_id(current_user),
+    )
 
     audit(
         db,
@@ -395,6 +402,12 @@ def update_arrangement(
         setattr(arrangement, field, value)
 
     case_changes = sync_case(case, arrangement)
+    sync_case_status_from_arrangement(
+        db,
+        case=case,
+        arrangement=arrangement,
+        user_id=get_user_id(current_user),
+    )
 
     changes = build_audit_changes(
         old_values,
@@ -474,6 +487,12 @@ def transition_arrangement(
         arrangement.cancel_reason = None
 
     case_changes = sync_case(case, arrangement)
+    sync_case_status_from_arrangement(
+        db,
+        case=case,
+        arrangement=arrangement,
+        user_id=get_user_id(current_user),
+    )
 
     audit(
         db,
