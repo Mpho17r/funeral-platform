@@ -167,3 +167,14 @@ def test_arrangement_confirmation_updates_case_status_through_api(
 
     assert completed.json()["status"] == "completed"
     assert case.status == "completed"
+
+
+def test_scheduled_job_advances_past_confirmed_cases(db, test_data):
+    from app.jobs.sync_case_lifecycle import run
+
+    case, arrangement = make_lifecycle_pair(db, test_data["business_a"])
+    changed = run(db)
+    db.refresh(case)
+
+    assert changed >= 2
+    assert case.status == "in_progress"
