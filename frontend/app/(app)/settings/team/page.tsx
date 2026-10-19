@@ -109,7 +109,7 @@ export default function TeamPage() {
       const response = await api.get<User[]>("/users");
       setUsers(response.data);
 
-      const token = localStorage.getItem("access_token");
+      const token = sessionStorage.getItem("access_token");
       if (token) {
         try {
           const payload: { sub?: string } = JSON.parse(

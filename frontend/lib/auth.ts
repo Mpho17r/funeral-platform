@@ -1,13 +1,13 @@
 export function saveToken(token: string) {
-  localStorage.setItem("access_token", token);
+  sessionStorage.setItem("access_token", token);
 }
 
 export function getToken() {
-  return localStorage.getItem("access_token");
+  return sessionStorage.getItem("access_token");
 }
 
 export function removeToken() {
-  localStorage.removeItem("access_token");
+  sessionStorage.removeItem("access_token");
 }
 
 export function isAuthenticated() {

@@ -67,7 +67,7 @@ export function ChangePasswordDialog({
       );
 
       try {
-        localStorage.setItem(
+        sessionStorage.setItem(
           "access_token",
           response.data.access_token,
         );

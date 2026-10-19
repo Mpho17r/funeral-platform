@@ -58,7 +58,7 @@ export function BrandingProvider({
   const refreshBranding = useCallback(async () => {
     const token =
       typeof window !== "undefined"
-        ? localStorage.getItem("access_token")
+        ? sessionStorage.getItem("access_token")
         : null;
 
     /*

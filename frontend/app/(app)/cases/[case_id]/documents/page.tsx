@@ -184,7 +184,7 @@ export default function CaseDocumentsPage() {
       const status = getApiErrorStatus(error);
 
       if (status === 401) {
-        localStorage.removeItem("access_token");
+        sessionStorage.removeItem("access_token");
         router.replace("/login");
         return;
       }
@@ -294,7 +294,7 @@ export default function CaseDocumentsPage() {
       await loadDocuments();
     } catch (error: unknown) {
       if (getApiErrorStatus(error) === 401) {
-        localStorage.removeItem("access_token");
+        sessionStorage.removeItem("access_token");
         router.replace("/login");
         return;
       }
@@ -334,7 +334,7 @@ export default function CaseDocumentsPage() {
       await loadDocuments();
     } catch (error: unknown) {
       if (getApiErrorStatus(error) === 401) {
-        localStorage.removeItem("access_token");
+        sessionStorage.removeItem("access_token");
         router.replace("/login");
         return;
       }
@@ -373,7 +373,7 @@ export default function CaseDocumentsPage() {
       window.URL.revokeObjectURL(blobUrl);
     } catch (error: unknown) {
       if (getApiErrorStatus(error) === 401) {
-        localStorage.removeItem("access_token");
+        sessionStorage.removeItem("access_token");
         router.replace("/login");
         return;
       }
@@ -411,7 +411,7 @@ export default function CaseDocumentsPage() {
       await loadDocuments();
     } catch (error: unknown) {
       if (getApiErrorStatus(error) === 401) {
-        localStorage.removeItem("access_token");
+        sessionStorage.removeItem("access_token");
         router.replace("/login");
         return;
       }

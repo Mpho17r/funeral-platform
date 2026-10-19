@@ -157,7 +157,7 @@ export default function AttendanceSettingsPage() {
         );
       }
 
-      const token = localStorage.getItem("access_token");
+      const token = sessionStorage.getItem("access_token");
       let loggedInUser: User | null = null;
 
       if (token) {
