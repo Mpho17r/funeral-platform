@@ -110,3 +110,60 @@ def test_cancelled_or_archived_case_is_never_auto_advanced(db, test_data):
     )
     assert changed == []
     assert archived_case.status == "open"
+
+
+def test_arrangement_confirmation_updates_case_status_through_api(
+    client, db, test_data, auth_headers
+):
+    from datetime import date
+    from uuid import uuid4
+
+    case = FuneralCase(
+        business_id=test_data["business_a"].id,
+        case_number=f"AUTO-API-{uuid4().hex[:8]}",
+        deceased_full_name="API Lifecycle Test",
+        date_of_death=date.today() - timedelta(days=3),
+        status="open",
+    )
+    db.add(case)
+    db.commit()
+
+    headers = auth_headers(test_data["manager"])
+    now = datetime.now(timezone.utc)
+    plan = {
+        "wake_at": (now - timedelta(days=1)).isoformat(),
+        "wake_venue": "Family home",
+        "service_at": (now - timedelta(hours=4)).isoformat(),
+        "service_venue_type": "church",
+        "service_venue": "Test Church",
+        "departure_at": (now - timedelta(hours=3)).isoformat(),
+        "departure_point": "Test Church",
+        "committal_at": (now - timedelta(hours=2)).isoformat(),
+        "committal_place": "Test Cemetery",
+    }
+    created = client.post(
+        f"/cases/{case.id}/arrangement", json=plan, headers=headers
+    )
+    assert created.status_code == 201, created.text
+
+    confirmed = client.post(
+        f"/cases/{case.id}/arrangement/transition",
+        json={"status": "confirmed"},
+        headers=headers,
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    db.refresh(case)
+
+    assert confirmed.json()["status"] == "confirmed"
+    assert case.status == "in_progress"
+
+    completed = client.post(
+        f"/cases/{case.id}/arrangement/transition",
+        json={"status": "completed"},
+        headers=headers,
+    )
+    assert completed.status_code == 200, completed.text
+    db.refresh(case)
+
+    assert completed.json()["status"] == "completed"
+    assert case.status == "completed"
