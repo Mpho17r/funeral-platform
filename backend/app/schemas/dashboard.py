@@ -43,10 +43,11 @@ class DashboardSummaryResponse(BaseModel):
     active_cases: int
     upcoming_funeral_count: int
 
-    outstanding_balance: Decimal
-    total_revenue: Decimal
-    amount_paid: Decimal
-    total_credit: Decimal
+    # Left out (null) for people without financial access.
+    outstanding_balance: Decimal | None = None
+    total_revenue: Decimal | None = None
+    amount_paid: Decimal | None = None
+    total_credit: Decimal | None = None
 
     # Families module does not have its own table yet.
     # We will connect this properly when the Families module

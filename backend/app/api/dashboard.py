@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
+from app.services.permission_service import has_permission
 
 from app.models.funeral_case import FuneralCase
 from app.models.case_financial import CaseFinancial
@@ -43,6 +44,15 @@ def get_dashboard_summary(
     current_user: dict = Depends(require_permission("dashboard.view")),
 ):
     business_id = current_user["business_id"]
+
+    # Money only goes to people whose role allows financial access, so a
+    # mortuary or operations dashboard never carries it.
+    can_see_money = has_permission(
+        db,
+        user_id=current_user["user_id"],
+        role=current_user["role"],
+        permission_key="financials.view",
+    )
 
     # ========================================================
     # TOTAL CASES
@@ -257,13 +267,13 @@ def get_dashboard_summary(
             upcoming_funerals
         ),
 
-        outstanding_balance=outstanding_balance,
+        outstanding_balance=outstanding_balance if can_see_money else None,
 
-        total_revenue=total_revenue,
+        total_revenue=total_revenue if can_see_money else None,
 
-        amount_paid=amount_paid,
+        amount_paid=amount_paid if can_see_money else None,
 
-        total_credit=total_credit,
+        total_credit=total_credit if can_see_money else None,
 
         total_families=total_families,
 

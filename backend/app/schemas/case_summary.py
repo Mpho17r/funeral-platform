@@ -28,7 +28,8 @@ class CaseServiceSummary(BaseModel):
 
 class CasePaymentSummary(BaseModel):
     total: int
-    amount_paid: Decimal
+    # Null for people without financial access.
+    amount_paid: Decimal | None = None
 
 
 class CaseFinancialSummary(BaseModel):

@@ -72,6 +72,48 @@ def has_permission(
     return role_permission is not None
 
 
+def effective_permissions(
+    db: Session,
+    *,
+    user_id: UUID,
+    role: str,
+) -> list[str]:
+    """Every permission key the person holds right now.
+
+    Main Admin holds all of them. Everyone else: what their role grants,
+    plus explicit allows, minus explicit denies (deny always wins).
+    """
+
+    active = {
+        p.id: p.key
+        for p in db.query(Permission).filter(Permission.is_active.is_(True))
+    }
+
+    if role == "main_admin":
+        return sorted(active.values())
+
+    held = {
+        active[rp.permission_id]
+        for rp in db.query(RolePermission).filter(RolePermission.role == role)
+        if rp.permission_id in active
+    }
+
+    for override in db.query(UserPermission).filter(
+        UserPermission.user_id == user_id
+    ):
+        key = active.get(override.permission_id)
+
+        if key is None:
+            continue
+
+        if override.effect == "allow":
+            held.add(key)
+        elif override.effect == "deny":
+            held.discard(key)
+
+    return sorted(held)
+
+
 def validate_permission_effect(effect: str) -> str:
     """Validate and normalize a user permission effect."""
     normalized = effect.strip().lower()

@@ -20,6 +20,9 @@ import {
   useCurrentUser,
 } from "@/components/CurrentUserProvider";
 import { SetupChecklist } from "@/components/SetupChecklist";
+import MortuaryDashboard from "@/components/dashboards/MortuaryDashboard";
+import FinanceDashboard from "@/components/dashboards/FinanceDashboard";
+import OperationsDashboard from "@/components/dashboards/OperationsDashboard";
 import { removeToken } from "@/lib/auth";
 
 type RecentCase = {
@@ -43,10 +46,10 @@ type DashboardSummary = {
   total_cases: number;
   active_cases: number;
   upcoming_funeral_count: number;
-  outstanding_balance: string;
-  total_revenue: string;
-  amount_paid: string;
-  total_credit: string;
+  outstanding_balance: string | null;
+  total_revenue: string | null;
+  amount_paid: string | null;
+  total_credit: string | null;
   total_families: number | null;
   recent_cases: RecentCase[];
   upcoming_funerals: UpcomingFuneral[];
@@ -182,7 +185,7 @@ function getStatusStyle(status: string) {
    PAGE
 ============================================================ */
 
-export default function DashboardPage() {
+function OverallDashboard() {
   const router = useRouter();
 
   const [dashboard, setDashboard] =
@@ -277,7 +280,7 @@ export default function DashboardPage() {
     };
   }, [router]);
 
-  const { user: currentUser } = useCurrentUser();
+  const { user: currentUser, can } = useCurrentUser();
   const firstName = currentUser?.full_name?.trim().split(/\s+/)[0];
 
   const today = new Date().toLocaleDateString("en-GB", {
@@ -464,7 +467,7 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Money */}
+        {can("financials.view") && (
         <section
           aria-labelledby="money-heading"
           className="flex flex-col rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 sm:p-6 dark:border-slate-800 dark:bg-slate-900"
@@ -525,6 +528,7 @@ export default function DashboardPage() {
             <ArrowRight size={15} />
           </Link>
         </section>
+        )}
       </div>
 
       {/* FIGURES */}
@@ -705,33 +709,41 @@ export default function DashboardPage() {
           </h2>
 
           <ul className="mt-4 space-y-2">
-            <QuickAction
-              href="/cases"
-              icon={<FilePlus2 size={18} />}
-              title="New case"
-              description="Register a death and start arrangements"
-            />
+            {can("cases.create") && (
+              <QuickAction
+                href="/cases"
+                icon={<FilePlus2 size={18} />}
+                title="New case"
+                description="Register a death and start arrangements"
+              />
+            )}
 
-            <QuickAction
-              href="/families"
-              icon={<Users size={18} />}
-              title="Add a family"
-              description="Record a client family and its contacts"
-            />
+            {can("families.manage") && (
+              <QuickAction
+                href="/families"
+                icon={<Users size={18} />}
+                title="Add a family"
+                description="Record a client family and its contacts"
+              />
+            )}
 
-            <QuickAction
-              href="/cases"
-              icon={<CreditCard size={18} />}
-              title="Record a payment"
-              description="Open a case and add a payment"
-            />
+            {can("payments.create") && (
+              <QuickAction
+                href="/cases"
+                icon={<CreditCard size={18} />}
+                title="Record a payment"
+                description="Open a case and add a payment"
+              />
+            )}
 
-            <QuickAction
-              href="/memberships"
-              icon={<HeartHandshake size={18} />}
-              title="Memberships"
-              description="Check cover and contributions"
-            />
+            {can("memberships.view") && (
+              <QuickAction
+                href="/memberships"
+                icon={<HeartHandshake size={18} />}
+                title="Memberships"
+                description="Check cover and contributions"
+              />
+            )}
           </ul>
         </section>
       </div>
@@ -834,4 +846,23 @@ function QuickAction({
       </Link>
     </li>
   );
+}
+
+export default function DashboardPage() {
+  const { access, loading } = useCurrentUser();
+
+  // Wait for who this is, so nobody briefly sees a screen that is not theirs.
+  if (loading) {
+    return (
+      <p className="p-8 text-sm text-[var(--fos-text-muted)]">Loading…</p>
+    );
+  }
+
+  // Work-area roles get their own dashboard; managers, the main
+  // administrator and general staff see the overall one.
+  if (access?.work_area === "mortuary") return <MortuaryDashboard />;
+  if (access?.work_area === "finance") return <FinanceDashboard />;
+  if (access?.work_area === "operations") return <OperationsDashboard />;
+
+  return <OverallDashboard />;
 }

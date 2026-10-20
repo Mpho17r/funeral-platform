@@ -33,6 +33,8 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 import api from "@/lib/api";
+import { ROUTE_PERMISSIONS } from "@/lib/access";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 import { removeToken } from "@/lib/auth";
 import { useBranding } from "@/components/BrandingProvider";
@@ -173,6 +175,16 @@ function useChatUnread(): number {
 export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
   const router = useRouter();
   const chatUnread = useChatUnread();
+  const { can } = useCurrentUser();
+
+  // Only the screens this person is allowed to open.
+  function shown<T extends { path: string }>(items: T[]): T[] {
+    return items.filter((item) => {
+      const needed = ROUTE_PERMISSIONS[item.path];
+
+      return !needed || can(needed);
+    });
+  }
 
   const { branding, logoObjectUrl } = useBranding();
 
@@ -439,9 +451,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
           onNavigate={onNavigate}
         />
 
-        <SectionTitle>Operations</SectionTitle>
+        {shown(operations).length > 0 && (
+          <SectionTitle>Operations</SectionTitle>
+        )}
 
-        {operations.map((item) => (
+        {shown(operations).map((item) => (
           <NavItem
             key={item.path}
             label={item.label}
@@ -451,9 +465,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
           />
         ))}
 
-        <SectionTitle>Membership</SectionTitle>
+        {shown(membership).length > 0 && (
+          <SectionTitle>Membership</SectionTitle>
+        )}
 
-        {membership.map((item) => (
+        {shown(membership).map((item) => (
           <NavItem
             key={item.path}
             label={item.label}
@@ -463,9 +479,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
           />
         ))}
 
-        <SectionTitle>Records</SectionTitle>
+        {shown(records).length > 0 && (
+          <SectionTitle>Records</SectionTitle>
+        )}
 
-        {records.map((item) => (
+        {shown(records).map((item) => (
           <NavItem
             key={item.path}
             label={item.label}
@@ -475,9 +493,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
           />
         ))}
 
-        <SectionTitle>Workspace</SectionTitle>
+        {shown(workspace).length > 0 && (
+          <SectionTitle>Workspace</SectionTitle>
+        )}
 
-        {workspace.map((item) => (
+        {shown(workspace).map((item) => (
           <NavItem
             key={item.path}
             label={item.label}
@@ -488,9 +508,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
           />
         ))}
 
-        <SectionTitle>Administration</SectionTitle>
+        {shown(administration).length > 0 && (
+          <SectionTitle>Administration</SectionTitle>
+        )}
 
-        {administration.map((item) => (
+        {shown(administration).map((item) => (
           <NavItem
             key={item.path}
             label={item.label}
