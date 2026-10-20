@@ -25,10 +25,19 @@ export type CurrentUser = {
   member_since: string | null;
 };
 
+export type Access = {
+  role: string;
+  work_area: string;
+  permissions: string[];
+};
+
 const ROLE_LABELS: Record<string, string> = {
   main_admin: "Main administrator",
   manager: "Manager",
   staff: "Staff member",
+  mortuary: "Mortuary team",
+  finance: "Finance and memberships",
+  operations: "Funeral operations",
 };
 
 /** What the person's access level is called on screen. */
@@ -79,6 +88,14 @@ type CurrentUserContextValue = {
   avatarUrl: string | null;
   /** Re-read who is signed in, e.g. after they change their profile. */
   refresh: () => Promise<void>;
+  /** What the person may do. Null until it has loaded. */
+  access: Access | null;
+  /**
+   * Whether the person holds a permission. Until access has loaded it
+   * says yes, so a slow request never hides the whole app; the server
+   * enforces the real rule either way.
+   */
+  can: (permission: string) => boolean;
 };
 
 const CurrentUserContext = createContext<CurrentUserContextValue>({
@@ -86,6 +103,8 @@ const CurrentUserContext = createContext<CurrentUserContextValue>({
   loading: true,
   avatarUrl: null,
   refresh: async () => {},
+  access: null,
+  can: () => true,
 });
 
 export function CurrentUserProvider({
@@ -96,12 +115,21 @@ export function CurrentUserProvider({
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [access, setAccess] = useState<Access | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const response = await api.get<CurrentUser>("/auth/me");
 
       setUser(response.data);
+
+      try {
+        const mine = await api.get<Access>("/users/me/access");
+
+        setAccess(mine.data);
+      } catch {
+        setAccess(null);
+      }
     } catch {
       // The page's own requests handle a lapsed sign-in; the shell just
       // shows no name rather than an error.
@@ -154,10 +182,18 @@ export function CurrentUserProvider({
     };
   }, [userId, avatarVersion]);
 
-  const value = useMemo(
-    () => ({ user, loading, avatarUrl, refresh }),
-    [user, loading, avatarUrl, refresh],
-  );
+  const value = useMemo(() => {
+    const held = access ? new Set(access.permissions) : null;
+
+    return {
+      user,
+      loading,
+      avatarUrl,
+      refresh,
+      access,
+      can: (permission: string) => (held ? held.has(permission) : true),
+    };
+  }, [user, loading, avatarUrl, refresh, access]);
 
   return (
     <CurrentUserContext.Provider value={value}>

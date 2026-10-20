@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import { useBranding } from "@/components/BrandingProvider";
 import { CurrentUserProvider } from "@/components/CurrentUserProvider";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import { RouteGuard } from "@/components/RouteGuard";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -123,7 +124,7 @@ export default function AppShell({ children }: AppShellProps) {
             id="main"
             className="relative z-10 min-h-screen lg:min-h-screen"
           >
-            {children}
+            <RouteGuard>{children}</RouteGuard>
           </main>
 
           {/* Tenant watermark */}

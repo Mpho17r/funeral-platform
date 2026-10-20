@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.constants import (
     MANAGEABLE_ROLES,
+    STAFF_LEVEL_ROLES,
+    work_area_for,
     ROLE_MAIN_ADMIN,
     ROLE_MANAGER,
     ROLE_STAFF,
@@ -26,6 +28,7 @@ from app.schemas.user import (
     UserUpdate,
 )
 from app.security import hash_password
+from app.services.permission_service import effective_permissions
 from app.services import avatar_storage
 from app.services.audit_service import (
     build_audit_changes,
@@ -85,7 +88,7 @@ def can_manage_role(current_role: str, target_role: str) -> bool:
         return target_role in MANAGEABLE_ROLES
 
     if current_role == ROLE_MANAGER:
-        return target_role == ROLE_STAFF
+        return target_role in STAFF_LEVEL_ROLES
 
     return False
 
@@ -221,6 +224,25 @@ def create_user(
     db.refresh(user)
 
     return user
+
+
+@router.get("/me/access")
+def my_access(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """What the signed-in person may do, so the screen can show them
+    only their own work. The server still enforces every request."""
+
+    return {
+        "role": current_user["role"],
+        "work_area": work_area_for(current_user["role"]),
+        "permissions": effective_permissions(
+            db,
+            user_id=current_user["user_id"],
+            role=current_user["role"],
+        ),
+    }
 
 
 @router.post("/me/avatar")

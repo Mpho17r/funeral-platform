@@ -28,6 +28,30 @@ import {
   TransferDialog,
 } from "@/components/BranchControls";
 
+// Everyone below manager level. Each work-area role sees only its own
+// part of FuneralOS.
+const STAFF_LEVEL = ["staff", "mortuary", "finance", "operations"];
+
+const ROLE_OPTION_LABELS: Record<string, string> = {
+  staff: "General staff",
+  mortuary: "Mortuary team",
+  finance: "Finance and memberships",
+  operations: "Funeral operations",
+  manager: "Manager",
+  main_admin: "Main administrator",
+};
+
+const ROLE_HELP: Record<string, string> = {
+  staff: "A general account with day-to-day case and member access.",
+  mortuary:
+    "Sees only mortuary work: remains, preparation, custody and paperwork. No money or membership records.",
+  finance:
+    "Sees memberships, contributions, payments and arrears. No mortuary records.",
+  operations:
+    "Opens and coordinates cases, services and schedules. No payments or finance reports.",
+  manager: "Full view of the business, within their permissions.",
+};
+
 type User = {
   id: string;
   business_id: string;
@@ -202,7 +226,7 @@ export default function TeamPage() {
     }
 
     if (currentUser.role === "manager") {
-      return user.role === "staff";
+      return STAFF_LEVEL.includes(user.role);
     }
 
     return false;
@@ -214,11 +238,11 @@ export default function TeamPage() {
     }
 
     if (currentUser.role === "main_admin") {
-      return role === "manager" || role === "staff";
+      return role === "manager" || STAFF_LEVEL.includes(role);
     }
 
     if (currentUser.role === "manager") {
-      return role === "staff";
+      return STAFF_LEVEL.includes(role);
     }
 
     return false;
@@ -436,7 +460,7 @@ export default function TeamPage() {
   const activeUsers = users.filter((user) => user.is_active);
   const inactiveUsers = users.filter((user) => !user.is_active);
   const managers = users.filter((user) => user.role === "manager");
-  const staff = users.filter((user) => user.role === "staff");
+  const staff = users.filter((user) => STAFF_LEVEL.includes(user.role));
 
   return (
     <main className="min-h-screen bg-[var(--fos-surface-muted)] text-[var(--fos-text)]">
@@ -630,7 +654,8 @@ export default function TeamPage() {
 
                         <div className="flex flex-wrap items-center gap-3">
                           <span className="rounded-full bg-[var(--fos-surface-muted)] px-3 py-1 text-xs font-semibold capitalize text-[var(--fos-text-secondary)]">
-                            {user.role.replace("_", " ")}
+                            {ROLE_OPTION_LABELS[user.role] ??
+                              user.role.replace("_", " ")}
                           </span>
 
                           <span
@@ -894,21 +919,24 @@ export default function TeamPage() {
                   }
                   className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-[var(--fos-surface-muted)] disabled:text-[var(--fos-text-muted)]"
                 >
-                  {canCreateRole("staff") || editingUser ? (
-                    <option value="staff">Staff</option>
-                  ) : null}
+                  {STAFF_LEVEL.map((role) =>
+                    canCreateRole(role) || editingUser ? (
+                      <option key={role} value={role}>
+                        {ROLE_OPTION_LABELS[role]}
+                      </option>
+                    ) : null
+                  )}
 
                   {canCreateRole("manager") || editingUser ? (
                     <option value="manager">Manager</option>
                   ) : null}
                 </select>
 
-                {!editingUser &&
-                  currentUser?.role === "manager" && (
-                    <p className="mt-1.5 text-xs text-[var(--fos-text-muted)]">
-                      Managers can create staff accounts.
-                    </p>
-                  )}
+                {ROLE_HELP[form.role] && (
+                  <p className="mt-1.5 text-xs text-[var(--fos-text-muted)]">
+                    {ROLE_HELP[form.role]}
+                  </p>
+                )}
               </div>
 
               {editingUser && (

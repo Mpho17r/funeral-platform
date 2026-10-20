@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 
 from app.dependencies.roles import require_permission
+from app.services.permission_service import has_permission
 from app.services.branch_service import (
     BranchError,
     resolve_branch_id,
@@ -498,7 +499,14 @@ def get_case_summary(
 
     financial_summary = None
 
-    if financial:
+    can_see_money = has_permission(
+        db,
+        user_id=current_user["user_id"],
+        role=current_user["role"],
+        permission_key="financials.view",
+    )
+
+    if financial and can_see_money:
         financial_summary = CaseFinancialSummary(
             total=financial.total,
             amount_paid=financial.amount_paid,
@@ -536,7 +544,7 @@ def get_case_summary(
 
         payments=CasePaymentSummary(
             total=payments_count,
-            amount_paid=payments_amount_paid,
+            amount_paid=payments_amount_paid if can_see_money else None,
         ),
 
         financial=financial_summary,

@@ -8,11 +8,7 @@ from app.dependencies.auth import get_current_user
 from app.services.permission_service import has_permission
 
 
-BUSINESS_ROLES = {
-    "main_admin",
-    "manager",
-    "staff",
-}
+from app.constants import BUSINESS_ROLES
 
 
 def require_business_user(
@@ -51,7 +47,7 @@ def require_manager_or_admin(
 def require_staff_or_above(
     current_user: dict = Depends(get_current_user),
 ):
-    if current_user["role"] not in {"main_admin", "manager", "staff"}:
+    if current_user["role"] not in BUSINESS_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Business user access required",

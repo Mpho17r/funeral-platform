@@ -172,6 +172,104 @@ DEFAULT_ROLE_PERMISSIONS = {
 }
 
 
+# Job-focused roles. Least privilege: each gets what the job needs.
+_EVERYONE = {
+    "dashboard.view",
+    "chat.use",
+    "meetings.use",
+    "presence.view",
+    "tasks.view",
+    "tasks.manage",
+    "documents.view",
+    "branches.view",
+    "groups.view",
+}
+
+DEFAULT_ROLE_PERMISSIONS["mortuary"] = _EVERYONE | {
+    "cases.view",
+    "families.view",
+    "mortuary.view",
+    "mortuary.manage",
+    "remains.view",
+    "remains.manage",
+    "remains.release",
+    "death_records.view",
+    "death_records.manage",
+    "paperwork.view",
+    "paperwork.manage",
+    "documents.manage",
+    "run_sheet.view",
+    "arrangements.view",
+    "services.view",
+    "resources.view",
+    "resource_bookings.view",
+    "inventory.view",
+    "inventory.stock",
+}
+
+DEFAULT_ROLE_PERMISSIONS["finance"] = _EVERYONE | {
+    "cases.view",
+    "families.view",
+    "families.manage",
+    "contacts.view",
+    "members.view",
+    "members.create",
+    "members.edit",
+    "membership_plans.view",
+    "memberships.view",
+    "memberships.create",
+    "memberships.edit",
+    "contributions.view",
+    "contributions.create",
+    "contributions.edit",
+    "payments.view",
+    "payments.create",
+    "payments.edit",
+    "financials.view",
+    "financial_documents.view",
+    "receipts.view",
+    "receipts.issue",
+    "beneficiaries.view",
+    "claims.view",
+    "claims.create",
+    "communications.view",
+    "communications.send",
+    "reports.view",
+}
+
+DEFAULT_ROLE_PERMISSIONS["operations"] = _EVERYONE | {
+    "cases.view",
+    "cases.create",
+    "cases.edit",
+    "families.view",
+    "families.manage",
+    "contacts.view",
+    "contacts.manage",
+    "members.view",
+    "memberships.view",
+    "services.view",
+    "services.manage",
+    "arrangements.view",
+    "arrangements.manage",
+    "collections.view",
+    "run_sheet.view",
+    "resources.view",
+    "resource_bookings.view",
+    "resource_bookings.manage",
+    "mortuary.view",
+    "remains.view",
+    "death_records.view",
+    "death_records.manage",
+    "paperwork.view",
+    "paperwork.manage",
+    "documents.manage",
+    "inventory.view",
+    "suppliers.view",
+    "communications.view",
+    "communications.send",
+}
+
+
 def sync_permissions(db: Session) -> int:
     """
     Synchronize the database permission catalogue with app/permissions.py.
