@@ -452,3 +452,109 @@ class MortuaryTemperatureReading(Base):
     )
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class MortuaryBelonging(Base):
+    """Individual belongings held in safekeeping for a remains record."""
+
+    __tablename__ = "mortuary_belongings"
+
+    __table_args__ = (
+        CheckConstraint(
+            "quantity > 0",
+            name="ck_mortuary_belongings_quantity_positive",
+        ),
+        CheckConstraint(
+            "status IN ('in_safekeeping', 'returned', 'transferred')",
+            name="ck_mortuary_belongings_status",
+        ),
+        Index(
+            "ix_mortuary_belongings_business_status",
+            "business_id",
+            "status",
+        ),
+        Index(
+            "ix_mortuary_belongings_remains",
+            "remains_id",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("businesses.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    remains_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("remains_records.id"),
+        nullable=False,
+    )
+
+    description: Mapped[str] = mapped_column(String(200), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    condition: Mapped[str | None] = mapped_column(Text, nullable=True)
+    storage_location: Mapped[str] = mapped_column(String(150), nullable=False)
+
+    received_from: Mapped[str | None] = mapped_column(
+        String(150), nullable=True
+    )
+    received_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    received_by_name: Mapped[str | None] = mapped_column(
+        String(150), nullable=True
+    )
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="in_safekeeping",
+        server_default=text("'in_safekeeping'"),
+    )
+
+    returned_to_name: Mapped[str | None] = mapped_column(
+        String(150), nullable=True
+    )
+    returned_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    returned_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    transferred_to_location: Mapped[str | None] = mapped_column(
+        String(150), nullable=True
+    )
+    transferred_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    transferred_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )

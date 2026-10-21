@@ -10,10 +10,15 @@ from app.dependencies.roles import require_permission
 
 from app.models.death_record import CasePaperworkItem, DeathRecord
 from app.models.funeral_case import FuneralCase
-from app.models.mortuary import CustodyEvent, RemainsRecord
+from app.models.mortuary import CustodyEvent, MortuaryBelonging, RemainsRecord
 from app.models.resource import Resource
 from app.schemas.mortuary import (
     CustodyEventCreate,
+    MortuaryBelongingCreate,
+    MortuaryBelongingReturn,
+    MortuaryBelongingResponse,
+    MortuaryBelongingTransfer,
+    MortuaryBelongingUpdate,
     RemainsCreate,
     RemainsDetail,
     RemainsUpdate,
@@ -859,3 +864,311 @@ def release_remains(
     db.refresh(remains)
 
     return build_detail(db, remains)
+
+# ============================================================
+# MORTUARY BELONGINGS REGISTER API
+# ============================================================
+
+
+def get_belonging(
+    db: Session,
+    *,
+    belonging_id: UUID,
+    remains: RemainsRecord,
+    business_id: UUID,
+    lock: bool = False,
+) -> MortuaryBelonging:
+    query = db.query(MortuaryBelonging).filter(
+        MortuaryBelonging.id == belonging_id,
+        MortuaryBelonging.remains_id == remains.id,
+        MortuaryBelonging.business_id == business_id,
+    )
+
+    if lock:
+        query = query.with_for_update()
+
+    item = query.first()
+
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Belonging not found",
+        )
+
+    return item
+
+
+def audit_belonging(
+    db: Session,
+    *,
+    item: MortuaryBelonging,
+    case: FuneralCase,
+    current_user: dict,
+    action: str,
+    details: dict | None = None,
+) -> None:
+    create_audit_log(
+        db,
+        business_id=item.business_id,
+        user_id=get_user_id(current_user),
+        action=action,
+        entity_type="mortuary_belonging",
+        entity_id=item.id,
+        details={
+            "case_id": str(case.id),
+            "quantity": item.quantity,
+            **(details or {}),
+        },
+        notes="A mortuary belongings register action was recorded.",
+    )
+
+
+@router.get(
+    "/{case_id}/remains/belongings",
+    response_model=list[MortuaryBelongingResponse],
+)
+def list_remains_belongings(
+    case_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("remains.view")),
+):
+    business_id = get_business_id(current_user)
+    case = get_case(db, case_id, business_id)
+    remains = get_remains(db, case.id, business_id)
+
+    return (
+        db.query(MortuaryBelonging)
+        .filter(
+            MortuaryBelonging.business_id == business_id,
+            MortuaryBelonging.remains_id == remains.id,
+        )
+        .order_by(
+            MortuaryBelonging.received_at,
+            MortuaryBelonging.created_at,
+        )
+        .all()
+    )
+
+
+@router.post(
+    "/{case_id}/remains/belongings",
+    response_model=MortuaryBelongingResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_remains_belonging(
+    case_id: UUID,
+    data: MortuaryBelongingCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("remains.manage")),
+):
+    business_id = get_business_id(current_user)
+    case = get_case(db, case_id, business_id, for_change=True)
+    remains = get_open_remains(db, case.id, business_id)
+
+    item = MortuaryBelonging(
+        business_id=business_id,
+        remains_id=remains.id,
+        description=data.description,
+        quantity=data.quantity,
+        condition=data.condition,
+        storage_location=data.storage_location,
+        received_from=data.received_from,
+        received_by=get_user_id(current_user),
+        received_by_name=data.received_by_name,
+        notes=data.notes,
+    )
+
+    db.add(item)
+    db.flush()
+
+    audit_belonging(
+        db,
+        item=item,
+        case=case,
+        current_user=current_user,
+        action="mortuary.belonging.created",
+        details={"status": "in_safekeeping"},
+    )
+
+    db.commit()
+    db.refresh(item)
+
+    return item
+
+
+@router.patch(
+    "/{case_id}/remains/belongings/{belonging_id}",
+    response_model=MortuaryBelongingResponse,
+)
+def update_remains_belonging(
+    case_id: UUID,
+    belonging_id: UUID,
+    data: MortuaryBelongingUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("remains.manage")),
+):
+    business_id = get_business_id(current_user)
+    case = get_case(db, case_id, business_id, for_change=True)
+    remains = get_open_remains(db, case.id, business_id)
+
+    item = get_belonging(
+        db,
+        belonging_id=belonging_id,
+        remains=remains,
+        business_id=business_id,
+        lock=True,
+    )
+
+    if item.status != "in_safekeeping":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only belongings in safekeeping can be edited",
+        )
+
+    updates = data.model_dump(exclude_unset=True)
+
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Provide at least one field to update",
+        )
+
+    changed_fields = []
+
+    for field, value in updates.items():
+        if getattr(item, field) != value:
+            setattr(item, field, value)
+            changed_fields.append(field)
+
+    if changed_fields:
+        details = {"changed_fields": sorted(changed_fields)}
+
+        if "quantity" in changed_fields:
+            details["quantity"] = item.quantity
+
+        audit_belonging(
+            db,
+            item=item,
+            case=case,
+            current_user=current_user,
+            action="mortuary.belonging.updated",
+            details=details,
+        )
+
+    db.commit()
+    db.refresh(item)
+
+    return item
+
+
+@router.post(
+    "/{case_id}/remains/belongings/{belonging_id}/return",
+    response_model=MortuaryBelongingResponse,
+)
+def return_remains_belonging(
+    case_id: UUID,
+    belonging_id: UUID,
+    data: MortuaryBelongingReturn,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("remains.manage")),
+):
+    business_id = get_business_id(current_user)
+    case = get_case(db, case_id, business_id, for_change=True)
+    remains = get_remains(db, case.id, business_id, lock=True)
+
+    item = get_belonging(
+        db,
+        belonging_id=belonging_id,
+        remains=remains,
+        business_id=business_id,
+        lock=True,
+    )
+
+    if item.status != "in_safekeeping":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only belongings in safekeeping can be returned",
+        )
+
+    item.status = "returned"
+    item.returned_to_name = data.returned_to_name
+    item.returned_by = get_user_id(current_user)
+    item.returned_at = datetime.now(timezone.utc)
+
+    if data.notes:
+        item.notes = (
+            f"{item.notes}\nReturn note: {data.notes}"
+            if item.notes
+            else f"Return note: {data.notes}"
+        )
+
+    audit_belonging(
+        db,
+        item=item,
+        case=case,
+        current_user=current_user,
+        action="mortuary.belonging.returned",
+        details={"status": "returned"},
+    )
+
+    db.commit()
+    db.refresh(item)
+
+    return item
+
+
+@router.post(
+    "/{case_id}/remains/belongings/{belonging_id}/transfer",
+    response_model=MortuaryBelongingResponse,
+)
+def transfer_remains_belonging(
+    case_id: UUID,
+    belonging_id: UUID,
+    data: MortuaryBelongingTransfer,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("remains.manage")),
+):
+    business_id = get_business_id(current_user)
+    case = get_case(db, case_id, business_id, for_change=True)
+    remains = get_open_remains(db, case.id, business_id)
+
+    item = get_belonging(
+        db,
+        belonging_id=belonging_id,
+        remains=remains,
+        business_id=business_id,
+        lock=True,
+    )
+
+    if item.status != "in_safekeeping":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only belongings in safekeeping can be transferred",
+        )
+
+    item.status = "transferred"
+    item.transferred_to_location = data.transferred_to_location
+    item.transferred_by = get_user_id(current_user)
+    item.transferred_at = datetime.now(timezone.utc)
+    item.storage_location = data.transferred_to_location
+
+    if data.notes:
+        item.notes = (
+            f"{item.notes}\nTransfer note: {data.notes}"
+            if item.notes
+            else f"Transfer note: {data.notes}"
+        )
+
+    audit_belonging(
+        db,
+        item=item,
+        case=case,
+        current_user=current_user,
+        action="mortuary.belonging.transferred",
+        details={"status": "transferred"},
+    )
+
+    db.commit()
+    db.refresh(item)
+
+    return item

@@ -50,6 +50,7 @@ from app.models.arrangement import CaseCollection, FuneralArrangement
 from app.models.death_record import CasePaperworkItem, DeathRecord
 from app.models.mortuary import (
     CustodyEvent,
+    MortuaryBelonging,
     MortuaryLocation,
     MortuaryTemperatureReading,
     RemainsRecord,
