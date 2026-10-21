@@ -848,8 +848,82 @@ function QuickAction({
   );
 }
 
+type Department = "business" | "operations" | "mortuary" | "finance";
+
+const DEPARTMENT_KEY = "fos-dashboard-department";
+
+function DepartmentSwitcher({ children }: { children: (d: Department) => React.ReactNode }) {
+  const { can } = useCurrentUser();
+
+  const options: { id: Department; label: string; allowed: boolean }[] = [
+    { id: "business", label: "Whole business", allowed: true },
+    { id: "operations", label: "Operations", allowed: can("cases.view") },
+    { id: "mortuary", label: "Mortuary", allowed: can("mortuary.view") },
+    { id: "finance", label: "Finance", allowed: can("financials.view") },
+  ];
+  const available = options.filter((o) => o.allowed);
+
+  const [chosen, setChosen] = useState<Department>("business");
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(DEPARTMENT_KEY);
+      if (saved && available.some((o) => o.id === saved)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setChosen(saved as Department);
+      }
+    } catch {
+      /* the choice just is not remembered */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function choose(next: Department) {
+    setChosen(next);
+    try {
+      window.localStorage.setItem(DEPARTMENT_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <>
+      <div className="px-6 pt-6 md:px-8">
+        <div
+          role="tablist"
+          aria-label="Dashboard view"
+          className="inline-flex flex-wrap rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-1"
+        >
+          {available.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="tab"
+              aria-selected={chosen === o.id}
+              onClick={() => choose(o.id)}
+              className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition ${
+                chosen === o.id
+                  ? "bg-[var(--fos-primary)] text-[var(--fos-on-primary)]"
+                  : "text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-[var(--fos-text-muted)]">
+          See what each team sees. Only the whole-business view shows
+          everything at once.
+        </p>
+      </div>
+      {children(chosen)}
+    </>
+  );
+}
+
 export default function DashboardPage() {
-  const { access, loading } = useCurrentUser();
+  const { access, user, loading } = useCurrentUser();
 
   // Wait for who this is, so nobody briefly sees a screen that is not theirs.
   if (loading) {
@@ -858,11 +932,30 @@ export default function DashboardPage() {
     );
   }
 
-  // Work-area roles get their own dashboard; managers, the main
-  // administrator and general staff see the overall one.
+  // Work-area roles get their own dashboard and nothing else.
   if (access?.work_area === "mortuary") return <MortuaryDashboard />;
   if (access?.work_area === "finance") return <FinanceDashboard />;
   if (access?.work_area === "operations") return <OperationsDashboard />;
+
+  // Managers and the main administrator can look at any department's
+  // dashboard (each still checks their permissions on the server).
+  if (user?.role === "main_admin" || user?.role === "manager") {
+    return (
+      <DepartmentSwitcher>
+        {(department) =>
+          department === "operations" ? (
+            <OperationsDashboard />
+          ) : department === "mortuary" ? (
+            <MortuaryDashboard />
+          ) : department === "finance" ? (
+            <FinanceDashboard />
+          ) : (
+            <OverallDashboard />
+          )
+        }
+      </DepartmentSwitcher>
+    );
+  }
 
   return <OverallDashboard />;
 }
