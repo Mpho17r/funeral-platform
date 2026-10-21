@@ -394,3 +394,53 @@ class CustodyEvent(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
+class MortuaryTemperatureReading(Base):
+    """
+    A temperature taken in a cold place (fridge or cold room), as
+    opposed to a custody event, which belongs to one set of remains.
+    """
+
+    __tablename__ = "mortuary_temperature_readings"
+
+    __table_args__ = (
+        Index(
+            "ix_mortuary_temp_location_time",
+            "location_id",
+            "recorded_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("businesses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    location_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("mortuary_locations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    temperature_c: Mapped[Decimal] = mapped_column(
+        Numeric(4, 1), nullable=False
+    )
+
+    recorded_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)

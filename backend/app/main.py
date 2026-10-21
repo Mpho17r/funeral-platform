@@ -54,6 +54,7 @@ from app.api.membership_contributions import (
 from app.api.memberships import router as memberships_router
 from app.api.imports import router as imports_router
 from app.api.chat import router as chat_router
+from app.api.mortuary_overview import router as mortuary_overview_router
 from app.api.meetings import router as meetings_router
 from app.api.service_overview import router as service_overview_router
 from app.api.onboarding import router as onboarding_router
@@ -262,6 +263,10 @@ app.include_router(
 
 app.include_router(
     chat_router
+)
+
+app.include_router(
+    mortuary_overview_router
 )
 
 app.include_router(
