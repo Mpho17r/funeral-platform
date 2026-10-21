@@ -128,6 +128,7 @@ def db():
             "funeral_arrangements",
             "custody_events",
             "remains_records",
+            "mortuary_temperature_readings",
             "mortuary_locations",
             "case_paperwork_items",
             "death_records",
