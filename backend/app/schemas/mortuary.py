@@ -158,6 +158,8 @@ class CustodyEventCreate(BaseModel):
     event_type: EventKind
     occurred_at: datetime | None = None
     to_location_id: UUID | None = None
+    handed_over_by_name: str | None = Field(default=None, max_length=150)
+    accepted_by_name: str | None = Field(default=None, max_length=150)
     procedure: Procedure | None = None
     temperature_c: Decimal | None = Field(
         default=None, ge=-40, le=60, decimal_places=1
@@ -169,7 +171,11 @@ class CustodyEventCreate(BaseModel):
     notes: str | None = None
 
     @field_validator(
-        "identified_by_name", "identified_relationship", "notes"
+        "identified_by_name",
+        "identified_relationship",
+        "handed_over_by_name",
+        "accepted_by_name",
+        "notes",
     )
     @classmethod
     def blank_is_none(cls, value):
@@ -221,6 +227,8 @@ class CustodyEventResponse(BaseModel):
     event_type: str
     from_location_id: UUID | None
     to_location_id: UUID | None
+    handed_over_by_name: str | None
+    accepted_by_name: str | None
     procedure: str | None
     temperature_c: Decimal | None
     performed_by: UUID | None
@@ -296,3 +304,131 @@ class BoardResponse(BaseModel):
     cooling_overdue: int
     entries: list[BoardEntry]
     locations: list[LocationResponse]
+
+
+# ============================================================
+# MORTUARY BELONGINGS REGISTER
+# ============================================================
+
+class MortuaryBelongingCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    description: str = Field(min_length=1, max_length=200)
+    quantity: int = Field(default=1, gt=0, le=10000)
+    condition: str | None = Field(default=None, max_length=2000)
+    storage_location: str = Field(min_length=1, max_length=150)
+    received_from: str | None = Field(default=None, max_length=150)
+    received_by_name: str | None = Field(default=None, max_length=150)
+    notes: str | None = Field(default=None, max_length=5000)
+
+    @field_validator("description", "storage_location")
+    @classmethod
+    def required_text_cannot_be_blank(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("This field cannot be blank")
+        return value
+
+    @field_validator(
+        "condition",
+        "received_from",
+        "received_by_name",
+        "notes",
+    )
+    @classmethod
+    def clean_optional_text(cls, value):
+        return _strip(value)
+
+
+class MortuaryBelongingUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    description: str | None = Field(default=None, min_length=1, max_length=200)
+    quantity: int | None = Field(default=None, gt=0, le=10000)
+    condition: str | None = Field(default=None, max_length=2000)
+    storage_location: str | None = Field(
+        default=None, min_length=1, max_length=150
+    )
+    received_from: str | None = Field(default=None, max_length=150)
+    notes: str | None = Field(default=None, max_length=5000)
+
+    @field_validator("description", "storage_location")
+    @classmethod
+    def clean_required_text_when_provided(cls, value):
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("This field cannot be blank")
+        return value
+
+    @field_validator("condition", "received_from", "notes")
+    @classmethod
+    def clean_optional_text(cls, value):
+        return _strip(value)
+
+
+class MortuaryBelongingReturn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    returned_to_name: str = Field(min_length=1, max_length=150)
+    notes: str | None = Field(default=None, max_length=5000)
+
+    @field_validator("returned_to_name")
+    @classmethod
+    def clean_recipient_name(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Recipient name cannot be blank")
+        return value
+
+    @field_validator("notes")
+    @classmethod
+    def clean_notes(cls, value):
+        return _strip(value)
+
+
+class MortuaryBelongingTransfer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    transferred_to_location: str = Field(min_length=1, max_length=150)
+    notes: str | None = Field(default=None, max_length=5000)
+
+    @field_validator("transferred_to_location")
+    @classmethod
+    def clean_destination(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Destination cannot be blank")
+        return value
+
+    @field_validator("notes")
+    @classmethod
+    def clean_notes(cls, value):
+        return _strip(value)
+
+
+class MortuaryBelongingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    business_id: UUID
+    remains_id: UUID
+    description: str
+    quantity: int
+    condition: str | None
+    storage_location: str
+    received_from: str | None
+    received_by: UUID | None
+    received_by_name: str | None
+    received_at: datetime
+    status: str
+    returned_to_name: str | None
+    returned_by: UUID | None
+    returned_at: datetime | None
+    transferred_to_location: str | None
+    transferred_by: UUID | None
+    transferred_at: datetime | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime

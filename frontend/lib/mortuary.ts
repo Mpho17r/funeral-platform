@@ -38,6 +38,8 @@ export type CustodyEvent = {
   event_type: string;
   from_location_id: string | null;
   to_location_id: string | null;
+  handed_over_by_name: string | null;
+  accepted_by_name: string | null;
   procedure: string | null;
   temperature_c: string | null;
   occurred_at: string;

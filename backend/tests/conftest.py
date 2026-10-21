@@ -126,6 +126,7 @@ def db():
             # Death records and paperwork
             "case_collections",
             "funeral_arrangements",
+            "mortuary_belongings",
             "custody_events",
             "remains_records",
             "mortuary_temperature_readings",
