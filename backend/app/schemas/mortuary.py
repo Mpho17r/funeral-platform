@@ -158,6 +158,8 @@ class CustodyEventCreate(BaseModel):
     event_type: EventKind
     occurred_at: datetime | None = None
     to_location_id: UUID | None = None
+    handed_over_by_name: str | None = Field(default=None, max_length=150)
+    accepted_by_name: str | None = Field(default=None, max_length=150)
     procedure: Procedure | None = None
     temperature_c: Decimal | None = Field(
         default=None, ge=-40, le=60, decimal_places=1
@@ -169,7 +171,11 @@ class CustodyEventCreate(BaseModel):
     notes: str | None = None
 
     @field_validator(
-        "identified_by_name", "identified_relationship", "notes"
+        "identified_by_name",
+        "identified_relationship",
+        "handed_over_by_name",
+        "accepted_by_name",
+        "notes",
     )
     @classmethod
     def blank_is_none(cls, value):
@@ -221,6 +227,8 @@ class CustodyEventResponse(BaseModel):
     event_type: str
     from_location_id: UUID | None
     to_location_id: UUID | None
+    handed_over_by_name: str | None
+    accepted_by_name: str | None
     procedure: str | None
     temperature_c: Decimal | None
     performed_by: UUID | None

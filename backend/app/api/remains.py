@@ -210,6 +210,8 @@ def log_event(
     performed_by: UUID,
     from_location_id: UUID | None = None,
     to_location_id: UUID | None = None,
+    handed_over_by_name: str | None = None,
+    accepted_by_name: str | None = None,
     procedure: str | None = None,
     temperature_c=None,
     notes: str | None = None,
@@ -220,6 +222,8 @@ def log_event(
         event_type=event_type,
         from_location_id=from_location_id,
         to_location_id=to_location_id,
+        handed_over_by_name=handed_over_by_name,
+        accepted_by_name=accepted_by_name,
         procedure=procedure,
         temperature_c=temperature_c,
         performed_by=performed_by,
@@ -556,6 +560,15 @@ def add_custody_event(
         except MortuaryError as error:
             raise_mortuary_error(db, error)
 
+        if not data.handed_over_by_name or not data.accepted_by_name:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    "Record the name of the person handing over "
+                    "and the person accepting custody"
+                ),
+            )
+
         previous = remains.current_location_id
         remains.current_location_id = target.id
 
@@ -570,6 +583,8 @@ def add_custody_event(
             performed_by=user_id,
             from_location_id=previous,
             to_location_id=target.id,
+            handed_over_by_name=data.handed_over_by_name,
+            accepted_by_name=data.accepted_by_name,
             notes=data.notes,
         )
 
@@ -578,6 +593,8 @@ def add_custody_event(
         extra = {
             "from_location_id": str(previous) if previous else None,
             "to_location_id": str(target.id),
+            "handed_over_by_name": data.handed_over_by_name,
+            "accepted_by_name": data.accepted_by_name,
         }
 
     elif kind == "prepared":

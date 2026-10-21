@@ -369,6 +369,14 @@ class CustodyEvent(Base):
         nullable=True,
     )
 
+    handed_over_by_name: Mapped[str | None] = mapped_column(
+        String(150), nullable=True
+    )
+
+    accepted_by_name: Mapped[str | None] = mapped_column(
+        String(150), nullable=True
+    )
+
     procedure: Mapped[str | None] = mapped_column(
         String(20), nullable=True
     )
