@@ -34,7 +34,7 @@ from app.models.chat import (
 from app.models.group import Group, GroupMember
 from app.models.staff_presence import StaffPresence
 from app.models.user import User
-from app.services import chat_files
+from app.services import chat_files, workspace_channels
 from app.services.notifications import notify
 from app.services.permission_service import has_permission
 
@@ -290,6 +290,14 @@ def _conversation_out(db, user, conv, seat) -> dict:
         "title": title,
         "description": conv.description,
         "group_id": str(conv.group_id) if conv.group_id else None,
+        "system": conv.system_key is not None,
+        "scope": (
+            None
+            if conv.system_key is None
+            else "organisation"
+            if conv.system_key == "org"
+            else "branch"
+        ),
         "other_user_id": str(other_id) if other_id else None,
         "participant_ids": [str(p) for p in part_ids],
         "participants": [
@@ -360,6 +368,11 @@ def my_conversations(
     db: Session = Depends(get_db),
     user: dict = Depends(require_permission("chat.use")),
 ):
+    # Make sure the organisation and branch channels exist and match the
+    # team (also sets them up for businesses that existed before them).
+    if workspace_channels.sync(db, user["business_id"]):
+        db.commit()
+
     rows = (
         db.query(ChatConversation, ChatParticipant)
         .join(
@@ -740,6 +753,11 @@ def add_participants(
     conv, _ = _membership(db, user, conversation_id)
     if conv.kind != "channel":
         raise HTTPException(409, "People can only be added to a channel.")
+    if conv.system_key:
+        raise HTTPException(
+            409,
+            "This channel keeps its members up to date automatically.",
+        )
 
     ids = set(payload.user_ids)
     if set(_active_users(db, user["business_id"], ids)) != ids:
@@ -764,6 +782,11 @@ def remove_participant(
     conv, _ = _membership(db, user, conversation_id)
     if conv.kind != "channel":
         raise HTTPException(409, "You cannot leave a direct message.")
+    if conv.system_key:
+        raise HTTPException(
+            409,
+            "This channel keeps its members up to date automatically.",
+        )
 
     if user_id != user["user_id"] and not _can_manage(db, user):
         raise HTTPException(403, "You can only remove yourself.")

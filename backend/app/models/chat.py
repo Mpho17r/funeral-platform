@@ -27,6 +27,9 @@ class ChatConversation(Base):
         UniqueConstraint(
             "business_id", "direct_key", name="uq_chat_direct_pair"
         ),
+        UniqueConstraint(
+            "business_id", "system_key", name="uq_chat_system_key"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -45,6 +48,12 @@ class ChatConversation(Base):
         UUID(as_uuid=True),
         ForeignKey("groups.id", ondelete="SET NULL"),
         nullable=True,
+    )
+    # Set on channels the system keeps in step with the team: "org" for
+    # the whole organisation and "branch:<id>" for each branch. Nobody
+    # adds or removes people there by hand.
+    system_key: Mapped[str | None] = mapped_column(
+        String(60), nullable=True
     )
     # Sorted "userA:userB" so the same pair never gets two chats.
     direct_key: Mapped[str | None] = mapped_column(

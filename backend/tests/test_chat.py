@@ -130,8 +130,11 @@ def test_outsiders_cannot_read_or_write(client, test_data, auth_headers):
                  f"/conversations/{conv['id']}/messages")
         assert r.status_code == 404
         assert say(client, auth_headers, outsider, conv["id"], "hi").status_code == 404
-        assert call(client, auth_headers, outsider, "get",
-                    "/conversations").json() == []
+        # They only see the automatic organisation channel, never the DM.
+        visible = call(client, auth_headers, outsider, "get",
+                       "/conversations").json()
+        assert all(c["system"] for c in visible)
+        assert conv["id"] not in {c["id"] for c in visible}
 
 
 def test_reply_must_point_inside_the_conversation(
