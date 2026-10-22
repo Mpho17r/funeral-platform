@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useBranding } from "@/components/BrandingProvider";
 import { CurrentUserProvider } from "@/components/CurrentUserProvider";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { RouteGuard } from "@/components/RouteGuard";
 
@@ -86,7 +87,8 @@ export default function AppShell({ children }: AppShellProps) {
         {/* Main application area */}
         <div className="relative min-w-0 flex-1">
           {/* Desktop top bar: who is signed in */}
-          <div className="sticky top-0 z-[100] hidden h-16 items-center justify-end border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-6 backdrop-blur lg:flex">
+          <div className="sticky top-0 z-[100] hidden h-16 items-center justify-between gap-4 border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-6 backdrop-blur lg:flex">
+            <GlobalSearch />
             <ProfileMenu />
           </div>
 
@@ -115,7 +117,8 @@ export default function AppShell({ children }: AppShellProps) {
               </span>
             </div>
 
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-1">
+              <GlobalSearch compact />
               <ProfileMenu />
             </div>
           </div>
