@@ -11,6 +11,9 @@ export type Conversation = {
   kind: "direct" | "channel";
   title: string;
   description: string | null;
+  /** Organisation and branch channels are kept in step with the team. */
+  system?: boolean;
+  scope?: "organisation" | "branch" | null;
   other_user_id: string | null;
   participants: { id: string; name: string }[];
   last_message: {

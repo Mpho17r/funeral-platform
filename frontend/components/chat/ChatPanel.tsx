@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -855,7 +856,9 @@ function Thread({
             {conversation.title}
           </h2>
           <p className="truncate text-xs text-[var(--fos-text-muted)]">
-            {conversation.kind === "channel"
+            {conversation.system
+              ? `${conversation.participants.length} members · kept up to date automatically`
+              : conversation.kind === "channel"
               ? `${conversation.participants.length} members`
               : other
                 ? `${presenceLabel(other.status)}${
@@ -1237,6 +1240,31 @@ export default function ChatPanel() {
   const filtered = (conversations ?? []).filter((c) =>
     c.title.toLowerCase().includes(query.trim().toLowerCase())
   );
+
+  // Organisation first, then each branch, then your own channels and
+  // direct messages.
+  const sections = [
+    {
+      key: "organisation",
+      title: "Organisation",
+      items: filtered.filter((c) => c.scope === "organisation"),
+    },
+    {
+      key: "branches",
+      title: "Branches",
+      items: filtered.filter((c) => c.scope === "branch"),
+    },
+    {
+      key: "channels",
+      title: "Channels",
+      items: filtered.filter((c) => c.kind === "channel" && !c.system),
+    },
+    {
+      key: "direct",
+      title: "Direct messages",
+      items: filtered.filter((c) => c.kind === "direct"),
+    },
+  ].filter((section) => section.items.length > 0);
   const totalUnread = (conversations ?? []).reduce(
     (sum, c) => sum + c.unread,
     0
@@ -1334,7 +1362,15 @@ export default function ChatPanel() {
             </li>
           )}
 
-          {filtered.map((c) => {
+          {sections.map((section) => (
+            <Fragment key={section.key}>
+              <li
+                className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]"
+                aria-hidden="true"
+              >
+                {section.title}
+              </li>
+              {section.items.map((c) => {
             const person = c.other_user_id
               ? personById.get(c.other_user_id)
               : undefined;
@@ -1400,6 +1436,8 @@ export default function ChatPanel() {
               </li>
             );
           })}
+            </Fragment>
+          ))}
         </ul>
 
         {error && (
