@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import { useBranding } from "@/components/BrandingProvider";
 import { CurrentUserProvider } from "@/components/CurrentUserProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { NotificationBell } from "@/components/NotificationBell";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { RouteGuard } from "@/components/RouteGuard";
 
@@ -89,7 +90,10 @@ export default function AppShell({ children }: AppShellProps) {
           {/* Desktop top bar: who is signed in */}
           <div className="sticky top-0 z-[100] hidden h-16 items-center justify-between gap-4 border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-6 backdrop-blur lg:flex">
             <GlobalSearch />
-            <ProfileMenu />
+            <div className="flex shrink-0 items-center gap-2">
+              <NotificationBell />
+              <ProfileMenu />
+            </div>
           </div>
 
           {/* Mobile top bar */}
@@ -119,6 +123,7 @@ export default function AppShell({ children }: AppShellProps) {
 
             <div className="ml-auto flex items-center gap-1">
               <GlobalSearch compact />
+              <NotificationBell />
               <ProfileMenu />
             </div>
           </div>

@@ -35,6 +35,7 @@ from app.models.group import Group, GroupMember
 from app.models.staff_presence import StaffPresence
 from app.models.user import User
 from app.services import chat_files
+from app.services.notifications import notify
 from app.services.permission_service import has_permission
 
 router = APIRouter(prefix="/chat", tags=["Staff Chat"])
@@ -626,6 +627,20 @@ def send_message(
     db.flush()
     for f in files:
         f.message_id = message.id
+    if mentions:
+        who = db.query(User.full_name).filter(
+            User.id == user["user_id"]
+        ).scalar()
+        notify(
+            db,
+            business_id=user["business_id"],
+            user_ids=mentions,
+            kind="mention",
+            title=f"{who or 'Someone'} mentioned you",
+            body=body[:200] or None,
+            link="/staff",
+            actor_id=user["user_id"],
+        )
     conv.last_message_at = now
     seat.last_read_at = now
     db.commit()

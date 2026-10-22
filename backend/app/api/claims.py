@@ -40,6 +40,7 @@ from app.services.claim_workflow import (
     next_claim_number,
 )
 from app.services.coverage_decision import calculate_case_coverage
+from app.services.notifications import notify, users_with_permission
 from app.services.permission_service import has_permission
 
 
@@ -558,6 +559,17 @@ def submit_claim(
             "covered_at_submission": decision.covered,
         },
         notes="Claim was submitted.",
+    )
+
+    notify(
+        db,
+        business_id=business_id,
+        user_ids=users_with_permission(db, business_id, "claims.review"),
+        kind="claim_submitted",
+        title=f"New claim to review: {claim.claim_number}",
+        body=f"For funeral {case.case_number}",
+        link="/claims",
+        actor_id=current_user["user_id"],
     )
 
     db.commit()

@@ -13,6 +13,7 @@ from app.dependencies.roles import require_permission
 from app.models.reconciliation import Reconciliation
 from app.schemas.case_payment import PAYMENT_METHODS
 from app.services.audit_service import create_audit_log
+from app.services.notifications import notify, users_with_permission
 from app.services.finance_books import (
     day_position,
     expected_for,
@@ -171,6 +172,24 @@ def reconcile(
         },
         notes="Day's money was reconciled.",
     )
+    if variance != 0:
+        notify(
+            db,
+            business_id=business_id,
+            user_ids=users_with_permission(
+                db, business_id, "reconciliation.manage"
+            ),
+            kind="reconciliation_difference",
+            title=(
+                f"{payload.payment_method.upper()} on "
+                f"{payload.recon_date.isoformat()} is "
+                f"R {abs(variance):,.2f} "
+                f"{'over' if variance > 0 else 'short'}"
+            ),
+            body=record.notes,
+            link="/reconciliation",
+            actor_id=user_id,
+        )
     db.commit()
 
     return day_position(db, business_id, payload.recon_date)
