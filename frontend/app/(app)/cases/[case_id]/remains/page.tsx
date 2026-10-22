@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
+import MortuaryBelongingsRegister from "@/components/mortuary/MortuaryBelongingsRegister";
 import { getApiErrorMessage, statusOf } from "@/lib/format";
 import {
   EVENT_LABELS,
@@ -506,6 +507,11 @@ export default function RemainsPage() {
               </ul>
             </section>
           )}
+
+          <MortuaryBelongingsRegister
+            caseId={caseId}
+            inCustody={inCustody}
+          />
 
           <section>
             <h2 className="mb-3 text-lg font-semibold text-slate-900">
