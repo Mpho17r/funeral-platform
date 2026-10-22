@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Building2,
   Clock3,
+  DatabaseBackup,
   FileSpreadsheet,
   KeyRound,
   Palette,
@@ -14,10 +15,12 @@ import {
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useCurrentUser } from "@/components/CurrentUserProvider";
 import { ChangePasswordDialog } from "@/components/PasswordDialogs";
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { can } = useCurrentUser();
   const [changingPassword, setChangingPassword] = useState(false);
   const [notice, setNotice] = useState("");
 
@@ -194,6 +197,33 @@ export default function SettingsPage() {
                   membership lapse rules and reinstatement policies.
                 </p>
               </button>
+
+              {can("data.export") && (
+                <button
+                  type="button"
+                  onClick={() => router.push("/settings/data")}
+                  className="group rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]">
+                      <DatabaseBackup size={22} />
+                    </div>
+
+                    <span className="text-sm text-[var(--fos-text-muted)] transition group-hover:text-[var(--fos-text-secondary)]">
+                      Open →
+                    </span>
+                  </div>
+
+                  <h3 className="mt-5 text-lg font-semibold text-[var(--fos-text)]">
+                    Data export & backups
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
+                    Download a complete copy of your data and check that
+                    automatic backups are running.
+                  </p>
+                </button>
+              )}
 
               <button
                 type="button"

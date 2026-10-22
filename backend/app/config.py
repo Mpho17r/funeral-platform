@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     # set this to your own Jitsi server for sensitive work.
     call_base_url: str = "https://meet.jit.si"
 
+    # Automatic backups (see docs/BACKUPS_AND_RECOVERY.md).
+    backup_dir: str = "backups"
+    backup_keep: int = 14
+
     model_config = SettingsConfigDict(
         env_file=".env",
     )
