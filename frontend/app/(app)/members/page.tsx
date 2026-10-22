@@ -145,6 +145,15 @@ export default function MembersPage() {
   const [form, setForm] = useState<MemberForm>(emptyForm);
   const [search, setSearch] = useState("");
 
+  // Arriving from global search pre-fills the member search box.
+  useEffect(() => {
+    const incoming = new URLSearchParams(window.location.search).get("search");
+    if (incoming) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSearch(incoming);
+    }
+  }, []);
+
   const [error, setError] = useState("");
 
   const branchData = useBranches();
