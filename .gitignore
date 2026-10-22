@@ -19,3 +19,6 @@ out/
 
 # Logs
 *.log
+
+# Backups and local data
+backend/backups/

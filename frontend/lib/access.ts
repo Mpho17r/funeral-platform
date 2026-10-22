@@ -30,6 +30,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/import": "imports.run",
   "/audit": "audit.view",
   "/settings": "settings.view",
+  "/settings/data": "data.export",
 };
 
 export type WorkArea = "general" | "mortuary" | "finance" | "operations";

@@ -115,6 +115,9 @@ PERMISSIONS = {
     "settings.view": "View business settings",
     "settings.manage": "Manage business settings",
 
+    # Data export (main admin only by default)
+    "data.export": "Download a complete export of the business's data",
+
     # Branding
     "branding.view": "View business branding",
     "branding.manage": "Manage business branding",
