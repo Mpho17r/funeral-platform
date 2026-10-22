@@ -1,7 +1,7 @@
 """add expenses and reconciliation
 
 Revision ID: t0d2a3b4c56e
-Revises: s9c1f2a3b45d
+Revises: u1e3f4a5b67c
 Create Date: 2026-10-21 21:00:00.000000
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision: str = 't0d2a3b4c56e'
-down_revision: Union[str, Sequence[str], None] = 's9c1f2a3b45d'
+down_revision: Union[str, Sequence[str], None] = 'u1e3f4a5b67c'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
