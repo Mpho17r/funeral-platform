@@ -25,6 +25,7 @@ from app.database import get_db
 from app.dependencies.roles import require_permission
 from app.models.chat import ChatConversation, ChatMessage, ChatParticipant
 from app.models.meeting import Meeting, MeetingInvitee
+from app.services.notifications import notify
 
 router = APIRouter(prefix="/meetings", tags=["Meetings"])
 
@@ -249,6 +250,16 @@ def create_meeting(
 
     _post_card(db, meeting, "meeting", "scheduled a meeting")
     db.flush()
+    notify(
+        db,
+        business_id=biz,
+        user_ids=ids,
+        kind="meeting_invite",
+        title=f"Meeting invite: {meeting.title}",
+        body=starts.strftime("%a %d %b, %H:%M UTC"),
+        link="/staff",
+        actor_id=me,
+    )
     clashes = _conflicts(db, biz, ids | {me}, starts, ends, skip=meeting.id)
     db.commit()
 
@@ -335,6 +346,15 @@ def edit_meeting(
         }
         for uid in new_ids - have:
             db.add(MeetingInvitee(meeting_id=m.id, user_id=uid))
+        notify(
+            db,
+            business_id=user["business_id"],
+            user_ids=new_ids - have,
+            kind="meeting_invite",
+            title=f"Meeting invite: {m.title}",
+            link="/staff",
+            actor_id=user["user_id"],
+        )
 
     if retime:
         # A new time needs everyone to say yes again.
@@ -343,6 +363,21 @@ def edit_meeting(
             MeetingInvitee.user_id != m.organizer_id,
         ).update({"response": "pending"})
         _post_card(db, m, "meeting", "changed the time of a meeting")
+        notify(
+            db,
+            business_id=user["business_id"],
+            user_ids=[
+                i[0]
+                for i in db.query(MeetingInvitee.user_id).filter(
+                    MeetingInvitee.meeting_id == m.id
+                )
+            ],
+            kind="meeting_changed",
+            title=f"Meeting time changed: {m.title}",
+            body="Please accept the new time.",
+            link="/staff",
+            actor_id=user["user_id"],
+        )
 
     db.commit()
     return _out(db, user, m)

@@ -56,6 +56,7 @@ from app.api.imports import router as imports_router
 from app.api.chat import router as chat_router
 from app.api.finance_overview import router as finance_overview_router
 from app.api.search import router as search_router
+from app.api.notifications import router as notifications_router
 from app.api.expenses import router as expenses_router
 from app.api.reconciliation import router as reconciliation_router
 from app.api.operations_overview import router as operations_overview_router
@@ -272,6 +273,10 @@ app.include_router(
 
 app.include_router(
     search_router
+)
+
+app.include_router(
+    notifications_router
 )
 
 app.include_router(

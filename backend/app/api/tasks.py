@@ -15,6 +15,7 @@ from app.services.audit_service import (
 from app.models.case_task import CaseTask
 from app.models.funeral_case import FuneralCase
 from app.models.user import User
+from app.services.notifications import notify
 
 from app.schemas.case_task import (
     CaseTaskCreate,
@@ -182,6 +183,18 @@ def create_task(
 
     db.add(task)
     db.flush()
+
+    if task.assigned_to:
+        notify(
+            db,
+            business_id=business_id,
+            user_ids=[task.assigned_to],
+            kind="task_assigned",
+            title="A task was given to you",
+            body=task.title,
+            link=f"/cases/{case_id}",
+            actor_id=current_user["user_id"],
+        )
 
     create_audit_log(
         db,
@@ -370,6 +383,7 @@ def update_task(
         task,
         AUDITED_TASK_FIELDS,
     )
+    previous_assignee = task.assigned_to
 
     for field, value in updates.items():
 
@@ -404,6 +418,18 @@ def update_task(
     task.updated_at = (
         datetime.now(timezone.utc)
     )
+
+    if task.assigned_to and task.assigned_to != previous_assignee:
+        notify(
+            db,
+            business_id=business_id,
+            user_ids=[task.assigned_to],
+            kind="task_assigned",
+            title="A task was given to you",
+            body=task.title,
+            link=f"/cases/{task.case_id}",
+            actor_id=current_user["user_id"],
+        )
 
     # --------------------------------------------------------
     # Audit
