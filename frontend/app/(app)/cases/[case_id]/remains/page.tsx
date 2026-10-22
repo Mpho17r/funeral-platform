@@ -39,6 +39,8 @@ type Form = {
   collected_by_name: string;
   tag_number: string;
   location_id: string;
+  handed_over_by_name: string;
+  accepted_by_name: string;
   condition_notes: string;
   belongings: string;
   procedure: string;
@@ -59,6 +61,8 @@ const emptyForm: Form = {
   collected_by_name: "",
   tag_number: "",
   location_id: "",
+  handed_over_by_name: "",
+  accepted_by_name: "",
   condition_notes: "",
   belongings: "",
   procedure: "washed",
@@ -210,6 +214,10 @@ export default function RemainsPage() {
                   ? "identified"
                   : action,
           to_location_id: action === "move" ? form.location_id : undefined,
+          handed_over_by_name:
+            action === "move" ? form.handed_over_by_name.trim() : undefined,
+          accepted_by_name:
+            action === "move" ? form.accepted_by_name.trim() : undefined,
           procedure: action === "prepare" ? form.procedure : undefined,
           temperature_c:
             action === "temperature" ? form.temperature_c : undefined,
@@ -521,6 +529,13 @@ export default function RemainsPage() {
                       {formatDateTime(event.occurred_at)}
                     </span>
                   </div>
+                  {event.event_type === "moved" && (
+                    <p className="mt-1 text-slate-600">
+                      Handed over by: {event.handed_over_by_name || "Not recorded"}
+                      {" · "}
+                      Accepted by: {event.accepted_by_name || "Not recorded"}
+                    </p>
+                  )}
                   {event.notes && (
                     <p className="mt-1 text-slate-600">{event.notes}</p>
                   )}
@@ -565,7 +580,15 @@ export default function RemainsPage() {
             )}
 
             {action === "move" && (
-              <Field label="Move to">{locationSelect(true)}</Field>
+              <>
+                <Field label="Move to">{locationSelect(true)}</Field>
+                <Field label="Handed over by (full name)">
+                  {line("handed_over_by_name", true)}
+                </Field>
+                <Field label="Accepted by (full name)">
+                  {line("accepted_by_name", true)}
+                </Field>
+              </>
             )}
 
             {action === "prepare" && (

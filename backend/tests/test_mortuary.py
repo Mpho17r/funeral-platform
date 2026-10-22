@@ -104,9 +104,14 @@ def take_in(client, auth_headers, user, case, **fields):
 
 
 def event(client, auth_headers, user, case, **fields):
+    body = dict(fields)
+    if body.get("event_type") == "moved":
+        body.setdefault("handed_over_by_name", "Mortuary Staff")
+        body.setdefault("accepted_by_name", "Receiving Staff")
+
     return client.post(
         f"/cases/{case.id}/remains/events",
-        json=fields,
+        json=body,
         headers=auth_headers(user),
     )
 
@@ -852,10 +857,43 @@ def test_moving_into_a_cold_place_cools_the_remains(
     ]
     assert data["events"][1]["from_location_id"] == str(prep.id)
     assert data["events"][1]["to_location_id"] == str(fridge.id)
+    assert data["events"][1]["handed_over_by_name"] == "Mortuary Staff"
+    assert data["events"][1]["accepted_by_name"] == "Receiving Staff"
 
     entry = audits(db, "remains.moved")[0]
     assert entry.details["from_location_id"] == str(prep.id)
     assert entry.details["to_location_id"] == str(fridge.id)
+    assert entry.details["handed_over_by_name"] == "Mortuary Staff"
+    assert entry.details["accepted_by_name"] == "Receiving Staff"
+
+
+def test_move_requires_both_handover_names(
+    client, db, test_data, auth_headers
+):
+    business = test_data["business_a"]
+    manager = test_data["manager"]
+    prep = make_location(db, business, "Prep", kind="preparation_room")
+    fridge = make_location(db, business, "Fridge", kind="fridge")
+    case = make_case(db, business)
+
+    take_in(
+        client, auth_headers, manager, case, location_id=str(prep.id)
+    )
+
+    response = client.post(
+        f"/cases/{case.id}/remains/events",
+        json={"event_type": "moved", "to_location_id": str(fridge.id)},
+        headers=auth_headers(manager),
+    )
+
+    assert response.status_code == 422
+    assert "handing over" in response.json()["detail"]
+
+    current = client.get(
+        f"/cases/{case.id}/remains", headers=auth_headers(manager)
+    ).json()
+    assert current["remains"]["current_location_id"] == str(prep.id)
+    assert [entry["event_type"] for entry in current["events"]] == ["received"]
 
 
 def test_cooled_time_is_not_reset_by_later_moves(
