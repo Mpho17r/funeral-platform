@@ -96,3 +96,22 @@ export function formatStatus(value: string) {
     .replaceAll("_", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
+
+/** Money with the minus sign in front of the currency: −R 850.00 */
+export function formatRand(value: number) {
+  const text = `R ${formatMoney(Math.abs(value))}`;
+
+  return value < -0.004 ? `−${text}` : text;
+}
+
+/** "eft" -> "EFT", "cash" -> "Cash". */
+export function methodLabel(value: string) {
+  return value === "eft" ? "EFT" : formatStatus(value);
+}
+
+/** "coffins_and_stock" -> "Coffins and stock". */
+export function categoryLabel(value: string) {
+  const text = value.replaceAll("_", " ");
+
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}

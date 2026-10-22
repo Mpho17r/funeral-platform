@@ -68,3 +68,5 @@ from app.models.communication import (
     MemberCommunicationPreference,
     MessageTemplate,
 )
+from app.models.expense import Expense
+from app.models.reconciliation import Reconciliation

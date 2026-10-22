@@ -56,6 +56,10 @@ DEFAULT_ROLE_PERMISSIONS = {
         "chat.manage",
         "presence.view",
         "presence.manage",
+        "expenses.view",
+        "expenses.manage",
+        "reconciliation.view",
+        "reconciliation.manage",
         "reports.view",
         "audit.view",
         "settings.view",
@@ -235,6 +239,10 @@ DEFAULT_ROLE_PERMISSIONS["finance"] = _EVERYONE | {
     "communications.view",
     "communications.send",
     "reports.view",
+    "expenses.view",
+    "expenses.manage",
+    "reconciliation.view",
+    "reconciliation.manage",
 }
 
 DEFAULT_ROLE_PERMISSIONS["operations"] = _EVERYONE | {
