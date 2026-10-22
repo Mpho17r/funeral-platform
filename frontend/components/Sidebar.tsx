@@ -20,7 +20,9 @@ import {
   CalendarClock,
   Building,
   Boxes,
+  Scale,
   Store,
+  Wallet,
   Snowflake,
   MessageSquare,
   Activity,
@@ -292,6 +294,16 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Payments",
       icon: <CreditCard size={18} />,
       path: "/membership-payments",
+    },
+    {
+      label: "Expenses",
+      icon: <Wallet size={18} />,
+      path: "/expenses",
+    },
+    {
+      label: "Reconciliation",
+      icon: <Scale size={18} />,
+      path: "/reconciliation",
     },
     {
       label: "Reminders",

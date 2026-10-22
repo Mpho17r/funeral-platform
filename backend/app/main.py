@@ -55,6 +55,8 @@ from app.api.memberships import router as memberships_router
 from app.api.imports import router as imports_router
 from app.api.chat import router as chat_router
 from app.api.finance_overview import router as finance_overview_router
+from app.api.expenses import router as expenses_router
+from app.api.reconciliation import router as reconciliation_router
 from app.api.operations_overview import router as operations_overview_router
 from app.api.mortuary_overview import router as mortuary_overview_router
 from app.api.meetings import router as meetings_router
@@ -269,6 +271,14 @@ app.include_router(
 
 app.include_router(
     finance_overview_router
+)
+
+app.include_router(
+    expenses_router
+)
+
+app.include_router(
+    reconciliation_router
 )
 
 app.include_router(

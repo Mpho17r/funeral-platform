@@ -206,6 +206,12 @@ PERMISSIONS = {
     "suppliers.view": "View suppliers",
     "suppliers.manage": "Create, edit and deactivate suppliers",
 
+    # Expenses and reconciliation
+    "expenses.view": "View business expenses",
+    "expenses.manage": "Record, edit and void business expenses",
+    "reconciliation.view": "View daily money reconciliation",
+    "reconciliation.manage": "Reconcile counted money against the books",
+
     # Quotes, invoices and receipts
     "financial_documents.view": "View quotes and invoices",
     "financial_documents.manage": (
