@@ -15,6 +15,7 @@ import {
   BellOff,
   CalendarPlus,
   CornerUpLeft,
+  Building2,
   Hash,
   Loader2,
   Pencil,
@@ -24,6 +25,7 @@ import {
   SendHorizontal,
   Smile,
   Trash2,
+  Users,
   Video,
   X,
 } from "lucide-react";
@@ -80,22 +82,36 @@ function Avatar({
   name,
   status,
   channel,
+  scope,
   userId,
   size = 40,
 }: {
   name: string;
   status?: Person["status"];
   channel?: boolean;
+  scope?: Conversation["scope"];
   userId?: string | null;
   size?: number;
 }) {
   if (channel) {
+    const icon = Math.round(size * 0.45);
+
     return (
       <span
-        className="flex shrink-0 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]"
+        className={`flex shrink-0 items-center justify-center rounded-xl ${
+          scope
+            ? "bg-[var(--fos-primary)] text-[var(--fos-on-primary)]"
+            : "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]"
+        }`}
         style={{ width: size, height: size }}
       >
-        <Hash size={Math.round(size * 0.45)} />
+        {scope === "organization" ? (
+          <Building2 size={icon} />
+        ) : scope === "branch" ? (
+          <Users size={icon} />
+        ) : (
+          <Hash size={icon} />
+        )}
       </span>
     );
   }
@@ -849,14 +865,19 @@ function Thread({
           status={other?.status}
           userId={other?.id}
           channel={conversation.kind === "channel"}
+          scope={conversation.scope}
         />
         <div className="min-w-0">
           <h2 className="truncate font-semibold text-[var(--fos-text)]">
             {conversation.title}
           </h2>
           <p className="truncate text-xs text-[var(--fos-text-muted)]">
-            {conversation.kind === "channel"
-              ? `${conversation.participants.length} members`
+            {conversation.scope === "organization"
+              ? `Everyone · ${conversation.participants.length} people`
+              : conversation.scope === "branch"
+                ? `Branch team · ${conversation.participants.length} people`
+                : conversation.kind === "channel"
+                  ? `${conversation.participants.length} members`
               : other
                 ? `${presenceLabel(other.status)}${
                     other.job_title ? ` · ${other.job_title}` : ""
@@ -1234,9 +1255,15 @@ export default function ChatPanel() {
     [people]
   );
 
-  const filtered = (conversations ?? []).filter((c) =>
-    c.title.toLowerCase().includes(query.trim().toLowerCase())
-  );
+  // The whole-organization group first, then branch teams, then the rest
+  // (which the server already orders by latest message).
+  const rank = (c: Conversation) =>
+    c.scope === "organization" ? 0 : c.scope === "branch" ? 1 : 2;
+  const filtered = (conversations ?? [])
+    .filter((c) =>
+      c.title.toLowerCase().includes(query.trim().toLowerCase())
+    )
+    .sort((a, b) => rank(a) - rank(b));
   const totalUnread = (conversations ?? []).reduce(
     (sum, c) => sum + c.unread,
     0
@@ -1355,6 +1382,7 @@ export default function ChatPanel() {
                     status={person?.status}
                     userId={person?.id}
                     channel={c.kind === "channel"}
+                    scope={c.scope}
                   />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">

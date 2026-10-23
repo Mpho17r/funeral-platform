@@ -119,7 +119,9 @@ def event(client, auth_headers, user, case, **fields):
 def release(client, auth_headers, user, case, **fields):
     body = {
         "confirm_tag_number": f"T-{case.case_number}",
+        "confirm_deceased_identifier": case.deceased_full_name,
         "released_to_name": "Family Member",
+        "released_to_id_number": "8001015009087",
     }
     body.update(fields)
 
@@ -155,14 +157,15 @@ def prepare_paperwork(client, auth_headers, user, case, *, disposal="burial"):
         "repatriation": "export_permit",
     }[disposal]
 
-    item = next(i for i in items if i["item_type"] == paper)
+    for wanted in (paper, "release_authorisation"):
+        item = next(i for i in items if i["item_type"] == wanted)
 
-    response = client.patch(
-        f"/cases/{case.id}/paperwork/{item['id']}",
-        json={"status": "obtained"},
-        headers=auth_headers(user),
-    )
-    assert response.status_code == 200, response.text
+        response = client.patch(
+            f"/cases/{case.id}/paperwork/{item['id']}",
+            json={"status": "obtained"},
+            headers=auth_headers(user),
+        )
+        assert response.status_code == 200, response.text
 
 
 def identify(client, auth_headers, user, case):
@@ -1709,3 +1712,163 @@ def test_role_defaults(client, db, test_data, auth_headers):
         "remains.release_override",
     ):
         assert key not in staff, key
+
+
+# ============================================================
+# RELEASE SAFEGUARDS
+# ============================================================
+
+def test_second_identifier_must_match_the_body(
+    client, db, test_data, auth_headers
+):
+    case = ready_remains(client, db, auth_headers, test_data)
+    case.deceased_full_name = "Sipho Dlamini"
+    db.commit()
+
+    wrong = release(
+        client, auth_headers, test_data["manager"], case,
+        confirm_deceased_identifier="Nkosi",
+    )
+    assert wrong.status_code == 422
+    assert "does not match" in wrong.json()["detail"]
+    entry = audits(db, "remains.release_refused")[-1]
+    assert entry.details["reason"] == "identifier_mismatch"
+
+    # Surname, full name (any case, spaces) all work.
+    for good in ("dlamini", "  SIPHO   dlamini ", "Dlamini"):
+        again = release(
+            client, auth_headers, test_data["manager"], case,
+            confirm_deceased_identifier=good,
+        )
+        if again.status_code == 200:
+            break
+    assert again.status_code == 200, again.text
+
+
+def test_deceased_id_number_also_counts_as_the_second_identifier(
+    client, db, test_data, auth_headers
+):
+    case = ready_remains(client, db, auth_headers, test_data)
+    patched = client.patch(
+        f"/cases/{case.id}/death-record",
+        json={"deceased_id_number": "8001015009087"},
+        headers=auth_headers(test_data["manager"]),
+    )
+    assert patched.status_code == 200, patched.text
+
+    ok = release(
+        client, auth_headers, test_data["manager"], case,
+        confirm_deceased_identifier="800101 5009 087",
+    )
+    assert ok.status_code == 200, ok.text
+
+
+def test_release_cannot_be_overridden_past_a_wrong_identifier(
+    client, db, test_data, auth_headers
+):
+    case = ready_remains(client, db, auth_headers, test_data)
+
+    response = release(
+        client, auth_headers, test_data["main_admin"], case,
+        confirm_deceased_identifier="Somebody Else",
+        override_reason="Family is waiting",
+    )
+    assert response.status_code == 422
+
+
+def test_receiver_id_and_second_identifier_are_required(
+    client, db, test_data, auth_headers
+):
+    case = ready_remains(client, db, auth_headers, test_data)
+
+    for missing in ("released_to_id_number", "confirm_deceased_identifier"):
+        body = {
+            "confirm_tag_number": f"T-{case.case_number}",
+            "confirm_deceased_identifier": case.deceased_full_name,
+            "released_to_name": "Family",
+            "released_to_id_number": "8001015009087",
+        }
+        body.pop(missing)
+        response = client.post(
+            f"/cases/{case.id}/remains/release",
+            json=body,
+            headers=auth_headers(test_data["manager"]),
+        )
+        assert response.status_code == 422, missing
+
+
+def test_release_needs_the_signed_authorisation(
+    client, db, test_data, auth_headers
+):
+    case = ready_remains(client, db, auth_headers, test_data)
+    items = client.get(
+        f"/cases/{case.id}/paperwork",
+        headers=auth_headers(test_data["manager"]),
+    ).json()["items"]
+    auth = next(i for i in items if i["item_type"] == "release_authorisation")
+    client.patch(
+        f"/cases/{case.id}/paperwork/{auth['id']}",
+        json={"status": "pending"},
+        headers=auth_headers(test_data["manager"]),
+    )
+
+    blocked = release(client, auth_headers, test_data["manager"], case)
+    assert blocked.status_code == 409
+    assert "release authorisation" in blocked.json()["detail"]
+
+
+def test_infectious_remains_need_the_medical_declaration(
+    client, db, test_data, auth_headers
+):
+    manager = test_data["manager"]
+    case = ready_remains(client, db, auth_headers, test_data)
+
+    client.patch(
+        f"/cases/{case.id}/death-record",
+        json={"infectious_remains": True},
+        headers=auth_headers(manager),
+    )
+    # With the flag set but no declaration, release is blocked, even if
+    # the checklist has not been refreshed yet.
+    blocked = release(client, auth_headers, manager, case)
+    assert blocked.status_code == 409
+    assert "infectious" in blocked.json()["detail"]
+
+    client.post(
+        f"/cases/{case.id}/paperwork/standard", headers=auth_headers(manager)
+    )
+    items = client.get(
+        f"/cases/{case.id}/paperwork", headers=auth_headers(manager)
+    ).json()["items"]
+    declaration = next(
+        i for i in items if i["item_type"] == "infectious_remains_declaration"
+    )
+    client.patch(
+        f"/cases/{case.id}/paperwork/{declaration['id']}",
+        json={"status": "obtained"},
+        headers=auth_headers(manager),
+    )
+
+    ok = release(client, auth_headers, manager, case)
+    assert ok.status_code == 200, ok.text
+
+
+def test_overview_warns_before_a_unit_is_full(
+    client, db, test_data, auth_headers
+):
+    business = test_data["business_a"]
+    fridge = make_location(db, business, name="Cold Room 1", capacity=10)
+    # Nine of ten trays in use is 90%.
+    for _ in range(9):
+        case = make_case(db, business)
+        assert take_in(
+            client, auth_headers, test_data["manager"], case,
+            location_id=str(fridge.id),
+        ).status_code == 201
+
+    data = client.get(
+        "/mortuary/overview", headers=auth_headers(test_data["manager"])
+    ).json()
+    reasons = [a["reason"] for a in data["attention"]]
+    assert "capacity" in reasons
+    assert any("nearly full" in a["message"] for a in data["attention"])

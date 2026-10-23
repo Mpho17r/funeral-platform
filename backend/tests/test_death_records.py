@@ -605,6 +605,7 @@ def test_burial_checklist():
         "death_report",
         "death_certificate",
         "burial_order",
+        "release_authorisation",
         "informant_id_copy",
     ]
 
@@ -749,15 +750,16 @@ def test_standard_creates_the_checklist_in_order(
         "death_report",
         "death_certificate",
         "burial_order",
+        "release_authorisation",
         "informant_id_copy",
     ]
     assert all(i["status"] == "pending" for i in data["items"])
-    assert data["summary"]["required_total"] == 5
+    assert data["summary"]["required_total"] == 6
     assert data["summary"]["required_done"] == 0
     assert data["summary"]["ready"] is False
 
     [entry] = audits(db, "paperwork.standard_added")
-    assert len(entry.details["added"]) == 6
+    assert len(entry.details["added"]) == 7
 
 
 def test_standard_is_safe_to_repeat_and_adds_only_what_is_new(

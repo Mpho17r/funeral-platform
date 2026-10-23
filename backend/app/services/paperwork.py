@@ -67,6 +67,11 @@ EMBALMING_CERTIFICATE = StandardItem(
     "embalming_certificate", "Embalming certificate"
 )
 
+RELEASE_AUTHORISATION = StandardItem(
+    "release_authorisation",
+    "Signed release authorisation from the family",
+)
+
 INFECTIOUS_DECLARATION = StandardItem(
     "infectious_remains_declaration",
     "Medical declaration for infectious remains",
@@ -101,6 +106,7 @@ def standard_items(
     if infectious_remains:
         items.append(INFECTIOUS_DECLARATION)
 
+    items.append(RELEASE_AUTHORISATION)
     items.append(INFORMANT_ID_COPY)
 
     return items
