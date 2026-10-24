@@ -859,7 +859,7 @@ function DepartmentSwitcher({ children }: { children: (d: Department) => React.R
     { id: "business", label: "Whole business", allowed: true },
     { id: "operations", label: "Operations", allowed: can("cases.view") },
     { id: "mortuary", label: "Mortuary", allowed: can("mortuary.view") },
-    { id: "finance", label: "Finance", allowed: can("financials.view") },
+    { id: "finance", label: "Finance", allowed: can("finance.overview") },
   ];
   const available = options.filter((o) => o.allowed);
 

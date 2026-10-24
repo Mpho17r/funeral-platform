@@ -22,7 +22,7 @@ MUST_ACCESS = {
     "/operations/overview": set(ALL_ROLES),
     "/services": {"main_admin", "manager", "staff", "operations", "mortuary"},
     "/run-sheet": {"main_admin", "manager", "staff", "operations", "mortuary"},
-    "/finance/overview": {"main_admin", "manager", "staff", "finance"},
+    "/finance/overview": {"main_admin", "manager", "finance"},
     "/expenses": {"main_admin", "manager", "finance"},
     "/reconciliation": {"main_admin", "manager", "finance"},
     "/membership-payments": {"main_admin", "manager", "staff", "finance"},
