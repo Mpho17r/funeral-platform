@@ -19,6 +19,11 @@ def open_dm(client, auth_headers, me, other):
     return r.json()
 
 
+def direct_only(response):
+    """Conversations the people chose themselves, not the automatic groups."""
+    return [c for c in response.json() if not c["automatic"]]
+
+
 def say(client, auth_headers, user, conv_id, body, **extra):
     return call(client, auth_headers, user, "post",
                 f"/conversations/{conv_id}/messages",
@@ -58,9 +63,9 @@ def test_send_read_and_unread_counts(client, test_data, auth_headers):
     assert say(client, auth_headers, a, conv["id"], "Are you in?").status_code == 201
 
     # Sender sees nothing unread; the other person sees two.
-    mine = call(client, auth_headers, a, "get", "/conversations").json()
+    mine = direct_only(call(client, auth_headers, a, "get", "/conversations"))
     assert mine[0]["unread"] == 0
-    theirs = call(client, auth_headers, b, "get", "/conversations").json()
+    theirs = direct_only(call(client, auth_headers, b, "get", "/conversations"))
     assert theirs[0]["unread"] == 2
     assert theirs[0]["last_message"]["body"] == "Are you in?"
     assert call(client, auth_headers, b, "get",
@@ -130,8 +135,8 @@ def test_outsiders_cannot_read_or_write(client, test_data, auth_headers):
                  f"/conversations/{conv['id']}/messages")
         assert r.status_code == 404
         assert say(client, auth_headers, outsider, conv["id"], "hi").status_code == 404
-        assert call(client, auth_headers, outsider, "get",
-                    "/conversations").json() == []
+        assert direct_only(call(client, auth_headers, outsider, "get",
+                                "/conversations")) == []
 
 
 def test_reply_must_point_inside_the_conversation(

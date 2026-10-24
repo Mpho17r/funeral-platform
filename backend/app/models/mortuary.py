@@ -558,3 +558,50 @@ class MortuaryBelonging(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+HYGIENE_TASKS = (
+    "surfaces",            # preparation surfaces cleaned and disinfected
+    "equipment",           # instruments and equipment washed and disinfected
+    "protective_clothing", # protective clothing washed and disinfected
+    "vehicle",             # vehicle loading space washed and disinfected
+    "waste",               # health-care risk waste removed
+    "premises",            # pest, odour and general premises check
+)
+
+
+class MortuaryHygieneLog(Base):
+    """
+    A record that something was cleaned or disinfected. R363 (regulation
+    11) requires surfaces and equipment to be cleaned and disinfected
+    immediately after each preparation, and protective clothing daily, so
+    the record has to show who did it and when.
+    """
+
+    __tablename__ = "mortuary_hygiene_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("businesses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    task: Mapped[str] = mapped_column(String(30), nullable=False)
+    # The preparation this follows, when it is about one.
+    remains_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("remains_records.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    performed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    performed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)

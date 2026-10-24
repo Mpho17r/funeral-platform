@@ -10,6 +10,8 @@ import {
   ClipboardCheck,
   ListTodo,
   Scale,
+  Snowflake,
+  TriangleAlert,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -33,6 +35,8 @@ const ICONS: Record<string, React.ReactNode> = {
   mention: <AtSign size={16} />,
   claim_submitted: <ClipboardCheck size={16} />,
   reconciliation_difference: <Scale size={16} />,
+  mortuary_alert: <TriangleAlert size={16} />,
+  mortuary_update: <Snowflake size={16} />,
 };
 
 function ago(value: string) {

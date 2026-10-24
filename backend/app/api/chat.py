@@ -35,6 +35,7 @@ from app.models.group import Group, GroupMember
 from app.models.staff_presence import StaffPresence
 from app.models.user import User
 from app.services import chat_files
+from app.services import workspace_groups
 from app.services.notifications import notify
 from app.services.permission_service import has_permission
 
@@ -144,7 +145,11 @@ def _message_out(
         "id": str(m.id),
         "conversation_id": str(m.conversation_id),
         "sender_id": str(m.sender_id) if m.sender_id else None,
-        "sender_name": names.get(m.sender_id, "Former colleague"),
+        "sender_name": (
+            "FuneralOS"
+            if m.sender_id is None
+            else names.get(m.sender_id, "Former colleague")
+        ),
         "kind": m.kind,
         "body": "" if deleted else m.body,
         "meta": None if deleted else m.meta,
@@ -290,6 +295,14 @@ def _conversation_out(db, user, conv, seat) -> dict:
         "title": title,
         "description": conv.description,
         "group_id": str(conv.group_id) if conv.group_id else None,
+        "automatic": conv.system_key is not None,
+        "scope": (
+            "organization"
+            if conv.system_key == workspace_groups.ORG_KEY
+            else "branch"
+            if conv.system_key
+            else None
+        ),
         "other_user_id": str(other_id) if other_id else None,
         "participant_ids": [str(p) for p in part_ids],
         "participants": [
@@ -299,9 +312,13 @@ def _conversation_out(db, user, conv, seat) -> dict:
         "last_message": (
             {
                 "body": (last.body or "📎 Attachment")[:140],
-                "sender_name": names.get(last.sender_id)
-                or _names(db, user["business_id"], [last.sender_id]).get(
-                    last.sender_id, "Former colleague"
+                "sender_name": (
+                    "FuneralOS"
+                    if last.sender_id is None
+                    else names.get(last.sender_id)
+                    or _names(db, user["business_id"], [last.sender_id]).get(
+                        last.sender_id, "Former colleague"
+                    )
                 ),
                 "created_at": last.created_at.isoformat(),
             }
@@ -360,6 +377,10 @@ def my_conversations(
     db: Session = Depends(get_db),
     user: dict = Depends(require_permission("chat.use")),
 ):
+    # Keep the organization and branch groups in step with the staff list.
+    workspace_groups.sync(db, user["business_id"])
+    db.commit()
+
     rows = (
         db.query(ChatConversation, ChatParticipant)
         .join(
@@ -740,6 +761,12 @@ def add_participants(
     conv, _ = _membership(db, user, conversation_id)
     if conv.kind != "channel":
         raise HTTPException(409, "People can only be added to a channel.")
+    if conv.system_key:
+        raise HTTPException(
+            409,
+            "This group fills itself from the staff list. "
+            "Change a person's branch to change who is in it.",
+        )
 
     ids = set(payload.user_ids)
     if set(_active_users(db, user["business_id"], ids)) != ids:
@@ -764,6 +791,10 @@ def remove_participant(
     conv, _ = _membership(db, user, conversation_id)
     if conv.kind != "channel":
         raise HTTPException(409, "You cannot leave a direct message.")
+    if conv.system_key:
+        raise HTTPException(
+            409, "You cannot leave a group that FuneralOS keeps for your team."
+        )
 
     if user_id != user["user_id"] and not _can_manage(db, user):
         raise HTTPException(403, "You can only remove yourself.")

@@ -50,6 +50,7 @@ type Form = {
   identified_relationship: string;
   notes: string;
   confirm_tag_number: string;
+  confirm_deceased_identifier: string;
   released_to_name: string;
   released_to_id_number: string;
   released_to_relationship: string;
@@ -72,6 +73,7 @@ const emptyForm: Form = {
   identified_relationship: "",
   notes: "",
   confirm_tag_number: "",
+  confirm_deceased_identifier: "",
   released_to_name: "",
   released_to_id_number: "",
   released_to_relationship: "",
@@ -199,8 +201,9 @@ export default function RemainsPage() {
       } else if (action === "release") {
         await api.post(`${base}/release`, {
           confirm_tag_number: form.confirm_tag_number,
+          confirm_deceased_identifier: form.confirm_deceased_identifier,
           released_to_name: form.released_to_name,
-          released_to_id_number: blank(form.released_to_id_number),
+          released_to_id_number: form.released_to_id_number,
           released_to_relationship: blank(form.released_to_relationship),
           override_reason: blank(form.override_reason),
         });
@@ -679,11 +682,20 @@ export default function RemainsPage() {
                 >
                   {line("confirm_tag_number", true)}
                 </Field>
+                <Field
+                  label="Surname or ID number on the tag"
+                  hint="A second check: read it off the body's own tag or wristband."
+                >
+                  {line("confirm_deceased_identifier", true)}
+                </Field>
                 <Field label="Released to (full name)">
                   {line("released_to_name", true)}
                 </Field>
-                <Field label="Their ID number">
-                  {line("released_to_id_number")}
+                <Field
+                  label="Their ID number"
+                  hint="Required, so it is always clear who took the remains."
+                >
+                  {line("released_to_id_number", true)}
                 </Field>
                 <Field label="Relationship to the deceased">
                   {line("released_to_relationship")}

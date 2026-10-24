@@ -213,8 +213,11 @@ def test_huddle_posts_a_call_card(client, test_data, auth_headers):
              json={"conversation_id": conv["id"]})
     assert r.status_code == 201 and r.json()["join_url"].startswith("https://")
 
-    theirs = chat_call(client, auth_headers, b, "get",
-                       "/conversations").json()[0]
+    theirs = next(
+        c for c in chat_call(client, auth_headers, b, "get",
+                             "/conversations").json()
+        if c["id"] == conv["id"]
+    )
     assert theirs["unread"] == 1
     msgs = chat_call(client, auth_headers, b, "get",
                      f"/conversations/{conv['id']}/messages"
