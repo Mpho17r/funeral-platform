@@ -1986,7 +1986,9 @@ def test_released_remains_clear_the_remains_flags(
         f"/cases/{case.id}/remains/release",
         json={
             "confirm_tag_number": f"T-{case.case_number}",
+            "confirm_deceased_identifier": case.deceased_full_name,
             "released_to_name": "Family Member",
+            "released_to_id_number": "8001015009087",
         },
         headers=auth_headers(manager),
     )
