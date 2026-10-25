@@ -6,6 +6,8 @@ serve portals, automation and integrations.
 
 from uuid import UUID
 
+from fastapi import HTTPException
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -112,7 +114,15 @@ def resolve_branch_id(
     only for a business that has no branches at all.
     """
 
+    from app.services.branch_scope import current_scope
+
+    limited_to = current_scope(db)
     if requested is not None:
+        if limited_to is not None and requested != limited_to:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only work in your own branch",
+            )
         return get_assignable_branch(db, business_id, requested).id
 
     if acting_user_id is not None:
