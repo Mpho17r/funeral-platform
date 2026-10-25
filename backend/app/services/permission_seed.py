@@ -184,6 +184,7 @@ _EVERYONE = {
     "chat.use",
     "meetings.use",
     "presence.view",
+    "presence.manage",
     "tasks.view",
     "tasks.manage",
     "documents.view",
