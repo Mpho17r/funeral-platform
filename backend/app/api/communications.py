@@ -170,6 +170,9 @@ def message_response(
         sent_at=message.sent_at,
         cancelled_at=message.cancelled_at,
         cancel_reason=message.cancel_reason,
+        delivery_attempts=message.delivery_attempts,
+        delivery_error=message.delivery_error,
+        delivered_by=message.delivered_by,
     )
 
 
@@ -867,6 +870,64 @@ def create_custom_message(
     return load_message_response(db, message)
 
 
+@router.get("/communications/delivery")
+def delivery_status(
+    current_user: dict = Depends(require_permission("communications.view")),
+):
+    """Which channels go out by themselves and which need a person."""
+    from app.services.message_delivery import automatic_channels
+
+    automatic = automatic_channels()
+    return {
+        "automatic": automatic,
+        "manual": [c for c in ("whatsapp", "sms", "email") if c not in automatic],
+    }
+
+
+@router.post(
+    "/communications/messages/{message_id}/deliver",
+    response_model=MessageResponse,
+)
+def deliver_message(
+    message_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("communications.send")),
+):
+    """Send one queued email now."""
+    from app.services.message_delivery import DeliveryError, deliver_one
+
+    business_id = get_business_id(current_user)
+    message = get_message_or_404(db, message_id, business_id)
+
+    try:
+        sent = deliver_one(db, message)
+    except DeliveryError as error:
+        db.commit()  # keep the attempt and the reason
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(error)
+        )
+
+    audit_message(
+        db,
+        message=message,
+        current_user=current_user,
+        action=(
+            "communication.message_delivered"
+            if sent
+            else "communication.message_cancelled"
+        ),
+        notes=(
+            "A message was sent by email."
+            if sent
+            else "Cancelled: the member opted out."
+        ),
+    )
+    db.commit()
+    db.refresh(message)
+
+    return load_message_response(db, message)
+
+
 @router.post(
     "/communications/messages/{message_id}/mark-sent",
     response_model=MessageResponse,
@@ -888,6 +949,7 @@ def mark_message_sent(
     message.status = "sent"
     message.sent_at = datetime.now(timezone.utc)
     message.sent_by = get_user_id(current_user)
+    message.delivered_by = "manual"
 
     audit_message(
         db,

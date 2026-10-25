@@ -97,6 +97,18 @@ def _reminders() -> str:
     return f"{sum(n for n in results.values() if n > 0)} reminder(s) queued"
 
 
+def _delivery() -> str:
+    from app.database import SessionLocal
+    from app.services.message_delivery import deliver_queued
+
+    db = SessionLocal()
+    try:
+        result = deliver_queued(db)
+    finally:
+        db.close()
+    return f"{result['sent']} sent, {result['failed']} failed"
+
+
 def _backup() -> str:
     from app.run_backup import run_backup
 
@@ -113,6 +125,7 @@ def build_jobs() -> list[Job]:
         # Reminders only go out in daytime, even after a late restart.
         Job("reminders", _reminders,
             daily_hour=settings.scheduler_reminders_hour, window_hours=8),
+        Job("delivery", _delivery, every_minutes=10),
     ]
     if settings.scheduler_backups_enabled:
         jobs.append(
