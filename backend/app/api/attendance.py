@@ -131,7 +131,7 @@ def refresh_attendance_presence(
         db.flush()
         return presence
 
-    if presence.status == "busy":
+    if presence.status in ("busy", "away"):
         return presence
 
     if presence.last_seen_at is None:
