@@ -55,13 +55,25 @@ export default function WorkstationPage() {
 
   const load = useCallback(async () => {
     try {
-      const [attendanceResponse, peopleResponse] = await Promise.all([
+      // Load shift information independently so a presence-list permission or
+      // network failure cannot hide the user's own attendance controls.
+      const [attendanceResult, peopleResult] = await Promise.allSettled([
         api.get<AttendanceMe>("/attendance/me"),
         api.get<PresenceRow[]>("/presence"),
       ]);
-      setAttendance(attendanceResponse.data);
-      setPeople(peopleResponse.data);
-      setError("");
+
+      if (attendanceResult.status === "fulfilled") {
+        setAttendance(attendanceResult.value.data);
+      }
+      if (peopleResult.status === "fulfilled") {
+        setPeople(peopleResult.value.data);
+      }
+
+      if (attendanceResult.status === "rejected" || peopleResult.status === "rejected") {
+        setError("Some workstation information could not be loaded. Your shift controls remain available where permitted.");
+      } else {
+        setError("");
+      }
     } catch {
       setError("Some workstation information could not be loaded. You can still use the links below.");
     } finally {
