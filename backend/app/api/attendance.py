@@ -131,6 +131,9 @@ def refresh_attendance_presence(
         db.flush()
         return presence
 
+    if presence.status == "busy":
+        return presence
+
     if presence.last_seen_at is None:
         return presence
 
@@ -630,7 +633,10 @@ def heartbeat(
     if current_break is not None and current_break.ended_at is not None:
         current_break = None
 
-    presence.status = "away" if current_break is not None else "online"
+    if current_break is not None:
+        presence.status = "away"
+    elif presence.status != "busy":
+        presence.status = "online"
 
     break_expires_at, break_warning_active = get_break_state(
         business=business,
