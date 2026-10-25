@@ -635,7 +635,9 @@ def heartbeat(
 
     if current_break is not None:
         presence.status = "away"
-    elif presence.status != "busy":
+    elif presence.status not in ("busy", "away"):
+        # Keep a user's explicit Away choice until they switch it back.
+        # Idle-away also remains Away until the user resumes availability.
         presence.status = "online"
 
     break_expires_at, break_warning_active = get_break_state(
