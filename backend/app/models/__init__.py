@@ -57,6 +57,7 @@ from app.models.mortuary import (
     RemainsRecord,
 )
 from app.models.portal import PortalLink
+from app.models.platform_admin import PlatformAdmin
 from app.models.meeting import Meeting, MeetingInvitee
 from app.models.chat import (
     ChatAttachment,

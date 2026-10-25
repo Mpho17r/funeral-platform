@@ -105,6 +105,9 @@ def db():
             "message_templates",
             "member_communication_preferences",
 
+            # Platform administration
+            "platform_admins",
+
             # Portal links
             "portal_links",
 

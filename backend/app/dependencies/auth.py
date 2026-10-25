@@ -64,6 +64,11 @@ def _authenticate(credentials, db):
                 detail="User account is inactive",
             )
 
+        from app.models.business import Business
+        from app.services.plan_limits import ensure_active
+
+        ensure_active(db.get(Business, user.business_id))
+
         # A password change or reset ends every earlier session.
         if user.password_changed_at is not None:
             issued_at = payload.get("iat")

@@ -28,6 +28,7 @@ import {
   MessageSquare,
   Activity,
   CircleHelp,
+  Sparkles,
   FileUp,
   HeartHandshake,
 } from "lucide-react";
@@ -374,6 +375,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Settings",
       icon: <Settings size={18} />,
       path: "/settings",
+    },
+    {
+      label: "Ask FuneralOS",
+      icon: <Sparkles size={18} />,
+      path: "/assistant",
     },
     {
       label: "Guide",
