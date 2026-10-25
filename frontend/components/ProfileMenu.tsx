@@ -50,6 +50,8 @@ export function ProfileMenu() {
   const [attendanceAction, setAttendanceAction] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
   const [attendanceError, setAttendanceError] = useState("");
+  const [presenceStatus, setPresenceStatus] = useState<"online" | "away" | "busy" | "offline">("online");
+  const [presenceSaving, setPresenceSaving] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -100,15 +102,32 @@ export function ProfileMenu() {
     let cancelled = false;
     setAttendanceLoading(true);
     api.get<AttendanceMe>("/attendance/me")
-      .then((response) => {
+      .then(async (response) => {
         if (cancelled) return;
         setAttendance(response.data);
+        setPresenceStatus(response.data.current_break ? "away" : response.data.presence === "busy" ? "busy" : "online");
         if (!response.data.attendance && typeof window !== "undefined") {
           const reminderKey = `funeralos-checkin-reminded-${user.user_id}`;
           if (!sessionStorage.getItem(reminderKey)) {
             setReminderOpen(true);
             sessionStorage.setItem(reminderKey, "1");
           }
+        }
+        try {
+          const mine = await api.get<{ status: string }>("/presence/me");
+          if (cancelled) return;
+          const current = mine.data.status;
+          if (current === "busy") {
+            setPresenceStatus("busy");
+          } else if (current === "offline" || current === "checked_in") {
+            const next = response.data.current_break ? "away" : "online";
+            await api.patch("/presence/me", { status: next });
+            if (!cancelled) setPresenceStatus(next);
+          } else {
+            setPresenceStatus(response.data.current_break ? "away" : current === "away" ? "away" : "online");
+          }
+        } catch {
+          // The profile remains usable if presence permissions are unavailable.
         }
       })
       .catch(() => {
@@ -131,6 +150,7 @@ export function ProfileMenu() {
       if (action === "end-break") await api.post("/attendance/breaks/end");
       const response = await api.get<AttendanceMe>("/attendance/me");
       setAttendance(response.data);
+      setPresenceStatus(response.data.current_break ? "away" : response.data.presence === "busy" ? "busy" : response.data.attendance ? "online" : "online");
       setReminderOpen(false);
       setOpen(false);
     } catch (error) {
@@ -152,13 +172,33 @@ export function ProfileMenu() {
     router.push(path);
   }
 
-  function logout() {
-    removeToken();
-    router.push("/login");
+  async function logout() {
+    try {
+      await api.patch("/presence/me", { status: "offline" });
+    } catch {
+      // Sign-out must still work if the presence service is unavailable.
+    } finally {
+      removeToken();
+      router.push("/login");
+    }
   }
 
   const item =
     "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-[var(--fos-text-secondary)] transition hover:bg-[var(--fos-surface-muted)] hover:text-[var(--fos-text)]";
+
+  async function changePresence(next: "online" | "away" | "busy") {
+    setPresenceSaving(true);
+    setAttendanceError("");
+    try {
+      await api.patch("/presence/me", { status: next });
+      setPresenceStatus(next);
+    } catch (error) {
+      const detail = (error as { response?: { data?: { detail?: unknown } } }).response?.data?.detail;
+      setAttendanceError(typeof detail === "string" ? detail : "Your availability could not be updated.");
+    } finally {
+      setPresenceSaving(false);
+    }
+  }
 
   return (
     <div ref={root} className="relative z-[110]">
@@ -191,7 +231,7 @@ export function ProfileMenu() {
           />
           <span
             title={attendance?.current_break ? "Away — on break" : "Online"}
-            className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--fos-surface)] ${attendance?.current_break ? "bg-amber-400" : "bg-emerald-500"}`}
+            className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--fos-surface)] ${attendance?.current_break || presenceStatus === "away" ? "bg-amber-400" : presenceStatus === "busy" ? "bg-red-500" : presenceStatus === "offline" ? "bg-slate-400" : "bg-emerald-500"}`}
           />
         </span>
 
@@ -228,6 +268,22 @@ export function ProfileMenu() {
                 {titleOf(user)}
               </p>
             </div>
+          </div>
+
+          <div className="mx-1 rounded-xl bg-[var(--fos-surface-muted)] p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">Availability</p>
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              {([
+                ["online", "Online", "bg-emerald-500"],
+                ["away", "Away", "bg-amber-400"],
+                ["busy", "Busy", "bg-red-500"],
+              ] as const).map(([value, label, dot]) => (
+                <button key={value} type="button" disabled={presenceSaving || (Boolean(attendance?.current_break) && value === "online")} onClick={() => void changePresence(value)} className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition disabled:opacity-50 ${presenceStatus === value ? "border-[var(--fos-primary)] bg-[var(--fos-surface)] text-[var(--fos-text)]" : "border-transparent text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface)]"}`}>
+                  <span className={`h-2 w-2 rounded-full ${dot}`} />{label}
+                </button>
+              ))}
+            </div>
+            {attendance?.current_break && <p className="mt-2 text-xs text-[var(--fos-text-muted)]">You're on a break, so your status stays Away until you return.</p>}
           </div>
 
           <div className="mx-1 mt-1 rounded-xl border border-[var(--fos-border)] p-3">
