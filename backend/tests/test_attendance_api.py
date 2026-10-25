@@ -639,6 +639,43 @@ def test_staff_can_send_attendance_heartbeat(
     assert presence.last_seen_at is not None
 
 
+def test_attendance_heartbeat_preserves_manual_away_status(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    check_in = client.post(
+        "/attendance/check-in",
+        headers=auth_headers(staff),
+    )
+    assert check_in.status_code == 201
+
+    presence = (
+        db.query(StaffPresence)
+        .filter(
+            StaffPresence.business_id == staff.business_id,
+            StaffPresence.user_id == staff.id,
+        )
+        .first()
+    )
+    assert presence is not None
+    presence.status = "away"
+    db.commit()
+
+    response = client.post(
+        "/attendance/heartbeat",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["presence"] == "away"
+    db.refresh(presence)
+    assert presence.status == "away"
+
+
 def test_staff_cannot_send_attendance_heartbeat_when_not_checked_in(
     client,
     test_data,
