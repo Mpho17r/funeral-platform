@@ -112,6 +112,8 @@ async def security_headers(request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
+    if request.url.path.startswith("/portal"):
+        response.headers.setdefault("Cache-Control", "no-store")
     if settings.is_production:
         response.headers.setdefault(
             "Strict-Transport-Security",
@@ -365,6 +367,11 @@ app.include_router(
 app.include_router(
     membership_payments_router
 )
+
+# Family and member portals
+from app.api.portal import router as portal_router  # noqa: E402
+
+app.include_router(portal_router)
 
 
 # ============================================================

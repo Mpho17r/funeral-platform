@@ -174,6 +174,9 @@ PERMISSIONS = {
     "remains.release": "Release remains to a family or undertaker",
     "viewings.view": "See scheduled family viewings of remains",
     "viewings.manage": "Schedule and cancel family viewings of remains",
+    "portal.manage": (
+        "Create and revoke private family and member portal links"
+    ),
     "compliance.view": (
         "View licences and certificates and when they expire"
     ),
