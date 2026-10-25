@@ -1,58 +1,55 @@
 # FuneralOS Project Tracker
 
-**Last updated:** 2026-10-19  
-**Source of truth for code:** GitHub `main` and its tests/migrations  
-**Blueprint:** [FUNERALOS_BLUEPRINT.md](./FUNERALOS_BLUEPRINT.md)
+**Last updated:** 2026-10-25
+**Source of truth for code:** GitHub `main`, its tests and migrations
+**Blueprint:** [FUNERALOS_MASTER_BLUEPRINT.md](./FUNERALOS_MASTER_BLUEPRINT.md)
 
-This tracker records verified repository evidence and the next agreed work. Status is intentionally conservative: a merged PR or present file is evidence of implementation, but not by itself proof of production deployment or complete operational readiness.
+Status is conservative: "built and tested" means merged to `main` with CI green. It does not mean deployed, and nothing here has run with real customer data yet.
 
-## Latest confirmed repository baseline
+## Built and tested
 
-- Default branch: `main`
-- Reviewed baseline commit: [d3457e6](https://github.com/Mpho17r/funeral-platform/commit/d3457e6eb24eaafa2cba4fb4c2b8aec7dace4d63)
-- Latest reviewed merge: [PR #13 — Automatically advance funeral case lifecycle from arrangements](https://github.com/Mpho17r/funeral-platform/pull/13)
-- CI definition: [`.github/workflows/ci.yml`](https://github.com/Mpho17r/funeral-platform/blob/main/.github/workflows/ci.yml)
+| Area | Notes |
+|---|---|
+| Tenancy, branches, roles, per-user permission overrides | Main branch protected; work-area roles (mortuary, finance, operations) |
+| **Branch isolation** (#29) | Branch-limited staff only see their branch's records, enforced centrally on every read; `branches.all_access` lifts it; cross-branch writes refused |
+| Cases, families, contacts, documents, tasks, paperwork, death records | Case is the spine |
+| Arrangements and automatic case lifecycle | Case status follows arrangements; physical work is never auto-confirmed |
+| Mortuary: custody, locations, cooling alerts, hygiene, belongings, viewings | See [MORTUARY_PRACTICE_REVIEW.md](./MORTUARY_PRACTICE_REVIEW.md) |
+| **Shared mortuary** (#31) | A location hosted by one branch can be shared with others; host sees remains kept in it |
+| Membership, plans, contributions, payments, claims, waiting periods | Status and coverage engines kept separate |
+| Finance: quotes/invoices/receipts, expenses, reconciliation | |
+| Resources, bookings, inventory, suppliers, run sheet | |
+| Staff chat, meetings, automatic organisation and branch groups | |
+| Global search, in-app notifications, licences register | |
+| Reports and CSV export; whole-business data export; nightly backups | See [BACKUPS_AND_RECOVERY.md](./BACKUPS_AND_RECOVERY.md) |
+| Production readiness: settings checks, scheduler, honest health check, closed sign-up | See [PRODUCTION_READINESS.md](./PRODUCTION_READINESS.md) |
+| **Message delivery** (#32) | Email sent automatically over SMTP; WhatsApp/SMS remain one-tap manual | [MESSAGE_DELIVERY.md](./MESSAGE_DELIVERY.md) |
+| **Family and member portals** (#33) | Private, expiring, revocable links; no accounts |
+| **Platform admin, plan limits, Ask FuneralOS** (#34) | Separate operator login; limits enforced on save | [PLATFORM_ADMIN.md](./PLATFORM_ADMIN.md) |
 
-## Implementation inventory
+## Known gaps (honest list)
 
-| Area | Status | Evidence / notes |
-|---|---|---|
-| Business tenant and branding/policy settings | Implemented in repository | [Business model](https://github.com/Mpho17r/funeral-platform/blob/main/backend/app/models/business.py) |
-| Multiple branches and one protected main branch per business | Implemented in repository | [Branch model](https://github.com/Mpho17r/funeral-platform/blob/main/backend/app/models/branch.py), [branch service](https://github.com/Mpho17r/funeral-platform/blob/main/backend/app/services/branch_service.py) |
-| Branch create/read/update/deactivate flows with permission checks and auditing | Implemented in repository; review access scope as part of security pass | [Branch API](https://github.com/Mpho17r/funeral-platform/blob/main/backend/app/api/branches.py) |
-| Mortuary locations, remains custody record, custody events, cooling/identification/release rules | Implemented in repository; verify complete journey against blueprint | [Mortuary model](https://github.com/Mpho17r/funeral-platform/blob/main/backend/app/models/mortuary.py), [API](https://github.com/Mpho17r/funeral-platform/blob/main/backend/app/api/mortuary.py), [tests](https://github.com/Mpho17r/funeral-platform/blob/main/backend/tests/test_mortuary.py) |
-| Arrangement-driven case status synchronisation | Implemented in repository; do not confuse case status with physical task completion | [Lifecycle service](https://github.com/Mpho17r/funeral-platform/blob/main/backend/app/services/automatic_case_lifecycle.py), [job](https://github.com/Mpho17r/funeral-platform/blob/main/backend/app/jobs/sync_case_lifecycle.py), [PR #13](https://github.com/Mpho17r/funeral-platform/pull/13) |
-| Staff chat/channels and meetings/calls/reactions/mentions/file sharing | Present in merged repository history; validate against current routes/tests when changing | [PR #11](https://github.com/Mpho17r/funeral-platform/pull/11), [PR #12](https://github.com/Mpho17r/funeral-platform/pull/12) |
-| Automatic reminder queue | Present in merged repository history; queued reminders still require human send action | [PR #10](https://github.com/Mpho17r/funeral-platform/pull/10) |
-| Owner reporting and formula-safe CSV exports | Present in merged repository history; review role/branch access for exports | [PR #9](https://github.com/Mpho17r/funeral-platform/pull/9) |
-| Onboarding and imports for payment history, cases, dependants, beneficiaries | Present in merged repository history; inspect exact paths before extending | [PR #4](https://github.com/Mpho17r/funeral-platform/pull/4), [PR #5](https://github.com/Mpho17r/funeral-platform/pull/5), [PR #6](https://github.com/Mpho17r/funeral-platform/pull/6), [PR #7](https://github.com/Mpho17r/funeral-platform/pull/7) |
-| GitHub Actions backend migrations/tests and frontend type-check/build | Workflow configured; latest run result not checked in this review | [CI workflow](https://github.com/Mpho17r/funeral-platform/blob/main/.github/workflows/ci.yml) |
+| Priority | Gap |
+|---|---|
+| Before real customers | **Not hosted yet.** Local Mac only; decision pending (South African VPS recommended in PRODUCTION_READINESS.md). Public portal links need a reachable address. |
+| Before real customers | Uploaded files are not encrypted at rest; no API rate limiting beyond sign-in lockout and portal guessing; no error reporting/monitoring service. |
+| Before real customers | Run a real restore drill from a backup on the target server. |
+| Product | WhatsApp and SMS are not sent automatically (needs a provider account). |
+| Product | Operational hand-offs: completing a step does not yet surface the next action automatically. |
+| Product | Portals are read-only: no signatures, approvals, document downloads or family messaging. Member portal does not take payments. |
+| Product | Expired trials are not locked automatically (operator moves them by hand). No billing or invoicing of subscriptions. |
+| Mortuary | Post-mortem/forensic status tracking, fingerprinting of unidentified remains and preparation-room temperature limit are not built. |
+| Product | "Ask FuneralOS" answers a fixed set of questions; it is not a free-form AI. |
+| Quality | Browser checks were done by hand on key screens; there is no automated end-to-end browser suite in CI. |
 
-## Open reviews and additions
+## After each merge on your own computer
+`git pull`, then `alembic upgrade head` and `python -m app.seed_permissions` (from `backend/`), and restart the servers.
 
-| Priority | Status | Item | Acceptance condition |
-|---|---|---|---|
-| P0 | Needs review | Dashboard financial exposure | General `dashboard.view` does not expose finance totals unless the user also has explicit finance permission; add allow/deny and branch-scope tests |
-| P0 | Needs review | Tenant and branch isolation | Every relevant API query and mutation enforces tenant scope and assigned branch access; cross-tenant and cross-branch tests pass |
-| P1 | Blueprint agreed; implementation mapping needed | One case, end-to-end operational journey | Each required stage has a record, assignee, evidence, timestamp, blocker/next action, and audit trail; no duplicate case or manual re-entry |
-| P1 | Planned | Department-specific workspaces | Navigation, data, actions, and dashboard summaries match role/department permissions; API remains the security boundary |
-| P2 | Planned | Shared mortuary across branches | Facility has explicit authorised branch links and tenant ownership; capacity, custody, and movement remain consistent across branches |
-| P2 | Planned | Operational tasks and handoffs | Completing a step exposes the next applicable action without auto-confirming physical work |
-| P3 | Future scope | Saccharum platform-owner control plane | Separate cross-tenant subscription and usage administration; no privilege bleed into tenant Main Admin |
-| P3 | Future scope | Subscription and usage limits | Branch/user/member/case/storage/feature limits and overage metrics defined after tenant isolation is reliable |
+## Next
+1. Decide hosting and deploy (see PRODUCTION_READINESS.md).
+2. Pilot with one real funeral parlour on real (migrated) data; fix what real use shows.
+3. Pick from the gaps above based on what the pilot needs first.
 
-## Next session starting point
-
-1. Review the `dashboard.view` role grants and dashboard tests in GitHub; split finance permission if required.
-2. Trace branch-scoped access in the case, member, staff, resource, finance, report, and mortuary APIs.
-3. Map existing case/arrangement/remains/paperwork/resources to the operational journey before adding duplicate structures.
-4. Design the shared mortuary relationship after inspecting the existing facility/resource model and migrations.
-5. Update this tracker and the blueprint after each meaningful code change or architectural decision.
-
-## Session rules
-
-- Prefer GitHub code and PR review over repeated terminal inspection.
-- Do not assume local branch contents match `main`.
-- Do not apply or drop saved Git stashes without a clear need and explicit user direction.
-- Keep implemented, verified, planned, and production-deployed statuses separate.
-- When a feature changes, update tests and this tracker together.
+## Working rules
+- Branch, PR, CI green, merge. Update this tracker and tests together with the feature.
+- Keep built, deployed and planned separate; never claim deployment without evidence.
