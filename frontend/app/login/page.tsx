@@ -271,6 +271,16 @@ export default function LoginPage() {
               {loading ? "Signing in" : "Sign in"}
             </button>
           </form>
+
+          <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
+            New to FuneralOS?{" "}
+            <a
+              href="/register"
+              className="font-semibold text-slate-900 underline underline-offset-4 dark:text-white"
+            >
+              Register your funeral business
+            </a>
+          </p>
         </div>
       </section>
     </main>
