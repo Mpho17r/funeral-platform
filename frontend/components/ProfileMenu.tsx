@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleHelp, KeyRound, LogOut, Pencil, Settings } from "lucide-react";
+import { CircleHelp, Coffee, KeyRound, Loader2, LogIn, LogOut, Pencil, Settings, Utensils } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -15,6 +15,13 @@ import { ChangePasswordDialog } from "@/components/PasswordDialogs";
 import { ProfileDialog } from "@/components/ProfileDialog";
 import { UserAvatar } from "@/components/UserAvatar";
 import { removeToken } from "@/lib/auth";
+import api from "@/lib/api";
+
+type AttendanceMe = {
+  attendance: { checked_in_at: string; status: string } | null;
+  current_break: { break_type: "tea" | "lunch"; started_at: string } | null;
+  presence: "online" | "away" | "busy" | "offline" | "checked_in";
+};
 
 function formatSince(value: string | null | undefined) {
   if (!value) {
@@ -38,6 +45,11 @@ export function ProfileMenu() {
   const [editing, setEditing] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [notice, setNotice] = useState("");
+  const [attendance, setAttendance] = useState<AttendanceMe | null>(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceAction, setAttendanceAction] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [attendanceError, setAttendanceError] = useState("");
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -83,6 +95,52 @@ export function ProfileMenu() {
     return () => clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    setAttendanceLoading(true);
+    api.get<AttendanceMe>("/attendance/me")
+      .then((response) => {
+        if (cancelled) return;
+        setAttendance(response.data);
+        if (!response.data.attendance && typeof window !== "undefined") {
+          const reminderKey = `funeralos-checkin-reminded-${user.user_id}`;
+          if (!sessionStorage.getItem(reminderKey)) {
+            setReminderOpen(true);
+            sessionStorage.setItem(reminderKey, "1");
+          }
+        }
+      })
+      .catch(() => {
+        // Attendance can be unavailable for a short period; keep the profile usable.
+      })
+      .finally(() => {
+        if (!cancelled) setAttendanceLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [user?.user_id]);
+
+  async function runAttendanceAction(action: "check-in" | "check-out" | "start-tea" | "start-lunch" | "end-break") {
+    setAttendanceAction(true);
+    setAttendanceError("");
+    try {
+      if (action === "check-in") await api.post("/attendance/check-in");
+      if (action === "check-out") await api.post("/attendance/check-out");
+      if (action === "start-tea") await api.post("/attendance/breaks/start", { break_type: "tea" });
+      if (action === "start-lunch") await api.post("/attendance/breaks/start", { break_type: "lunch" });
+      if (action === "end-break") await api.post("/attendance/breaks/end");
+      const response = await api.get<AttendanceMe>("/attendance/me");
+      setAttendance(response.data);
+      setReminderOpen(false);
+      setOpen(false);
+    } catch (error) {
+      const detail = (error as { response?: { data?: { detail?: unknown } } }).response?.data?.detail;
+      setAttendanceError(typeof detail === "string" ? detail : "We couldn't update your shift. Please try again.");
+    } finally {
+      setAttendanceAction(false);
+    }
+  }
+
   if (!user) {
     return null;
   }
@@ -124,12 +182,18 @@ export function ProfileMenu() {
         aria-label="Your profile and account"
         className="flex items-center gap-3 rounded-xl py-1 pl-1 pr-2 transition hover:bg-[var(--fos-surface-muted)] sm:pr-3"
       >
-        <UserAvatar
-          name={user.full_name}
-          src={avatarUrl}
-          size={36}
-          color={primary}
-        />
+        <span className="relative inline-flex">
+          <UserAvatar
+            name={user.full_name}
+            src={avatarUrl}
+            size={36}
+            color={primary}
+          />
+          <span
+            title={attendance?.current_break ? "Away — on break" : "Online"}
+            className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--fos-surface)] ${attendance?.current_break ? "bg-amber-400" : "bg-emerald-500"}`}
+          />
+        </span>
 
         <span className="hidden min-w-0 text-left sm:block">
           <span className="block max-w-[11rem] truncate text-sm font-semibold leading-tight text-[var(--fos-text)]">
@@ -166,7 +230,37 @@ export function ProfileMenu() {
             </div>
           </div>
 
-          <dl className="mx-1 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-xl bg-[var(--fos-surface-muted)] p-3 text-sm">
+          <div className="mx-1 mt-1 rounded-xl border border-[var(--fos-border)] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">My shift</p>
+                <p className="mt-1 text-sm font-medium text-[var(--fos-text)]">
+                  {attendanceLoading ? "Checking shift…" : attendance?.current_break ? (attendance.current_break.break_type === "tea" ? "On tea break · Away" : "On lunch break · Away") : attendance?.attendance ? "On shift · Online" : "Not checked in"}
+                </p>
+              </div>
+              {attendanceLoading ? <Loader2 size={16} className="animate-spin text-[var(--fos-text-muted)]" /> : null}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {!attendance?.attendance ? (
+                <button type="button" disabled={attendanceAction || attendanceLoading} onClick={() => void runAttendanceAction("check-in")} className="inline-flex items-center gap-2 rounded-lg bg-[var(--fos-primary)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                  {attendanceAction ? <Loader2 size={15} className="animate-spin" /> : <LogIn size={15} />} Clock in
+                </button>
+              ) : attendance.current_break ? (
+                <button type="button" disabled={attendanceAction} onClick={() => void runAttendanceAction("end-break")} className="inline-flex items-center gap-2 rounded-lg bg-[var(--fos-primary)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                  {attendanceAction ? <Loader2 size={15} className="animate-spin" /> : <Coffee size={15} />} End break
+                </button>
+              ) : (
+                <>
+                  <button type="button" disabled={attendanceAction} onClick={() => void runAttendanceAction("start-tea")} className="inline-flex items-center gap-2 rounded-lg border border-[var(--fos-border)] px-3 py-2 text-sm font-medium text-[var(--fos-text)] disabled:opacity-60"><Coffee size={15} /> Tea break</button>
+                  <button type="button" disabled={attendanceAction} onClick={() => void runAttendanceAction("start-lunch")} className="inline-flex items-center gap-2 rounded-lg border border-[var(--fos-border)] px-3 py-2 text-sm font-medium text-[var(--fos-text)] disabled:opacity-60"><Utensils size={15} /> Lunch</button>
+                  <button type="button" disabled={attendanceAction} onClick={() => void runAttendanceAction("check-out")} className="inline-flex items-center gap-2 rounded-lg border border-[var(--fos-border)] px-3 py-2 text-sm font-medium text-[var(--fos-text)] disabled:opacity-60"><LogOut size={15} /> Clock out</button>
+                </>
+              )}
+            </div>
+            {attendanceError && <p role="alert" className="mt-2 text-xs text-red-600">{attendanceError}</p>}
+          </div>
+
+          <dl className="mx-1 mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-xl bg-[var(--fos-surface-muted)] p-3 text-sm">
             <dt className="text-[var(--fos-text-muted)]">Email</dt>
             <dd className="truncate text-right text-[var(--fos-text)]">
               {user.email ?? "—"}
@@ -266,6 +360,22 @@ export function ProfileMenu() {
             setNotice(message);
           }}
         />
+      )}
+
+      {reminderOpen && !attendance?.attendance && (
+        <div role="dialog" aria-label="Clock-in reminder" className="fixed right-4 top-20 z-[9998] w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-4 shadow-xl">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800"><LogIn size={18} /></span>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-[var(--fos-text)]">Don't forget to clock in</p>
+              <p className="mt-1 text-sm text-[var(--fos-text-muted)]">You're signed in but haven't started your shift yet.</p>
+              <div className="mt-3 flex items-center gap-2">
+                <button type="button" disabled={attendanceAction} onClick={() => void runAttendanceAction("check-in")} className="rounded-lg bg-[var(--fos-primary)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Clock in</button>
+                <button type="button" onClick={() => setReminderOpen(false)} className="rounded-lg px-3 py-2 text-sm text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)]">Remind me later</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {notice && (
