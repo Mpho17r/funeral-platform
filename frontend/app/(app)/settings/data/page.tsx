@@ -22,6 +22,10 @@ type BackupStatus = {
   age_hours: number | null;
   size_mb?: number | null;
   error?: string | null;
+  scheduler?: {
+    state: "ok" | "degraded" | "stale" | "never";
+    failing?: string[];
+  };
 };
 
 function describeAge(hours: number | null) {
@@ -195,6 +199,25 @@ export default function DataPage() {
               )}
             </div>
           </div>
+        )}
+
+        {status?.scheduler && (
+          <p
+            className={`mt-3 text-sm ${
+              status.scheduler.state === "ok"
+                ? "text-emerald-700 dark:text-emerald-300"
+                : "text-amber-700 dark:text-amber-300"
+            }`}
+          >
+            Background jobs (backups, reminders, mortuary alerts):{" "}
+            {status.scheduler.state === "ok" && "running."}
+            {status.scheduler.state === "degraded" &&
+              `running, but these failed last time: ${(status.scheduler.failing ?? []).join(", ")}.`}
+            {status.scheduler.state === "stale" &&
+              "stopped. Ask whoever runs your server to restart the scheduler."}
+            {status.scheduler.state === "never" &&
+              "not started yet. Start the scheduler on your server."}
+          </p>
         )}
 
         <p className="mt-4 text-sm leading-6 text-[var(--fos-text-muted)]">

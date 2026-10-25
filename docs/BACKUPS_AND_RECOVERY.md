@@ -33,6 +33,11 @@ The job needs the PostgreSQL client tools (`pg_dump`, `pg_restore`). On a Mac:
 
 ## 2. Run it every night
 
+**Easiest:** run the built-in scheduler (`python -m app.run_scheduler`), which
+runs the backup nightly at 02:00 along with the other recurring jobs. See
+`docs/PRODUCTION_READINESS.md`. The manual options below still work if you
+prefer your own scheduler.
+
 **Mac (launchd).** Save as `~/Library/LaunchAgents/com.funeralos.backup.plist`
 (change the two paths), then run
 `launchctl load ~/Library/LaunchAgents/com.funeralos.backup.plist`:

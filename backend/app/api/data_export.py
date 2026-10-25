@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.roles import require_permission
 from app.models.business import Business
-from app.services import backup_status
+from app.services import backup_status, scheduler_state
 from app.services.audit_service import create_audit_log
 from app.services.data_export import build_export
 
@@ -78,4 +78,4 @@ def get_backup_status(
     current_user: dict = Depends(require_permission("data.export")),
 ):
     """When the last automatic database backup ran, and whether it is stale."""
-    return backup_status.read()
+    return {**backup_status.read(), "scheduler": scheduler_state.read()}
