@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.database import Base
 
 # Columns that must never leave the system.
-EXCLUDED_COLUMNS = {"password_hash"}
+EXCLUDED_COLUMNS = {"password_hash", "token_hash"}
 
 # Shared reference data, not this business's data.
 SKIPPED_TABLES = {"permissions", "role_permissions", "alembic_version"}

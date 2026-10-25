@@ -12,6 +12,7 @@ import {
   CreditCard,
   FileText,
   HeartHandshake,
+  Link2,
   Loader2,
   MapPin,
   Phone,
@@ -24,6 +25,8 @@ import {
 import { useParams, useRouter } from "next/navigation";
 
 import api from "@/lib/api";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
+import { PortalLinkDialog } from "@/components/PortalLinkDialog";
 import { isAuthenticated } from "@/lib/auth";
 
 type FuneralCase = {
@@ -405,6 +408,8 @@ export default function CaseDetailsPage() {
   const [coverage, setCoverage] = useState<CaseCoverage | null>(null);
   const [error, setError] = useState("");
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const { can } = useCurrentUser();
+  const [showFamilyLink, setShowFamilyLink] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -624,6 +629,17 @@ export default function CaseDetailsPage() {
               </div>
             </div>
 
+            <div className="flex flex-wrap gap-2">
+            {can("portal.manage") && (
+              <button
+                type="button"
+                onClick={() => setShowFamilyLink(true)}
+                className="flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
+              >
+                <Link2 size={16} />
+                Family link
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setRefreshVersion((version) => version + 1)}
@@ -638,6 +654,7 @@ export default function CaseDetailsPage() {
 
               Refresh
             </button>
+            </div>
           </div>
         </div>
       </header>
@@ -1298,6 +1315,14 @@ export default function CaseDetailsPage() {
           </div>
         </div>
       </section>
+      {showFamilyLink && funeralCase && (
+        <PortalLinkDialog
+          kind="family"
+          targetId={funeralCase.id}
+          label={`${funeralCase.deceased_full_name}'s family`}
+          onClose={() => setShowFamilyLink(false)}
+        />
+      )}
     </main>
   );
 }

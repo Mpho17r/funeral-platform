@@ -12,6 +12,7 @@ import {
   TransferDialog,
   matchesBranch,
 } from "@/components/BranchControls";
+import { PortalLinkDialog } from "@/components/PortalLinkDialog";
 import { ContactPreferencesDialog } from "@/components/ContactPreferencesDialog";
 import {
   AnonymiseMemberDialog,
@@ -22,6 +23,7 @@ import {
   Archive,
   Download,
   Edit,
+  Link2,
   MessageSquare,
   Plus,
   RotateCcw,
@@ -161,6 +163,7 @@ export default function MembersPage() {
   const [newMemberBranch, setNewMemberBranch] = useState("");
   const [moving, setMoving] = useState<Member | null>(null);
   const [contactFor, setContactFor] = useState<Member | null>(null);
+  const [linkFor, setLinkFor] = useState<Member | null>(null);
   const [notice, setNotice] = useState("");
 
   const [view, setView] = useState<"current" | "archived">("current");
@@ -666,6 +669,17 @@ export default function MembersPage() {
 
                             {view === "current" && (
                               <button
+                                onClick={() => setLinkFor(member)}
+                                className="rounded-lg p-2 text-gray-500 dark:text-slate-400 transition hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-slate-100"
+                                title="Private member link"
+                                aria-label={`Private link for ${member.first_name} ${member.last_name}`}
+                              >
+                                <Link2 size={17} />
+                              </button>
+                            )}
+
+                            {view === "current" && (
+                              <button
                                 onClick={() =>
                                   setContactFor(member)
                                 }
@@ -1081,6 +1095,15 @@ export default function MembersPage() {
             setNotice(message);
             loadMembers();
           }}
+        />
+      )}
+
+      {linkFor && (
+        <PortalLinkDialog
+          kind="member"
+          targetId={linkFor.id}
+          label={`${linkFor.first_name} ${linkFor.last_name}`}
+          onClose={() => setLinkFor(null)}
         />
       )}
 

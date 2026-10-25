@@ -105,6 +105,9 @@ def db():
             "message_templates",
             "member_communication_preferences",
 
+            # Portal links
+            "portal_links",
+
             # Compliance and remains viewings
             "remains_viewings",
             "compliance_items",

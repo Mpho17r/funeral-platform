@@ -56,6 +56,7 @@ from app.models.mortuary import (
     MortuaryTemperatureReading,
     RemainsRecord,
 )
+from app.models.portal import PortalLink
 from app.models.meeting import Meeting, MeetingInvitee
 from app.models.chat import (
     ChatAttachment,
