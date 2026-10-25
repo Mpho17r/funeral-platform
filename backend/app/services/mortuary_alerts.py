@@ -120,6 +120,11 @@ def run_for_business(
             since=since,
         )
     db.commit()
+
+    # Licence and certificate renewals ride on the same scheduled job.
+    from app.services import compliance
+
+    sent += compliance.run_for_business(db, business_id)
     return sent
 
 

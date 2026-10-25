@@ -169,6 +169,14 @@ PERMISSIONS = {
         "identification and temperature"
     ),
     "remains.release": "Release remains to a family or undertaker",
+    "viewings.view": "See scheduled family viewings of remains",
+    "viewings.manage": "Schedule and cancel family viewings of remains",
+    "compliance.view": (
+        "View licences and certificates and when they expire"
+    ),
+    "compliance.manage": (
+        "Record, update and archive licences and certificates"
+    ),
     "remains.release_override": (
         "Release remains even though required paperwork is missing, "
         "with a written reason"

@@ -280,6 +280,20 @@ DEFAULT_ROLE_PERMISSIONS["operations"] = _EVERYONE | {
 }
 
 
+# Family viewings and the licences/certificates register.
+DEFAULT_ROLE_PERMISSIONS["manager"] |= {
+    "viewings.view", "viewings.manage",
+    "compliance.view", "compliance.manage",
+}
+DEFAULT_ROLE_PERMISSIONS["staff"] |= {"viewings.view"}
+DEFAULT_ROLE_PERMISSIONS["mortuary"] |= {
+    "viewings.view", "viewings.manage", "compliance.view",
+}
+DEFAULT_ROLE_PERMISSIONS["operations"] |= {
+    "viewings.view", "viewings.manage",
+}
+
+
 def sync_permissions(db: Session) -> int:
     """
     Synchronize the database permission catalogue with app/permissions.py.

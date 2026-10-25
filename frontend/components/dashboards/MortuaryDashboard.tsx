@@ -26,6 +26,8 @@ import {
   Panel,
   QuickActions,
 } from "@/components/dashboards/Shared";
+import { CompliancePanel } from "@/components/dashboards/CompliancePanel";
+import { ViewingsPanel } from "@/components/dashboards/ViewingsPanel";
 
 /* ============================================================
    TYPES
@@ -929,6 +931,20 @@ export default function MortuaryDashboard() {
               </div>
             )}
           </section>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <ViewingsPanel
+              candidates={data.units
+                .flatMap((u) => u.occupants)
+                .filter((o) => o.stage !== "awaiting_identification")
+                .map((o) => ({
+                  case_id: o.case_id,
+                  name: o.name,
+                  tag_number: o.tag_number,
+                }))}
+            />
+            <CompliancePanel />
+          </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <div id="attention">
