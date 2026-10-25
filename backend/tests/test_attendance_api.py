@@ -756,7 +756,7 @@ def test_attendance_me_becomes_away_after_idle_timeout(
     assert presence.status == "away"
 
 
-def test_attendance_me_does_not_mark_staff_away_during_break(
+def test_attendance_me_marks_staff_away_during_break(
     client,
     db,
     test_data,
