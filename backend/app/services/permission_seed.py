@@ -7,6 +7,7 @@ from app.permissions import PERMISSIONS
 
 DEFAULT_ROLE_PERMISSIONS = {
     "manager": {
+        "branches.all_access",
         "dashboard.view",
         "cases.view",
         "cases.create",

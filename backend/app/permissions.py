@@ -133,6 +133,9 @@ PERMISSIONS = {
 
     # Branches
     "branches.view": "View branches",
+    "branches.all_access": (
+        "Work across all branches (otherwise limited to own branch)"
+    ),
     "branches.manage": (
         "Create, edit, deactivate and choose the main branch"
     ),

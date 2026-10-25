@@ -13,10 +13,7 @@ from app.models.user import User
 security = HTTPBearer()
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
-):
+def _authenticate(credentials, db):
     token = credentials.credentials
 
     try:
@@ -80,6 +77,10 @@ def get_current_user(
                     detail="Your session has ended. Please sign in again.",
                 )
 
+        from app.services.branch_scope import scope_for, set_scope
+
+        set_scope(db, scope_for(db, user))
+
         return {
             "user_id": user.id,
             "auth_type": auth_type,
@@ -98,3 +99,17 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token",
         )
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    """The signed-in user. Also limits this request's reads to the
+    person's own branch unless they may work across all branches."""
+    from app.services.branch_scope import set_scope
+
+    try:
+        yield _authenticate(credentials, db)
+    finally:
+        set_scope(db, None)
