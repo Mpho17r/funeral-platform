@@ -278,7 +278,7 @@ export function ProfileMenu() {
                 ["away", "Away", "bg-amber-400"],
                 ["busy", "Busy", "bg-red-500"],
               ] as const).map(([value, label, dot]) => (
-                <button key={value} type="button" disabled={presenceSaving || (Boolean(attendance?.current_break) && value === "online")} onClick={() => void changePresence(value)} className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition disabled:opacity-50 ${presenceStatus === value ? "border-[var(--fos-primary)] bg-[var(--fos-surface)] text-[var(--fos-text)]" : "border-transparent text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface)]"}`}>
+                <button key={value} type="button" disabled={presenceSaving || (Boolean(attendance?.current_break) && value !== "away")} onClick={() => void changePresence(value)} className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition disabled:opacity-50 ${presenceStatus === value ? "border-[var(--fos-primary)] bg-[var(--fos-surface)] text-[var(--fos-text)]" : "border-transparent text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface)]"}`}>
                   <span className={`h-2 w-2 rounded-full ${dot}`} />{label}
                 </button>
               ))}
