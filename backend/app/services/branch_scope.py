@@ -29,7 +29,9 @@ ALL_BRANCHES_PERMISSION = "branches.all_access"
 SESSION_KEY = "branch_scope"
 
 # Tables that carry a branch_id but are not business data to be limited.
-NOT_LIMITED = {"users", "branches", "businesses"}
+NOT_LIMITED = {
+    "users", "branches", "businesses", "mortuary_location_branches",
+}
 
 # Records that own other records. Only links to these inherit a branch;
 # links to reference data (a mortuary location, a supplier) do not.
@@ -75,6 +77,47 @@ def current_scope(db: Session) -> UUID | None:
 # ------------------------------------------------------------------ the rule
 
 
+def _authorised_locations(branch_id):
+    """Locations a branch hosts or has been authorised to use."""
+    from app.models.mortuary import (
+        MortuaryLocation as Loc,
+        MortuaryLocationBranch as Link,
+    )
+
+    loc, link = Loc.__table__, Link.__table__
+    return select(loc.c.id).where(
+        or_(
+            loc.c.branch_id == branch_id,
+            loc.c.id.in_(
+                select(link.c.location_id).where(link.c.branch_id == branch_id)
+            ),
+        )
+    )
+
+
+def _cases_in_our_mortuary(outer, branch_id):
+    """A case whose remains are kept in a location this branch uses."""
+    from app.models.mortuary import RemainsRecord as Remains
+
+    rem = Remains.__table__
+    return outer("id").in_(
+        select(rem.c.case_id).where(
+            rem.c.current_location_id.in_(_authorised_locations(branch_id))
+        )
+    )
+
+
+SHARED_RULES = {
+    "mortuary_locations": lambda outer, b: outer("id").in_(
+        _authorised_locations(b)
+    ),
+    "remains_records": lambda outer, b: outer("current_location_id").in_(
+        _authorised_locations(b)
+    ),
+    "funeral_cases": _cases_in_our_mortuary,
+}
+
+
 def _rule(table, outer, branch_id, trail=()):
     """SQL limiting `table` to a branch, or None when it is not limited.
 
@@ -118,6 +161,11 @@ def _rule(table, outer, branch_id, trail=()):
     result = parts[0]
     for extra in parts[1:]:
         result = result & extra
+
+    # A shared mortuary: a branch also sees the locations it is
+    # authorised to use, and the remains kept in them.
+    if table.name in SHARED_RULES:
+        result = or_(result, SHARED_RULES[table.name](outer, branch_id))
     return result
 
 

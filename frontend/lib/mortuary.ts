@@ -7,6 +7,7 @@ export type MortuaryLocation = {
   notes: string | null;
   is_active: boolean;
   occupied: number;
+  shared_with: string[];
 };
 
 export type Remains = {

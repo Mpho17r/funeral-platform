@@ -43,6 +43,9 @@ export default function MortuaryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [branches, setBranches] = useState<
+    { id: string; name: string; is_active: boolean }[]
+  >([]);
   const [placeFilter, setPlaceFilter] = useState("all");
 
   const [dialog, setDialog] = useState<
@@ -62,6 +65,13 @@ export default function MortuaryPage() {
           params: { include_inactive: true },
         }),
       ]);
+
+      try {
+        const b = await api.get("/branches");
+        setBranches(Array.isArray(b.data) ? b.data : (b.data.items ?? []));
+      } catch {
+        setBranches([]);
+      }
 
       setBoard(boardResponse.data);
       setAllLocations(locationsResponse.data);
@@ -149,6 +159,22 @@ export default function MortuaryPage() {
       setError(
         getApiErrorMessage(err, "Could not change this location.")
       );
+    }
+  }
+
+  async function changeSharing(
+    location: MortuaryLocation,
+    branchId: string,
+    share: boolean
+  ) {
+    try {
+      setError("");
+      const url = `/mortuary/locations/${location.id}/branches/${branchId}`;
+      if (share) await api.post(url);
+      else await api.delete(url);
+      await load();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not change sharing."));
     }
   }
 
@@ -279,6 +305,54 @@ export default function MortuaryPage() {
                       {full ? " · Full" : ""}
                     </span>
                   </div>
+
+                  {branches.length > 1 && (
+                    <div className="mt-3 text-xs text-slate-600">
+                      <p>
+                        Shared with:{" "}
+                        {location.shared_with.length === 0
+                          ? "no other branch"
+                          : location.shared_with
+                              .map(
+                                (id) =>
+                                  branches.find((b) => b.id === id)?.name ??
+                                  "a branch"
+                              )
+                              .join(", ")}
+                      </p>
+                      <select
+                        aria-label={`Share ${location.name} with a branch`}
+                        value=""
+                        onChange={(e) => {
+                          const [mode, id] = e.target.value.split(":");
+                          if (id)
+                            void changeSharing(location, id, mode === "add");
+                        }}
+                        className="mt-1 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                      >
+                        <option value="">Change sharing…</option>
+                        {branches
+                          .filter(
+                            (b) =>
+                              b.is_active &&
+                              b.id !== location.branch_id &&
+                              !location.shared_with.includes(b.id)
+                          )
+                          .map((b) => (
+                            <option key={b.id} value={`add:${b.id}`}>
+                              Share with {b.name}
+                            </option>
+                          ))}
+                        {location.shared_with.map((id) => (
+                          <option key={id} value={`remove:${id}`}>
+                            Stop sharing with{" "}
+                            {branches.find((b) => b.id === id)?.name ??
+                              "a branch"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="mt-3 flex gap-3 text-sm">
                     <button
