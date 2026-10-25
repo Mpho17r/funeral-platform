@@ -135,6 +135,7 @@ def db():
             "remains_records",
             "mortuary_temperature_readings",
             "mortuary_hygiene_logs",
+            "mortuary_location_branches",
             "mortuary_locations",
             "case_paperwork_items",
             "death_records",

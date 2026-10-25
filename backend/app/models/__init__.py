@@ -52,6 +52,7 @@ from app.models.mortuary import (
     CustodyEvent,
     MortuaryBelonging,
     MortuaryLocation,
+    MortuaryLocationBranch,
     MortuaryTemperatureReading,
     RemainsRecord,
 )

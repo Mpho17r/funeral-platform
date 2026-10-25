@@ -96,6 +96,7 @@ class LocationResponse(BaseModel):
     notes: str | None
     is_active: bool
     occupied: int = 0
+    shared_with: list[UUID] = []
     created_at: datetime
     updated_at: datetime
 

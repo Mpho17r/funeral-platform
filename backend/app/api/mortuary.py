@@ -8,7 +8,12 @@ from app.database import get_db
 from app.dependencies.roles import require_permission
 
 from app.models.funeral_case import FuneralCase
-from app.models.mortuary import MortuaryLocation, RemainsRecord
+from app.models.branch import Branch
+from app.models.mortuary import (
+    MortuaryLocation,
+    MortuaryLocationBranch,
+    RemainsRecord,
+)
 from app.schemas.mortuary import (
     BoardResponse,
     LocationCreate,
@@ -81,6 +86,12 @@ def get_location_or_404(
 
 def with_occupancy(db: Session, location: MortuaryLocation):
     location.occupied = occupancy(db, location.id)
+    location.shared_with = [
+        row.branch_id
+        for row in db.query(MortuaryLocationBranch)
+        .filter(MortuaryLocationBranch.location_id == location.id)
+        .all()
+    ]
 
     return location
 
@@ -266,6 +277,120 @@ def update_location(
         raise duplicate_name_error()
 
     db.refresh(location)
+
+    return with_occupancy(db, location)
+
+
+@router.post(
+    "/locations/{location_id}/branches/{branch_id}",
+    response_model=LocationResponse,
+)
+def share_location(
+    location_id: UUID,
+    branch_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("branches.manage")),
+):
+    """Let another branch use this mortuary location."""
+    business_id = get_business_id(current_user)
+    location = get_location_or_404(db, location_id, business_id)
+
+    branch = (
+        db.query(Branch)
+        .filter(Branch.id == branch_id, Branch.business_id == business_id)
+        .first()
+    )
+    if branch is None or not branch.is_active:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    if branch.id == location.branch_id:
+        raise HTTPException(
+            status_code=409,
+            detail="That branch already hosts this location",
+        )
+
+    exists = (
+        db.query(MortuaryLocationBranch)
+        .filter(
+            MortuaryLocationBranch.location_id == location.id,
+            MortuaryLocationBranch.branch_id == branch.id,
+        )
+        .first()
+    )
+    if exists is None:
+        db.add(
+            MortuaryLocationBranch(
+                business_id=business_id,
+                location_id=location.id,
+                branch_id=branch.id,
+            )
+        )
+        audit_location(
+            db,
+            location=location,
+            current_user=current_user,
+            action="mortuary_location.shared",
+            notes=f"Shared with branch {branch.name}.",
+            extra={"branch_id": str(branch.id)},
+        )
+        db.commit()
+
+    return with_occupancy(db, location)
+
+
+@router.delete(
+    "/locations/{location_id}/branches/{branch_id}",
+    response_model=LocationResponse,
+)
+def unshare_location(
+    location_id: UUID,
+    branch_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("branches.manage")),
+):
+    """Stop a branch using this location. Refused while that branch's
+    own cases are still kept in it."""
+    business_id = get_business_id(current_user)
+    location = get_location_or_404(db, location_id, business_id)
+
+    link = (
+        db.query(MortuaryLocationBranch)
+        .filter(
+            MortuaryLocationBranch.location_id == location.id,
+            MortuaryLocationBranch.branch_id == branch_id,
+        )
+        .first()
+    )
+    if link is None:
+        raise HTTPException(status_code=404, detail="Not shared with that branch")
+
+    in_use = (
+        db.query(RemainsRecord.id)
+        .join(FuneralCase, FuneralCase.id == RemainsRecord.case_id)
+        .filter(
+            RemainsRecord.current_location_id == location.id,
+            FuneralCase.branch_id == branch_id,
+        )
+        .count()
+    )
+    if in_use:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"{in_use} remains from that branch are still in "
+                f"{location.name}. Move them first."
+            ),
+        )
+
+    db.delete(link)
+    audit_location(
+        db,
+        location=location,
+        current_user=current_user,
+        action="mortuary_location.unshared",
+        notes="Sharing with a branch was removed.",
+        extra={"branch_id": str(branch_id)},
+    )
+    db.commit()
 
     return with_occupancy(db, location)
 

@@ -59,6 +59,51 @@ def _in(values) -> str:
     return ", ".join(f"'{value}'" for value in values)
 
 
+class MortuaryLocationBranch(Base):
+    """A branch that is allowed to use a mortuary location hosted by
+    another branch (a shared mortuary)."""
+
+    __tablename__ = "mortuary_location_branches"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "location_id", "branch_id",
+            name="uq_mortuary_location_branches",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("businesses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    location_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("mortuary_locations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    branch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("branches.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class MortuaryLocation(Base):
     """
     A place remains can be kept: a fridge, a cold room, a preparation
