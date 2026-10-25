@@ -105,6 +105,10 @@ def db():
             "message_templates",
             "member_communication_preferences",
 
+            # Compliance and remains viewings
+            "remains_viewings",
+            "compliance_items",
+
             # Membership system
             "membership_payments",
             "membership_contributions",
@@ -130,6 +134,7 @@ def db():
             "custody_events",
             "remains_records",
             "mortuary_temperature_readings",
+            "mortuary_hygiene_logs",
             "mortuary_locations",
             "case_paperwork_items",
             "death_records",
