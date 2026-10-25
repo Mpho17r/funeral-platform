@@ -188,10 +188,13 @@ class ReleaseRequest(BaseModel):
     # Typed in again by the person releasing, not copied from the
     # screen, so the wrong tag cannot slip through.
     confirm_tag_number: str = Field(min_length=1, max_length=50)
+    # A second, independent check against the body itself: the
+    # deceased's surname or ID number as read from the toe tag or
+    # wristband. Two matching identifiers are what stops a mix-up.
+    confirm_deceased_identifier: str = Field(min_length=1, max_length=50)
     released_to_name: str = Field(min_length=1, max_length=150)
-    released_to_id_number: str | None = Field(
-        default=None, max_length=50
-    )
+    # Who the remains went to must always be traceable.
+    released_to_id_number: str = Field(min_length=1, max_length=50)
     released_to_relationship: str | None = Field(
         default=None, max_length=100
     )
@@ -199,7 +202,10 @@ class ReleaseRequest(BaseModel):
     override_reason: str | None = None
 
     @field_validator(
-        "confirm_tag_number", "released_to_name"
+        "confirm_tag_number",
+        "confirm_deceased_identifier",
+        "released_to_name",
+        "released_to_id_number",
     )
     @classmethod
     def required_text(cls, value):
@@ -211,7 +217,6 @@ class ReleaseRequest(BaseModel):
         return stripped
 
     @field_validator(
-        "released_to_id_number",
         "released_to_relationship",
         "override_reason",
     )

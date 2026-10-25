@@ -16,7 +16,7 @@ router = APIRouter(prefix="/finance", tags=["Finance"])
 def finance_overview(
     branch_id: UUID | None = None,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_permission("financials.view")),
+    current_user: dict = Depends(require_permission("finance.overview")),
 ):
     return overview(
         db,

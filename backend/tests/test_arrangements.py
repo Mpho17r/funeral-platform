@@ -1728,14 +1728,16 @@ def paperwork(client, auth_headers, user, case, *, disposal="burial",
         "burial": "burial_order",
         "cremation": "cremation_permit",
     }[disposal]
-    item = next(i for i in items if i["item_type"] == key)
+    # The family's signed authorisation is part of being ready to release.
+    for wanted in (key, "release_authorisation"):
+        item = next(i for i in items if i["item_type"] == wanted)
 
-    response = client.patch(
-        f"/cases/{case.id}/paperwork/{item['id']}",
-        json={"status": "obtained"},
-        headers=auth_headers(user),
-    )
-    assert response.status_code == 200, response.text
+        response = client.patch(
+            f"/cases/{case.id}/paperwork/{item['id']}",
+            json={"status": "obtained"},
+            headers=auth_headers(user),
+        )
+        assert response.status_code == 200, response.text
 
 
 def take_in(client, auth_headers, user, case):
@@ -1986,7 +1988,9 @@ def test_released_remains_clear_the_remains_flags(
         f"/cases/{case.id}/remains/release",
         json={
             "confirm_tag_number": f"T-{case.case_number}",
+            "confirm_deceased_identifier": case.deceased_full_name,
             "released_to_name": "Family Member",
+            "released_to_id_number": "8001015009087",
         },
         headers=auth_headers(manager),
     )

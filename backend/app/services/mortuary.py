@@ -147,6 +147,34 @@ def get_placeable_location(
     return location
 
 
+def _plain(value) -> str:
+    """Compare names and ID numbers ignoring case, spaces and dashes."""
+    return "".join(
+        ch for ch in str(value or "").casefold() if ch.isalnum()
+    )
+
+
+def deceased_identifier_matches(typed, case, death_record) -> bool:
+    """Does what was read off the body match the case?
+
+    Accepts the surname, the full name, or the deceased's ID number.
+    """
+    guess = _plain(typed)
+    if not guess:
+        return False
+
+    full_name = str(case.deceased_full_name or "")
+    accepted = {_plain(full_name)}
+    parts = full_name.split()
+    if parts:
+        accepted.add(_plain(parts[-1]))
+    if death_record is not None and death_record.deceased_id_number:
+        accepted.add(_plain(death_record.deceased_id_number))
+
+    accepted.discard("")
+    return guess in accepted
+
+
 def release_blockers(
     *,
     remains: RemainsRecord,
@@ -176,6 +204,28 @@ def release_blockers(
         blockers.append(
             "Forensic pathology has not released the remains"
         )
+
+    def item_of(item_type):
+        return next(
+            (e for e in paperwork_items if e.item_type == item_type), None
+        )
+
+    # The family's signed authorisation. Checked when it is on the
+    # checklist, so cases opened before it existed are not stranded.
+    authorisation = item_of("release_authorisation")
+    if authorisation is not None and authorisation.status == "pending":
+        blockers.append(
+            "The signed release authorisation has not been obtained"
+        )
+
+    # Infectious remains must travel with a doctor's declaration.
+    if death_record.infectious_remains:
+        declaration = item_of("infectious_remains_declaration")
+        if declaration is None or declaration.status == "pending":
+            blockers.append(
+                "The medical declaration for infectious remains "
+                "has not been obtained"
+            )
 
     paper = RELEASE_PAPER_BY_DISPOSAL.get(death_record.disposal_method)
 

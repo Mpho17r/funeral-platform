@@ -129,5 +129,5 @@ def test_branch_filter_and_other_business(
 
 
 def test_permission(client, db, test_data, auth_headers):
-    deny(db, test_data["manager"], "financials.view")
+    deny(db, test_data["manager"], "finance.overview")
     assert get(client, auth_headers, test_data["manager"]).status_code == 403

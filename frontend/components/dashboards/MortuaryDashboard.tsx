@@ -396,6 +396,107 @@ function LogTemperatureDialog({
   );
 }
 
+function LogCleaningDialog({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const TASKS = [
+    ["surfaces", "Preparation surfaces cleaned and disinfected"],
+    ["equipment", "Equipment and instruments washed and disinfected"],
+    ["protective_clothing", "Protective clothing washed and disinfected"],
+    ["vehicle", "Vehicle loading space washed and disinfected"],
+    ["waste", "Health-care risk waste removed"],
+    ["premises", "Premises checked (pests, odours)"],
+  ];
+  const [done, setDone] = useState<string[]>(["surfaces", "equipment"]);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  function toggle(key: string) {
+    setDone((list) =>
+      list.includes(key) ? list.filter((k) => k !== key) : [...list, key]
+    );
+  }
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+
+    try {
+      for (const task of done) {
+        await api.post("/mortuary/hygiene", {
+          task,
+          notes: notes.trim() || null,
+        });
+      }
+      onSaved();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not record that."));
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog title="Log cleaning and disinfection" onClose={onClose}>
+      <form onSubmit={save} className="space-y-4">
+        <p className="text-sm text-[var(--fos-text-muted)]">
+          Tick what was just done. The law requires surfaces and equipment to be
+          cleaned and disinfected straight after every preparation.
+        </p>
+        <div className="space-y-2">
+          {TASKS.map(([key, label]) => (
+            <label
+              key={key}
+              className="flex items-center gap-3 text-sm text-[var(--fos-text)]"
+            >
+              <input
+                type="checkbox"
+                checked={done.includes(key)}
+                onChange={() => toggle(key)}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        <Field label="Note (optional)">
+          <input
+            className={inputClass}
+            value={notes}
+            maxLength={300}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </Field>
+        {error && (
+          <Banner tone="error" onDismiss={() => setError("")}>
+            {error}
+          </Banner>
+        )}
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-[var(--fos-border)] px-4 py-2 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving || done.length === 0}
+            className="rounded-lg bg-[var(--fos-primary)] px-4 py-2 text-sm font-semibold text-[var(--fos-on-primary)] disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save cleaning record"}
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
 /* ============================================================
    PAGE
 ============================================================ */
@@ -451,6 +552,7 @@ export default function MortuaryDashboard() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [logFor, setLogFor] = useState<string | null | false>(false);
+  const [cleaning, setCleaning] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -510,6 +612,15 @@ export default function MortuaryDashboard() {
     <main className="space-y-6 p-6 md:p-8">
       <div className="flex items-start justify-between gap-4">
         <DashboardHeader subtitle="Cold storage, who is in our care, and what each person still needs before they can go home." />
+        {canLog && (
+          <button
+            type="button"
+            onClick={() => setCleaning(true)}
+            className="shrink-0 rounded-full border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-1.5 text-sm font-medium text-[var(--fos-text)] hover:bg-[var(--fos-surface-muted)]"
+          >
+            Log cleaning
+          </button>
+        )}
         {alerts > 0 && (
           <a
             href="#attention"
@@ -902,6 +1013,15 @@ export default function MortuaryDashboard() {
           onClose={() => setLogFor(false)}
           onSaved={() => {
             setLogFor(false);
+            load();
+          }}
+        />
+      )}
+      {cleaning && (
+        <LogCleaningDialog
+          onClose={() => setCleaning(false)}
+          onSaved={() => {
+            setCleaning(false);
             load();
           }}
         />

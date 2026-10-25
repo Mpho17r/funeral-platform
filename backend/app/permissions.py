@@ -107,6 +107,7 @@ PERMISSIONS = {
 
     # Reports
     "reports.view": "View reports",
+    "finance.overview": "View the business-wide finance overview (money collected and owed)",
 
     # Audit trail
     "audit.view": "View the audit trail of who changed what",

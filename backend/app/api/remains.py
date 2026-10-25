@@ -36,8 +36,10 @@ from app.services.mortuary import (
     get_placeable_location,
     is_cold,
     now_utc,
+    deceased_identifier_matches,
     release_blockers,
 )
+from app.services.mortuary_alerts import tell_operations
 from app.services.permission_service import has_permission
 
 
@@ -420,6 +422,15 @@ def take_into_care(
         },
     )
 
+    tell_operations(
+        db,
+        business_id=business_id,
+        title=f"{case.deceased_full_name} was taken into the mortuary",
+        body=f"Tag {remains.tag_number}",
+        link=f"/cases/{case.id}",
+        actor_id=get_user_id(current_user),
+    )
+
     db.commit()
     db.refresh(remains)
 
@@ -756,16 +767,43 @@ def release_remains(
             ),
         )
 
-    released_at = check_time(
-        data.released_at,
-        earliest=remains.received_at,
-        label="The release time",
-    )
-
     death_record = (
         db.query(DeathRecord)
         .filter(DeathRecord.case_id == case.id)
         .first()
+    )
+
+    # Second identifier: the surname, full name or ID number read from
+    # the body's own tag. It must match too, or the release stops.
+    if not deceased_identifier_matches(
+        data.confirm_deceased_identifier, case, death_record
+    ):
+        audit_remains(
+            db,
+            remains=remains,
+            case=case,
+            current_user=current_user,
+            action="remains.release_refused",
+            notes=(
+                "Release was refused: the second identifier did not "
+                "match."
+            ),
+            extra={"reason": "identifier_mismatch"},
+        )
+        db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                "The surname or ID number does not match these "
+                "remains. Check the tag on the body and the case."
+            ),
+        )
+
+    released_at = check_time(
+        data.released_at,
+        earliest=remains.received_at,
+        label="The release time",
     )
 
     items = (
@@ -858,6 +896,19 @@ def release_remains(
             "override_used": override_used,
             "blockers_overridden": blockers if override_used else [],
         },
+    )
+
+    tell_operations(
+        db,
+        business_id=business_id,
+        title=f"{case.deceased_full_name} was released from the mortuary",
+        body=(
+            f"Released to {remains.released_to_name}"
+            if remains.released_to_name
+            else None
+        ),
+        link=f"/cases/{case.id}",
+        actor_id=user_id,
     )
 
     db.commit()

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.models.death_record import CasePaperworkItem, DeathRecord
 from app.models.funeral_case import FuneralCase
+from app.services.mortuary_hygiene import cleaning_gaps
 from app.models.mortuary import (
     COLD_LOCATION_KINDS,
     CustodyEvent,
@@ -30,8 +31,12 @@ from app.services.mortuary import (
 SAST = timezone(timedelta(hours=2))
 
 # Remains must be at 5 degrees C or colder (Regulation R363).
+NEARLY_FULL_RATIO = 0.9
 MAX_SAFE_TEMPERATURE = Decimal("5.0")
 LONG_STAY_DAYS = 14
+# A cold place holding people should have its temperature written down at
+# least twice a day.
+READING_MAX_AGE_HOURS = 12
 MAX_HOURS = 24 * 7
 
 
@@ -304,10 +309,58 @@ def overview(
             )
         elif loc.capacity is not None and len(here) >= loc.capacity:
             status = "full"
+            attention.append(
+                {
+                    "reason": "capacity",
+                    "message": f"{loc.name} is full "
+                    f"({len(here)} of {loc.capacity})",
+                    "location_id": str(loc.id),
+                    "name": loc.name,
+                }
+            )
         elif here:
             status = "occupied"
         else:
             status = "available"
+
+        # Someone is in this cold place but nobody has checked it lately.
+        if here and not too_warm:
+            age = (
+                (now - reading.recorded_at).total_seconds() / 3600
+                if reading
+                else None
+            )
+            if age is None or age > READING_MAX_AGE_HOURS:
+                attention.append(
+                    {
+                        "reason": "reading_overdue",
+                        "message": (
+                            f"{loc.name} has no temperature check in "
+                            f"{READING_MAX_AGE_HOURS} hours"
+                            if reading
+                            else f"{loc.name} has never had a temperature "
+                            "check"
+                        ),
+                        "location_id": str(loc.id),
+                        "name": loc.name,
+                    }
+                )
+
+        # Warn before a unit fills so there is time to make room.
+        if (
+            status == "occupied"
+            and loc.capacity
+            and len(here) / loc.capacity >= NEARLY_FULL_RATIO
+        ):
+            attention.append(
+                {
+                    "reason": "capacity",
+                    "message": f"{loc.name} is nearly full "
+                    f"({len(here)} of {loc.capacity})",
+                    "location_id": str(loc.id),
+                    "name": loc.name,
+                }
+            )
 
         if loc.capacity is not None:
             capacity_total += loc.capacity
@@ -341,6 +394,10 @@ def overview(
         for r, c in rows
         if r.current_location_id not in set(loc_ids)
     ]
+
+    attention.extend(
+        cleaning_gaps(db, business_id=business_id, now=now)
+    )
 
     return {
         "occupancy": {
