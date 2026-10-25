@@ -31,7 +31,7 @@ Status is conservative: "built and tested" means merged to `main` with CI green.
 
 | Priority | Gap |
 |---|---|
-| Before real customers | **Not hosted yet.** Local Mac only; decision pending (South African VPS recommended in PRODUCTION_READINESS.md). Public portal links need a reachable address. |
+| Before real customers | **Not hosted yet.** Decision made: a South African VPS. A setup script and guide exist ([DEPLOYING.md](./DEPLOYING.md)) but have not been run on a real server. Public portal links need that address. |
 | Before real customers | Uploaded files are not encrypted at rest; no API rate limiting beyond sign-in lockout and portal guessing; no error reporting/monitoring service. |
 | Before real customers | Run a real restore drill from a backup on the target server. |
 | Product | WhatsApp and SMS are not sent automatically (needs a provider account). |

@@ -51,6 +51,8 @@ the South African VPS is the sensible default.
 
 ## 3. Setting it up (single machine)
 
+Short version: use the scripted setup in [DEPLOYING.md](./DEPLOYING.md). The manual steps below show what it does.
+
 These are standard recipes, not tested on your server: try them on a spare
 machine first.
 
