@@ -373,6 +373,14 @@ from app.api.portal import router as portal_router  # noqa: E402
 
 app.include_router(portal_router)
 
+from app.api.platform import router as platform_router  # noqa: E402
+
+app.include_router(platform_router)
+
+from app.api.assistant import router as assistant_router  # noqa: E402
+
+app.include_router(assistant_router)
+
 
 # ============================================================
 # ROOT

@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -171,6 +171,8 @@ def create_business_with_owner(
         email=data.business_email,
         address=data.business_address,
         is_active=True,
+        subscription_status="trial",
+        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=30),
     )
 
     db.add(business)

@@ -201,6 +201,29 @@ class Business(Base):
     # TIMESTAMPS
     # ========================================================
 
+    # ========================================================
+    # SUBSCRIPTION (managed only by the platform owner)
+    # ========================================================
+
+    subscription_tier: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="starter",
+        server_default="starter",
+    )
+    subscription_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="active",
+        server_default="active",
+    )
+    trial_ends_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # None means unlimited.
+    max_branches: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_users: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_members: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_active_cases: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
