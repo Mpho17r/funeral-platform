@@ -156,6 +156,23 @@ def test_staff_can_update_own_presence(
     assert data["last_seen_at"] is not None
 
 
+def test_staff_can_set_busy_presence(
+    client,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    response = client.patch(
+        "/presence/me",
+        headers=auth_headers(staff),
+        json={"status": "busy"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "busy"
+
+
 def test_check_in_records_check_in_time(
     client,
     test_data,
