@@ -20,6 +20,7 @@ import {
   CalendarClock,
   Building,
   Boxes,
+  BadgeCheck,
   Scale,
   Store,
   Wallet,
@@ -256,6 +257,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Suppliers",
       icon: <Store size={18} />,
       path: "/suppliers",
+    },
+    {
+      label: "Licences",
+      icon: <BadgeCheck size={18} />,
+      path: "/compliance",
     },
   ];
 
