@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 PRESENCE_STATUSES = (
     "online",
     "away",
+    "busy",
     "offline",
     "checked_in",
 )
@@ -23,7 +24,7 @@ class StaffPresenceUpdate(BaseModel):
         if value not in PRESENCE_STATUSES:
             raise ValueError(
                 "Presence status must be one of: "
-                "online, away, offline, checked_in"
+                "online, away, busy, offline, checked_in"
             )
 
         return value

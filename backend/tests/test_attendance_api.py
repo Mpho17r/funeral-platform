@@ -470,7 +470,7 @@ def test_staff_can_get_my_attendance_during_break(
     assert data["current_break"]["started_at"] is not None
     assert data["current_break"]["ended_at"] is None
 
-    assert data["presence"] == "online"
+    assert data["presence"] == "away"
 
 
 def test_staff_can_get_my_attendance_after_break_ends(
@@ -639,6 +639,43 @@ def test_staff_can_send_attendance_heartbeat(
     assert presence.last_seen_at is not None
 
 
+def test_attendance_heartbeat_preserves_manual_away_status(
+    client,
+    db,
+    test_data,
+    auth_headers,
+):
+    staff = test_data["staff"]
+
+    check_in = client.post(
+        "/attendance/check-in",
+        headers=auth_headers(staff),
+    )
+    assert check_in.status_code == 201
+
+    presence = (
+        db.query(StaffPresence)
+        .filter(
+            StaffPresence.business_id == staff.business_id,
+            StaffPresence.user_id == staff.id,
+        )
+        .first()
+    )
+    assert presence is not None
+    presence.status = "away"
+    db.commit()
+
+    response = client.post(
+        "/attendance/heartbeat",
+        headers=auth_headers(staff),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["presence"] == "away"
+    db.refresh(presence)
+    assert presence.status == "away"
+
+
 def test_staff_cannot_send_attendance_heartbeat_when_not_checked_in(
     client,
     test_data,
@@ -756,7 +793,7 @@ def test_attendance_me_becomes_away_after_idle_timeout(
     assert presence.status == "away"
 
 
-def test_attendance_me_does_not_mark_staff_away_during_break(
+def test_attendance_me_marks_staff_away_during_break(
     client,
     db,
     test_data,
@@ -805,13 +842,13 @@ def test_attendance_me_does_not_mark_staff_away_during_break(
 
     data = response.json()
 
-    assert data["presence"] == "online"
+    assert data["presence"] == "away"
     assert data["current_break"] is not None
     assert data["current_break"]["break_type"] == "tea"
 
     db.refresh(presence)
 
-    assert presence.status == "online"
+    assert presence.status == "away"
 
 def test_expired_tea_break_auto_returns_to_normal_attendance(
     client,
