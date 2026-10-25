@@ -5,6 +5,7 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
+  LayoutGrid,
   LogOut,
   ScrollText,
   Settings,
@@ -332,6 +333,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
   ];
 
   const workspace = [
+    {
+      label: "My workstation",
+      icon: <LayoutGrid size={18} />,
+      path: "/workstation",
+    },
     {
       label: "Groups",
       icon: <UsersRound size={18} />,
