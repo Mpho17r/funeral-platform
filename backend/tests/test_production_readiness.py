@@ -158,7 +158,9 @@ def test_the_real_job_list_covers_everything_recurring(monkeypatch):
     from app.config import settings as live
 
     names = [j.name for j in run_scheduler.build_jobs()]
-    assert names == ["lifecycle", "mortuary_alerts", "reminders", "backup"]
+    assert names == [
+        "lifecycle", "mortuary_alerts", "reminders", "delivery", "backup",
+    ]
 
     monkeypatch.setattr(live, "scheduler_backups_enabled", False)
     assert "backup" not in [j.name for j in run_scheduler.build_jobs()]

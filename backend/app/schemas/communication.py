@@ -203,6 +203,9 @@ class MessageResponse(BaseModel):
     sent_at: datetime | None
     cancelled_at: datetime | None
     cancel_reason: str | None
+    delivery_attempts: int = 0
+    delivery_error: str | None = None
+    delivered_by: str | None = None
 
 
 class MessageListResponse(BaseModel):

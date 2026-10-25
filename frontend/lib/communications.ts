@@ -27,6 +27,9 @@ export type CommunicationMessage = {
   sent_at: string | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
+  delivery_attempts: number;
+  delivery_error: string | null;
+  delivered_by: string | null;
 };
 
 export type MessageList = {

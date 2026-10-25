@@ -170,6 +170,20 @@ export default function CommunicationsPage() {
     }
   }
 
+  async function deliverNow(message: CommunicationMessage) {
+    try {
+      setBusyId(message.id);
+      setError("");
+      await api.post(`/communications/messages/${message.id}/deliver`);
+      setNotice(`Email sent to ${message.member_name ?? "the member"}.`);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not send the email."));
+    } finally {
+      setBusyId("");
+      await loadMessages();
+    }
+  }
+
   async function markSent(message: CommunicationMessage) {
     try {
       setBusyId(message.id);
@@ -300,6 +314,7 @@ export default function CommunicationsPage() {
                   message={message}
                   busy={busyId === message.id}
                   onMarkSent={() => markSent(message)}
+                  onDeliver={() => deliverNow(message)}
                   onCancel={() => setCancelling(message)}
                   onContact={() =>
                     setContactFor({
@@ -393,12 +408,14 @@ function MessageRow({
   message,
   busy,
   onMarkSent,
+  onDeliver,
   onCancel,
   onContact,
 }: {
   message: CommunicationMessage;
   busy: boolean;
   onMarkSent: () => void;
+  onDeliver: () => void;
   onCancel: () => void;
   onContact: () => void;
 }) {
@@ -449,6 +466,18 @@ function MessageRow({
         {message.body}
       </p>
 
+      {message.status === "queued" && message.delivery_error && (
+        <p className="text-sm text-amber-700">
+          Automatic sending failed ({message.delivery_attempts}{" "}
+          {message.delivery_attempts === 1 ? "try" : "tries"}):{" "}
+          {message.delivery_error}. You can still send it by hand.
+        </p>
+      )}
+
+      {message.status === "sent" && message.delivered_by === "smtp" && (
+        <p className="text-sm text-slate-500">Sent automatically by email.</p>
+      )}
+
       {message.status === "cancelled" && message.cancel_reason && (
         <p className="text-sm text-slate-500">
           Reason: {message.cancel_reason}
@@ -467,6 +496,17 @@ function MessageRow({
               <ExternalLink size={16} />
               {openLabel(message.channel)}
             </a>
+
+            {message.channel === "email" && (
+              <button
+                type="button"
+                onClick={onDeliver}
+                disabled={busy}
+                className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+              >
+                Send email now
+              </button>
+            )}
 
             <button
               type="button"

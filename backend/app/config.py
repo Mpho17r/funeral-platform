@@ -33,6 +33,17 @@ class Settings(BaseSettings):
     # until the first business exists. Set true/false to force it.
     allow_registration: bool | None = None
 
+    # Outgoing email (reminders and notices). Leave smtp_host empty to keep
+    # the one-tap manual sending. SMS and WhatsApp stay manual until a
+    # provider is connected (see docs/MESSAGE_DELIVERY.md).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_starttls: bool = True
+    delivery_max_attempts: int = 3
+
     # Built-in scheduler (python -m app.run_scheduler).
     scheduler_timezone: str = "Africa/Johannesburg"
     scheduler_backup_hour: int = 2       # nightly backup, local time
