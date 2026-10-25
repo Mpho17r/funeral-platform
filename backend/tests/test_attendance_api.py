@@ -470,7 +470,7 @@ def test_staff_can_get_my_attendance_during_break(
     assert data["current_break"]["started_at"] is not None
     assert data["current_break"]["ended_at"] is None
 
-    assert data["presence"] == "online"
+    assert data["presence"] == "away"
 
 
 def test_staff_can_get_my_attendance_after_break_ends(
@@ -805,13 +805,13 @@ def test_attendance_me_does_not_mark_staff_away_during_break(
 
     data = response.json()
 
-    assert data["presence"] == "online"
+    assert data["presence"] == "away"
     assert data["current_break"] is not None
     assert data["current_break"]["break_type"] == "tea"
 
     db.refresh(presence)
 
-    assert presence.status == "online"
+    assert presence.status == "away"
 
 def test_expired_tea_break_auto_returns_to_normal_attendance(
     client,
