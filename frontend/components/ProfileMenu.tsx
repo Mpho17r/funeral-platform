@@ -119,12 +119,12 @@ export function ProfileMenu() {
           const current = mine.data.status;
           if (current === "busy") {
             setPresenceStatus("busy");
-          } else if (current === "offline" || current === "checked_in") {
-            const next = response.data.current_break ? "away" : "online";
-            await api.patch("/presence/me", { status: next });
-            if (!cancelled) setPresenceStatus(next);
           } else {
-            setPresenceStatus(response.data.current_break ? "away" : current === "away" ? "away" : "online");
+            const next = response.data.current_break ? "away" : "online";
+            if (current !== next) {
+              await api.patch("/presence/me", { status: next });
+            }
+            if (!cancelled) setPresenceStatus(next);
           }
         } catch {
           // The profile remains usable if presence permissions are unavailable.
