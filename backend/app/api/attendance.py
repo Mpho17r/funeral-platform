@@ -127,6 +127,8 @@ def refresh_attendance_presence(
         return presence
 
     if current_break is not None:
+        presence.status = "away"
+        db.flush()
         return presence
 
     if presence.last_seen_at is None:
@@ -368,6 +370,23 @@ def start_break(
 
     db.add(break_session)
 
+    presence = (
+        db.query(StaffPresence)
+        .filter(
+            StaffPresence.business_id == business_id,
+            StaffPresence.user_id == user_id,
+        )
+        .first()
+    )
+    if presence is None:
+        presence = StaffPresence(
+            business_id=business_id,
+            user_id=user_id,
+        )
+        db.add(presence)
+    presence.status = "away"
+    presence.last_seen_at = now
+
     try:
         db.flush()
 
@@ -433,6 +452,18 @@ def end_break(
     now = datetime.now(timezone.utc)
 
     break_session.ended_at = now
+
+    presence = (
+        db.query(StaffPresence)
+        .filter(
+            StaffPresence.business_id == business_id,
+            StaffPresence.user_id == user_id,
+        )
+        .first()
+    )
+    if presence is not None:
+        presence.status = "online"
+        presence.last_seen_at = now
 
     db.commit()
     db.refresh(break_session)
@@ -576,7 +607,6 @@ def heartbeat(
         )
         db.add(presence)
 
-    presence.status = "online"
     presence.last_seen_at = now
 
     current_break = (
@@ -599,6 +629,8 @@ def heartbeat(
 
     if current_break is not None and current_break.ended_at is not None:
         current_break = None
+
+    presence.status = "away" if current_break is not None else "online"
 
     break_expires_at, break_warning_active = get_break_state(
         business=business,
