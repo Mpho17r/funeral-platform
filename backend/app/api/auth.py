@@ -96,8 +96,41 @@ def register(
     data: RegisterRequest,
     db: Session = Depends(get_db),
 ):
+    """Public business-owner registration (closed on a live system)."""
+    if not registration_open(db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Sign-up is closed. Ask your administrator to create "
+                "your account."
+            ),
+        )
+    return create_business_with_owner(data, db)
+
+
+@router.get("/registration-status")
+def registration_status(db: Session = Depends(get_db)):
+    return {"open": registration_open(db)}
+
+
+def registration_open(db: Session) -> bool:
     """
-    Public business-owner registration.
+    Open while developing. On a live system it is open only until the first
+    business exists, so the owner can set up, and then it closes.
+    """
+    if settings.allow_registration is not None:
+        return settings.allow_registration
+    if not settings.is_production:
+        return True
+    return db.query(Business.id).first() is None
+
+
+def create_business_with_owner(
+    data: RegisterRequest,
+    db: Session,
+):
+    """
+    Creates a business and its first administrator.
 
     Creates:
         1. A new Business

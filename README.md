@@ -5,6 +5,8 @@ FuneralOS is a multi-tenant operating system for funeral businesses. The GitHub 
 ## Project documentation
 
 - [Product blueprint and system structure](docs/FUNERALOS_BLUEPRINT.md) — product principles, business/branch structure, case journey, department workspaces, security invariants, and roadmap.
+- [Production readiness](docs/PRODUCTION_READINESS.md) — hosting options, safe settings, setup recipe, launch checklist and POPIA notes.
+- [Backups and recovery](docs/BACKUPS_AND_RECOVERY.md) — nightly backups, restore drill and the owner's data export.
 - [Project tracker](docs/PROJECT_TRACKER.md) — what is present in the repository, what needs review, and the next priorities.
 
 ## Running without your own computer
@@ -25,8 +27,9 @@ not a place to use the app.
 2. Wait for the first setup to finish. It installs everything, creates the
    database, runs `alembic upgrade head` and `python -m app.seed_permissions`,
    and starts the API and the app.
-3. Open the forwarded port **3000** (the **Ports** tab) to use the app. Register
-   a business on the login page to get started.
+3. Open the forwarded port **3000** (the **Ports** tab) to use the app. Create
+   your first business and administrator with
+   `cd backend && python -m app.create_owner`.
 
 Logs are in `/tmp/funeralos/api.log` and `/tmp/funeralos/web.log`. To run a
 step by hand in the Codespace terminal:

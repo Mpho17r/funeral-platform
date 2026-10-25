@@ -1,9 +1,11 @@
 
 from fastapi import FastAPI
+from fastapi import Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.config import settings
+from app.services import scheduler_state
 from app.database import engine
 
 from app.api.businesses import router as businesses_router
@@ -93,14 +95,29 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============================================================
+# SECURITY HEADERS
+# ============================================================
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    if settings.is_production:
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains",
+        )
+    return response
 
 
 # ============================================================
@@ -368,21 +385,22 @@ def root():
 # ============================================================
 
 @app.get("/health")
-def health_check():
-    database_status = "unknown"
+def health_check(response: Response):
+    """For hosting health checks and uptime monitors.
 
+    Answers 503 when the database cannot be reached, so a monitor or load
+    balancer sees the problem instead of a false "healthy".
+    """
     try:
         with engine.connect() as connection:
-            connection.execute(
-                text("SELECT 1")
-            )
-
+            connection.execute(text("SELECT 1"))
         database_status = "connected"
-
     except Exception:
         database_status = "disconnected"
+        response.status_code = 503
 
     return {
-        "status": "healthy",
+        "status": "healthy" if database_status == "connected" else "unhealthy",
         "database": database_status,
+        "scheduler": scheduler_state.read()["state"],
     }
