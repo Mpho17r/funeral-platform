@@ -84,6 +84,12 @@ class Member(Base):
         nullable=True,
     )
 
+    # The area the member lives in (suburb, township or district), used to
+    # view members by region.
+    region: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, index=True
+    )
+
     join_date: Mapped[date] = mapped_column(
         Date,
         default=date.today,

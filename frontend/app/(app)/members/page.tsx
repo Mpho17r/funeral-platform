@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, Fragment, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import api from "@/lib/api";
 import { useBranches } from "@/lib/branches";
 import {
@@ -44,6 +45,7 @@ type Member = {
   phone: string | null;
   email: string | null;
   address: string | null;
+  region: string | null;
   join_date: string;
   status: string;
   branch_id: string | null;
@@ -62,6 +64,7 @@ type MemberForm = {
   phone: string;
   email: string;
   address: string;
+  region: string;
   join_date: string;
   status: string;
 };
@@ -75,6 +78,7 @@ const emptyForm: MemberForm = {
   phone: "",
   email: "",
   address: "",
+  region: "",
   join_date: new Date().toISOString().split("T")[0],
   status: "active",
 };
@@ -160,6 +164,8 @@ export default function MembersPage() {
 
   const branchData = useBranches();
   const [branchFilter, setBranchFilter] = useState(ALL_BRANCHES);
+  const [regionFilter, setRegionFilter] = useState("");
+  const [groupBy, setGroupBy] = useState<"none" | "branch" | "region">("none");
   const [newMemberBranch, setNewMemberBranch] = useState("");
   const [moving, setMoving] = useState<Member | null>(null);
   const [contactFor, setContactFor] = useState<Member | null>(null);
@@ -226,6 +232,7 @@ export default function MembersPage() {
       phone: member.phone || "",
       email: member.email || "",
       address: member.address || "",
+      region: member.region || "",
       join_date: member.join_date,
       status: member.status,
     });
@@ -274,6 +281,7 @@ export default function MembersPage() {
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         address: form.address.trim() || null,
+        region: form.region.trim() || null,
         join_date: form.join_date,
         status: form.status,
       };
@@ -351,6 +359,10 @@ export default function MembersPage() {
       return false;
     }
 
+    if (regionFilter && (member.region || "") !== regionFilter) {
+      return false;
+    }
+
     const query = search.toLowerCase().trim();
 
     if (!query) return true;
@@ -361,9 +373,38 @@ export default function MembersPage() {
       member.last_name.toLowerCase().includes(query) ||
       (member.phone || "").toLowerCase().includes(query) ||
       (member.email || "").toLowerCase().includes(query) ||
+      (member.region || "").toLowerCase().includes(query) ||
       member.status.toLowerCase().includes(query)
     );
   });
+
+  const regions = Array.from(
+    new Set(members.map((member) => member.region).filter(Boolean) as string[])
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Groups for the "group by" view. A single unlabelled group when off.
+  const groups: { key: string; label: string; members: Member[] }[] = (() => {
+    if (groupBy === "none") {
+      return [{ key: "all", label: "", members: filteredMembers }];
+    }
+    const map = new Map<string, Member[]>();
+    for (const member of filteredMembers) {
+      const key =
+        groupBy === "region"
+          ? member.region || ""
+          : member.branch_id || "";
+      map.set(key, [...(map.get(key) ?? []), member]);
+    }
+    const labelOf = (key: string) =>
+      groupBy === "region"
+        ? key || "No region set"
+        : key
+          ? branchData.byId.get(key)?.name || "Branch"
+          : "No branch";
+    return Array.from(map.entries())
+      .map(([key, list]) => ({ key: key || "none", label: labelOf(key), members: list }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  })();
 
   const activeCount = members.filter(
     (member) => member.status === "active"
@@ -484,6 +525,35 @@ export default function MembersPage() {
               />
             )}
 
+            {regions.length > 0 && (
+              <select
+                aria-label="Filter by region"
+                value={regionFilter}
+                onChange={(event) => setRegionFilter(event.target.value)}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm"
+              >
+                <option value="">All regions</option>
+                {regions.map((region) => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <select
+              aria-label="Group members by"
+              value={groupBy}
+              onChange={(event) =>
+                setGroupBy(event.target.value as "none" | "branch" | "region")
+              }
+              className="rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm"
+            >
+              <option value="none">No grouping</option>
+              {branchData.multiple && <option value="branch">Group by branch</option>}
+              <option value="region">Group by region</option>
+            </select>
+
             <div
               role="tablist"
               aria-label="Member list"
@@ -590,7 +660,19 @@ export default function MembersPage() {
                   </thead>
 
                   <tbody className="divide-y divide-gray-100">
-                    {filteredMembers.map((member) => (
+                    {groups.map((group) => (
+                      <Fragment key={group.key}>
+                        {groupBy !== "none" && (
+                          <tr className="bg-gray-50">
+                            <td
+                              colSpan={12}
+                              className="px-6 py-2.5 text-xs font-semibold uppercase tracking-wide text-gray-600"
+                            >
+                              {group.label} · {group.members.length}
+                            </td>
+                          </tr>
+                        )}
+                        {group.members.map((member) => (
                       <tr
                         key={member.id}
                         className="transition hover:bg-gray-50 dark:hover:bg-slate-800"
@@ -605,6 +687,12 @@ export default function MembersPage() {
                             {member.id_number && (
                               <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                                 ID: {member.id_number}
+                              </p>
+                            )}
+
+                            {member.region && (
+                              <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                                {member.region}
                               </p>
                             )}
                           </div>
@@ -665,6 +753,17 @@ export default function MembersPage() {
                                   setMoving(member)
                                 }
                               />
+                            )}
+
+                            {view === "current" && (
+                              <Link
+                                href={`/covered-dependents?member=${member.id}`}
+                                className="rounded-lg p-2 text-gray-500 dark:text-slate-400 transition hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-slate-100"
+                                title="Covered people (household)"
+                                aria-label={`Covered people for ${member.first_name} ${member.last_name}`}
+                              >
+                                <Users size={17} />
+                              </Link>
                             )}
 
                             {view === "current" && (
@@ -753,6 +852,8 @@ export default function MembersPage() {
                           </div>
                         </td>
                       </tr>
+                    ))}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -1017,6 +1118,28 @@ export default function MembersPage() {
                     rows={3}
                     className="w-full resize-none rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                    Region
+                  </label>
+
+                  <input
+                    list="member-regions"
+                    value={form.region}
+                    onChange={(event) =>
+                      setForm({ ...form, region: event.target.value })
+                    }
+                    placeholder="e.g. Soweto, Polokwane, Ward 12"
+                    maxLength={100}
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                  />
+                  <datalist id="member-regions">
+                    {regions.map((region) => (
+                      <option key={region} value={region} />
+                    ))}
+                  </datalist>
                 </div>
 
                 {/* Branch: chosen when creating; moved later with
