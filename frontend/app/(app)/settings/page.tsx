@@ -10,7 +10,9 @@ import {
   Palette,
   ScrollText,
   ShieldCheck,
-  Users,, ReceiptText} from "lucide-react";
+  Users,
+  ReceiptText,
+} from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
