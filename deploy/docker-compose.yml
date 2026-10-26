@@ -1,0 +1,79 @@
+# One small server running everything. See docs/HOSTING.md.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: funeralos
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env}
+      POSTGRES_DB: funeralos
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U funeralos"]
+      interval: 10s
+      retries: 6
+
+  api:
+    build: ../backend
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    env_file: .env
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://funeralos:${DB_PASSWORD}@db:5432/funeralos
+      CORS_ORIGINS: https://${APP_DOMAIN}
+    volumes:
+      - storage:/app/storage
+      - backups:/app/backups
+    # Apply database changes, then serve.
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m app.seed_permissions &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000
+             --proxy-headers --forwarded-allow-ips='*'"
+
+  scheduler:
+    build: ../backend
+    restart: unless-stopped
+    depends_on:
+      - api
+    env_file: .env
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://funeralos:${DB_PASSWORD}@db:5432/funeralos
+      CORS_ORIGINS: https://${APP_DOMAIN}
+    volumes:
+      - storage:/app/storage
+      - backups:/app/backups
+    command: python -m app.run_scheduler
+
+  web:
+    build:
+      context: ../frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on:
+      - api
+      - web
+
+volumes:
+  dbdata:
+  storage:
+  backups:
+  caddydata:
