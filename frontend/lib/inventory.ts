@@ -25,6 +25,8 @@ export type InventoryItem = {
   quantity_on_hand: string;
   reorder_level: string;
   unit_cost: string | null;
+  reorder_quantity: string | null;
+  auto_order: boolean;
   is_low_stock: boolean;
   is_active: boolean;
   created_at: string;

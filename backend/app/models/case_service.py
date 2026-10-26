@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -83,6 +83,18 @@ class CaseService(Base):
     notes: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
+    )
+
+    # Optional link to a stocked item (a coffin, flowers...). When set,
+    # stock is issued to the case automatically and put back if the line
+    # is cancelled or deleted. stock_issued is how much is out right now.
+    inventory_item_id: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("inventory_items.id"),
+        nullable=True,
+    )
+    stock_issued: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
     )
 
     created_at: Mapped[datetime] = mapped_column(

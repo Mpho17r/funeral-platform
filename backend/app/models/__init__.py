@@ -45,7 +45,12 @@ from app.models.financial_document import (
     PaymentReceipt,
 )
 from app.models.branch import Branch
-from app.models.inventory import InventoryItem, StockMovement, Supplier
+from app.models.inventory import (
+    InventoryItem,
+    PurchaseOrder,
+    StockMovement,
+    Supplier,
+)
 from app.models.arrangement import CaseCollection, FuneralArrangement
 from app.models.death_record import CasePaperworkItem, DeathRecord
 from app.models.mortuary import (

@@ -15,6 +15,8 @@ class CaseServiceCreate(BaseModel):
     scheduled_date: date | None = None
     provider: str | None = Field(default=None, max_length=255)
     notes: str | None = None
+    # Take this from stock automatically (a stocked item, e.g. a coffin).
+    inventory_item_id: UUID | None = None
 
 
 class CaseServiceUpdate(BaseModel):
@@ -45,5 +47,7 @@ class CaseServiceResponse(BaseModel):
     scheduled_date: date | None
     provider: str | None
     notes: str | None
+    inventory_item_id: UUID | None = None
+    stock_issued: int = 0
     created_at: datetime
     updated_at: datetime

@@ -37,6 +37,8 @@ type CaseService = {
   scheduled_date: string | null;
   provider: string | null;
   notes: string | null;
+  inventory_item_id: string | null;
+  stock_issued: number;
   created_at: string;
   updated_at: string;
 };
@@ -51,6 +53,7 @@ type ServiceForm = {
   scheduled_date: string;
   provider: string;
   notes: string;
+  inventory_item_id: string;
 };
 
 /* ============================================================
@@ -182,7 +185,27 @@ export default function ServicesPage() {
     scheduled_date: "",
     provider: "",
     notes: "",
+    inventory_item_id: "",
   });
+
+  const [stockItems, setStockItems] = useState<
+    {
+      id: string;
+      name: string;
+      unit: string;
+      quantity_on_hand: string;
+      unit_cost: string | null;
+      category: string;
+    }[]
+  >([]);
+
+  useEffect(() => {
+    // Stock items only fill a dropdown; the page works without them.
+    api
+      .get("/inventory/items")
+      .then((r) => setStockItems(r.data))
+      .catch(() => setStockItems([]));
+  }, []);
 
   /* ==========================================================
      LOAD SERVICES
@@ -268,6 +291,7 @@ export default function ServicesPage() {
       scheduled_date: "",
       provider: "",
       notes: "",
+      inventory_item_id: "",
     });
 
     setFormError("");
@@ -340,6 +364,7 @@ export default function ServicesPage() {
         provider:
           form.provider.trim() || null,
         notes: form.notes.trim() || null,
+        inventory_item_id: form.inventory_item_id || null,
       };
 
       await api.post<CaseService>(
@@ -683,6 +708,13 @@ export default function ServicesPage() {
                         />
                       </div>
 
+                      {service.inventory_item_id && (
+                        <p className="mt-4 text-sm text-[var(--fos-text-secondary)]">
+                          Stock: {service.stock_issued} taken from stock
+                          automatically.
+                        </p>
+                      )}
+
                       {service.provider && (
                         <div className="mt-4">
                           <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
@@ -891,6 +923,42 @@ export default function ServicesPage() {
                   placeholder="e.g. Makhado Transport"
                 />
               </div>
+
+              {stockItems.length > 0 && (
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium text-[var(--fos-text-secondary)]">
+                    Take from stock (optional)
+                  </span>
+                  <select
+                    value={form.inventory_item_id}
+                    onChange={(event) => {
+                      const id = event.target.value;
+                      const item = stockItems.find((i) => i.id === id);
+                      setForm((current) => ({
+                        ...current,
+                        inventory_item_id: id,
+                        service_type:
+                          current.service_type || (item ? item.category : ""),
+                        service_name:
+                          current.service_name || (item ? item.name : ""),
+                      }));
+                    }}
+                    className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm"
+                  >
+                    <option value="">Not from stock</option>
+                    {stockItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} ({Number(item.quantity_on_hand)}{" "}
+                        {item.unit} in stock)
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-xs text-[var(--fos-text-muted)]">
+                    The quantity is taken off stock for you, and put back if
+                    this line is cancelled or deleted.
+                  </span>
+                </label>
+              )}
 
               <TextAreaField
                 label="Description"

@@ -53,3 +53,6 @@ Status is conservative: "built and tested" means merged to `main` with CI green.
 ## Working rules
 - Branch, PR, CI green, merge. Update this tracker and tests together with the feature.
 - Keep built, deployed and planned separate; never claim deployment without evidence.
+
+## Stock automation (added 2026-10-26)
+A service line linked to a stocked item issues the stock to the case by itself and gives it back if the line is cancelled or deleted. Running low alerts the people who manage stock once; an item can also order itself from its supplier (emailed when email is set up, otherwise left as "needs sending"). One open order per item; receiving stock closes it.

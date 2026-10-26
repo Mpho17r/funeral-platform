@@ -13,6 +13,9 @@ from app.services.audit_service import (
 )
 
 from app.models.case_service import CaseService
+from app.models.inventory import InventoryItem
+from app.services.inventory import InventoryError
+from app.services.stock_automation import sync_service_stock
 from app.models.funeral_case import FuneralCase
 
 from app.schemas.case_service import (
@@ -26,6 +29,22 @@ router = APIRouter(
     prefix="/cases",
     tags=["Case Services"],
 )
+
+
+def _sync_stock(db, service, wanted, current_user, case_number):
+    try:
+        sync_service_stock(
+            db,
+            service=service,
+            wanted=wanted,
+            user_id=UUID(str(current_user["user_id"])),
+            case_number=case_number,
+        )
+    except InventoryError as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=error.status_code, detail=error.detail
+        )
 
 
 # Fields whose changes are recorded in the audit trail.
@@ -121,11 +140,11 @@ def create_service(
     # Verify case belongs to business
     # --------------------------------------------------------
 
-    get_case(
+    case_number = get_case(
         db=db,
         case_id=case_id,
         business_id=business_id,
-    )
+    ).case_number
 
     # --------------------------------------------------------
     # Calculate total price
@@ -153,10 +172,26 @@ def create_service(
         scheduled_date=service_data.scheduled_date,
         provider=service_data.provider,
         notes=service_data.notes,
+        inventory_item_id=service_data.inventory_item_id,
     )
+
+    if service.inventory_item_id is not None:
+        item = (
+            db.query(InventoryItem)
+            .filter(
+                InventoryItem.id == service.inventory_item_id,
+                InventoryItem.business_id == business_id,
+            )
+            .first()
+        )
+        if item is None:
+            raise HTTPException(422, "Stock item not found")
 
     db.add(service)
     db.flush()
+
+    if service.inventory_item_id is not None and service.status != "cancelled":
+        _sync_stock(db, service, service.quantity, current_user, case_number)
 
     create_audit_log(
         db,
@@ -324,6 +359,19 @@ def update_service(
         unit_price=Decimal(str(unit_price)),
     )
 
+    # Keep stock in step: a cancelled line gives its stock back.
+    if service.inventory_item_id is not None and (
+        "quantity" in updates or "status" in updates
+    ):
+        case = db.get(FuneralCase, service.case_id)
+        _sync_stock(
+            db,
+            service,
+            0 if service.status == "cancelled" else (service.quantity or 1),
+            current_user,
+            case.case_number if case else None,
+        )
+
     # --------------------------------------------------------
     # Audit
     # --------------------------------------------------------
@@ -411,6 +459,12 @@ def delete_service(
         },
         notes="Case service was deleted.",
     )
+
+    if service.inventory_item_id is not None and service.stock_issued:
+        case = db.get(FuneralCase, service.case_id)
+        _sync_stock(
+            db, service, 0, current_user, case.case_number if case else None
+        )
 
     db.delete(service)
     db.commit()

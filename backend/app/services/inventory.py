@@ -201,4 +201,13 @@ def record_movement(
     db.add(movement)
     db.flush()
 
+    from app.services.stock_automation import (
+        check_low_stock,
+        close_open_orders_on_receipt,
+    )
+
+    if movement_type == "receipt":
+        close_open_orders_on_receipt(db, item.id)
+    check_low_stock(db, item, user_id=user_id)
+
     return movement

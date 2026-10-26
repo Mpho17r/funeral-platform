@@ -48,6 +48,8 @@ AUDITED_ITEM_FIELDS = (
     "supplier_id",
     "reorder_level",
     "unit_cost",
+    "reorder_quantity",
+    "auto_order",
 )
 
 MOVEMENT_AUDIT_ACTIONS = {
@@ -213,8 +215,18 @@ def create_item(
         quantity_on_hand=Decimal("0"),
         reorder_level=data.reorder_level,
         unit_cost=data.unit_cost,
+        reorder_quantity=data.reorder_quantity,
+        auto_order=data.auto_order,
         is_active=True,
     )
+
+    if item.auto_order and (
+        item.supplier_id is None or not item.reorder_quantity
+    ):
+        raise HTTPException(
+            422,
+            "Automatic ordering needs a supplier and an order quantity",
+        )
 
     db.add(item)
 
@@ -357,7 +369,23 @@ def update_item(
     old_values = snapshot_fields(item, AUDITED_ITEM_FIELDS)
 
     for field, value in updates.items():
+        if field == "auto_order" and value is None:
+            continue
         setattr(item, field, value)
+
+    if item.auto_order and (
+        item.supplier_id is None or not item.reorder_quantity
+    ):
+        db.rollback()
+        raise HTTPException(
+            422,
+            "Automatic ordering needs a supplier and an order quantity",
+        )
+
+    # A changed reorder level may make the item low (or no longer low).
+    from app.services.stock_automation import check_low_stock
+
+    check_low_stock(db, item, user_id=get_user_id(current_user))
 
     changes = build_audit_changes(
         old_values,

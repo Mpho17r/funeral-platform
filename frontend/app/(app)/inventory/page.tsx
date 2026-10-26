@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { PurchaseOrdersPanel } from "@/components/PurchaseOrdersPanel";
 import { useBranches } from "@/lib/branches";
 import { formatMoney, getApiErrorMessage, statusOf } from "@/lib/format";
 import { formatDateTime } from "@/lib/datetime";
@@ -73,6 +74,8 @@ type ItemForm = {
   unit: string;
   supplier_id: string;
   reorder_level: string;
+  reorder_quantity: string;
+  auto_order: boolean;
   unit_cost: string;
   opening_quantity: string;
   description: string;
@@ -86,6 +89,8 @@ const emptyItemForm: ItemForm = {
   unit: "each",
   supplier_id: "",
   reorder_level: "0",
+  reorder_quantity: "",
+  auto_order: false,
   unit_cost: "",
   opening_quantity: "0",
   description: "",
@@ -288,6 +293,10 @@ export default function InventoryPage() {
       unit: item.unit,
       supplier_id: item.supplier_id ?? "",
       reorder_level: String(Number(item.reorder_level)),
+      reorder_quantity: item.reorder_quantity
+        ? String(Number(item.reorder_quantity))
+        : "",
+      auto_order: item.auto_order,
       unit_cost: item.unit_cost ?? "",
       opening_quantity: "0",
       description: item.description ?? "",
@@ -307,6 +316,8 @@ export default function InventoryPage() {
       description: itemForm.description.trim() || null,
       supplier_id: itemForm.supplier_id || null,
       reorder_level: itemForm.reorder_level || "0",
+      reorder_quantity: itemForm.reorder_quantity.trim() || null,
+      auto_order: itemForm.auto_order,
       unit_cost: itemForm.unit_cost.trim() || null,
     };
 
@@ -566,6 +577,12 @@ export default function InventoryPage() {
         </div>
       </div>
 
+      <PurchaseOrdersPanel
+        reloadKey={reloadKey}
+        onChanged={() => setReloadKey((key) => key + 1)}
+        onError={setError}
+      />
+
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full max-w-md">
           <Search
@@ -696,6 +713,7 @@ export default function InventoryPage() {
                           <AlertTriangle size={12} />
                           Low · reorder at{" "}
                           {formatQty(item.reorder_level)}
+                          {item.auto_order ? " · auto-order on" : ""}
                         </span>
                       </div>
                     )}
@@ -734,6 +752,25 @@ export default function InventoryPage() {
                         <ArrowUpFromLine size={14} />
                         Issue
                       </button>
+
+                      {item.supplier_id && item.reorder_quantity && (
+                        <button
+                          type="button"
+                          disabled={!item.is_active}
+                          onClick={async () => {
+                            try {
+                              await api.post(`/inventory/items/${item.id}/order`, {});
+                              setNotice(`Ordered ${item.name} from the supplier.`);
+                              setReloadKey((key) => key + 1);
+                            } catch (err) {
+                              setError(getApiErrorMessage(err, "Could not place the order."));
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                        >
+                          Order
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -874,6 +911,22 @@ export default function InventoryPage() {
                 />
               </Field>
 
+              <Field
+                label="Order quantity"
+                hint="How many to buy when it runs low."
+              >
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={itemForm.reorder_quantity}
+                  onChange={(event) =>
+                    setItem("reorder_quantity", event.target.value)
+                  }
+                  className={inputClass}
+                />
+              </Field>
+
               {dialog.kind === "create" && (
                 <Field
                   label="Opening stock"
@@ -892,6 +945,25 @@ export default function InventoryPage() {
                 </Field>
               )}
             </div>
+
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={itemForm.auto_order}
+                onChange={(event) =>
+                  setItemForm((form) => ({
+                    ...form,
+                    auto_order: event.target.checked,
+                  }))
+                }
+                className="mt-1"
+              />
+              <span>
+                Order automatically when stock runs low. Needs a supplier and
+                an order quantity. The order is emailed to the supplier when
+                email is set up; otherwise it waits for you to send it.
+              </span>
+            </label>
 
             {dialog.kind === "create" && branchData.multiple && (
               <BranchSelect
