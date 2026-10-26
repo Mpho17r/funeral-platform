@@ -182,6 +182,21 @@ class InventoryItem(Base):
         Numeric(12, 2), nullable=False, default=Decimal("0")
     )
 
+    # Ordering: how much to buy when stock runs low, and whether the
+    # system may email the supplier by itself.
+    reorder_quantity: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
+    auto_order: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False,
+        server_default=text("false"),
+    )
+    # Set when the low-stock alert went out; cleared once restocked, so
+    # people are told once per time the item runs low.
+    low_stock_alerted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Cost of one unit. Follows the latest receipt that gave a cost.
     unit_cost: Mapped[Decimal | None] = mapped_column(
         Numeric(12, 2), nullable=True
@@ -306,6 +321,91 @@ class StockMovement(Base):
         nullable=True,
     )
 
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, nullable=False
+    )
+
+
+ORDER_STATUSES = ("to_send", "sent", "received", "cancelled")
+OPEN_ORDER_STATUSES = ("to_send", "sent")
+
+
+class PurchaseOrder(Base):
+    """
+    An order for one stocked item from its supplier.
+
+    `to_send` means the system could not email it (no supplier email or
+    email not set up) and a person must send it. `sent` means it went out
+    (by email, or a person marked it sent). Only one order per item can be
+    open at a time, so a low item is never ordered twice.
+    """
+
+    __tablename__ = "purchase_orders"
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('to_send', 'sent', 'received', 'cancelled')",
+            name="ck_purchase_orders_status",
+        ),
+        CheckConstraint(
+            "quantity > 0", name="ck_purchase_orders_quantity"
+        ),
+        Index(
+            "uq_purchase_orders_one_open_per_item",
+            "item_id",
+            unique=True,
+            postgresql_where=text("status IN ('to_send', 'sent')"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("businesses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # Same branch as the item, so branch limits apply to orders too.
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("branches.id"),
+        nullable=True,
+        index=True,
+    )
+    number: Mapped[str] = mapped_column(String(30), nullable=False)
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("inventory_items.id"),
+        nullable=False,
+        index=True,
+    )
+    supplier_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("suppliers.id"),
+        nullable=False,
+    )
+    quantity: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    automatic: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False,
+        server_default=text("false"),
+    )
+    send_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    received_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, nullable=False
     )

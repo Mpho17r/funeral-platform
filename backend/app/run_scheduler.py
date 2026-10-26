@@ -97,6 +97,17 @@ def _reminders() -> str:
     return f"{sum(n for n in results.values() if n > 0)} reminder(s) queued"
 
 
+def _stock() -> str:
+    from app.database import SessionLocal
+    from app.services.stock_automation import scan_low_stock
+
+    db = SessionLocal()
+    try:
+        return f"{scan_low_stock(db)} low-stock alert(s)"
+    finally:
+        db.close()
+
+
 def _delivery() -> str:
     from app.database import SessionLocal
     from app.services.message_delivery import deliver_queued
@@ -126,6 +137,7 @@ def build_jobs() -> list[Job]:
         Job("reminders", _reminders,
             daily_hour=settings.scheduler_reminders_hour, window_hours=8),
         Job("delivery", _delivery, every_minutes=10),
+        Job("stock", _stock, every_minutes=60),
     ]
     if settings.scheduler_backups_enabled:
         jobs.append(

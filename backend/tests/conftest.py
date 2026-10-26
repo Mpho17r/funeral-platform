@@ -124,7 +124,9 @@ def db():
             "members",
             "membership_plans",
 
-            # Inventory and suppliers
+            # Inventory and suppliers (service lines point at stock items)
+            "case_services",
+            "purchase_orders",
             "stock_movements",
             "inventory_items",
             "suppliers",
@@ -149,7 +151,6 @@ def db():
             # Funeral case system
             "case_payments",
             "case_financials",
-            "case_services",
             "case_tasks",
             "case_documents",
             "case_contacts",

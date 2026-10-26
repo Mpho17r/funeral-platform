@@ -122,6 +122,10 @@ class InventoryItemCreate(BaseModel):
     unit_cost: Decimal | None = Field(
         default=None, ge=0, max_digits=12, decimal_places=2
     )
+    reorder_quantity: Decimal | None = Field(
+        default=None, gt=0, max_digits=12, decimal_places=2
+    )
+    auto_order: bool = False
 
     # Stock already on the shelf. Recorded as an opening receipt so
     # the ledger explains the quantity from day one.
@@ -157,6 +161,10 @@ class InventoryItemUpdate(BaseModel):
     unit_cost: Decimal | None = Field(
         default=None, ge=0, max_digits=12, decimal_places=2
     )
+    reorder_quantity: Decimal | None = Field(
+        default=None, gt=0, max_digits=12, decimal_places=2
+    )
+    auto_order: bool | None = None
 
     @field_validator("name", "unit")
     @classmethod
@@ -179,6 +187,8 @@ class InventoryItemResponse(BaseModel):
     quantity_on_hand: Decimal
     reorder_level: Decimal
     unit_cost: Decimal | None
+    reorder_quantity: Decimal | None = None
+    auto_order: bool = False
     is_low_stock: bool = False
     is_active: bool
     created_at: datetime
