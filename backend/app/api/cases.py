@@ -59,6 +59,7 @@ from app.services.audit_service import (
     create_audit_log,
 )
 from app.services.case_lifecycle import transition_case_status
+from app.services.automatic_case_lifecycle import refresh_case_statuses
 from app.services.case_archival import archive_case, restore_case
 
 
@@ -231,6 +232,8 @@ def list_cases(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("cases.view")),
 ):
+    refresh_case_statuses(db, current_user["business_id"])
+
     query = db.query(FuneralCase).filter(
         FuneralCase.business_id == current_user["business_id"],
         FuneralCase.is_archived.is_(False),
@@ -364,6 +367,8 @@ def get_case_summary(
     current_user: dict = Depends(require_permission("cases.view")),
 ):
     business_id = current_user["business_id"]
+
+    refresh_case_statuses(db, business_id, case_id=case_id)
 
     # --------------------------------------------------------
     # GET CASE
@@ -564,6 +569,8 @@ def get_case(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("cases.view")),
 ):
+    refresh_case_statuses(db, current_user["business_id"], case_id=case_id)
+
     case = (
         db.query(FuneralCase)
         .filter(

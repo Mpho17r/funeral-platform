@@ -48,17 +48,22 @@ def sync_case_status_from_arrangement(
     if arrangement.status not in {"confirmed", "completed"}:
         return []
 
-    if arrangement.committal_at is None:
-        return []
-
     now_value = now or datetime.now(timezone.utc)
-    committal_at = arrangement.committal_at
-    if committal_at.tzinfo is None:
-        committal_at = committal_at.replace(tzinfo=timezone.utc)
     if now_value.tzinfo is None:
         now_value = now_value.replace(tzinfo=timezone.utc)
 
-    if committal_at > now_value:
+    committal_at = arrangement.committal_at
+    if committal_at is not None and committal_at.tzinfo is None:
+        committal_at = committal_at.replace(tzinfo=timezone.utc)
+
+    if committal_at is None:
+        # No committal time recorded yet. A confirmed arrangement still
+        # confirms the case, and one recorded as completed completes it,
+        # but the case is never started on a guess.
+        target_status = (
+            "completed" if arrangement.status == "completed" else "confirmed"
+        )
+    elif committal_at > now_value:
         # A future funeral must not become in-progress or completed early.
         target_status = "confirmed"
     elif arrangement.status == "completed":
@@ -91,4 +96,59 @@ def sync_case_status_from_arrangement(
         if next_status == target_status:
             break
 
+    return changed
+
+
+# ------------------------------------------------------------------
+# Keeping statuses fresh without waiting for the background job
+# ------------------------------------------------------------------
+
+_last_refresh: dict = {}
+REFRESH_EVERY_SECONDS = 30
+
+
+def refresh_case_statuses(
+    db: Session, business_id: UUID, *, case_id: UUID | None = None
+) -> int:
+    """Advance any case whose arrangement says it should have moved on.
+
+    Called when cases are looked at, so a case never stays stuck because
+    the scheduled job is not running. Throttled per business. The branch
+    limit is lifted for this housekeeping so every case is kept in step.
+    Returns the number of status changes made.
+    """
+    import time
+
+    key = (business_id, case_id)
+    now_ts = time.monotonic()
+    if now_ts - _last_refresh.get(key, -1e9) < REFRESH_EVERY_SECONDS:
+        return 0
+    _last_refresh[key] = now_ts
+
+    query = (
+        db.query(FuneralCase, FuneralArrangement)
+        .join(
+            FuneralArrangement,
+            (FuneralArrangement.case_id == FuneralCase.id)
+            & (FuneralArrangement.business_id == FuneralCase.business_id),
+        )
+        .filter(
+            FuneralCase.business_id == business_id,
+            FuneralCase.is_archived.is_(False),
+            FuneralCase.status.notin_(tuple(TERMINAL_CASE_STATUSES)),
+            FuneralArrangement.status.in_(("confirmed", "completed")),
+        )
+        .execution_options(all_branches=True)
+    )
+    if case_id is not None:
+        query = query.filter(FuneralCase.id == case_id)
+
+    changed = 0
+    for case, arrangement in query.all():
+        changes = sync_case_status_from_arrangement(
+            db, case=case, arrangement=arrangement, user_id=None
+        )
+        changed += len(changes)
+    if changed:
+        db.commit()
     return changed
