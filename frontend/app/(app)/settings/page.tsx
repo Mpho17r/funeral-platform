@@ -11,6 +11,7 @@ import {
   ScrollText,
   ShieldCheck,
   Users,
+  ReceiptText,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -93,6 +94,24 @@ export default function SettingsPage() {
                 <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
                   Your business name, phone number, email and address, as
                   shown to families.
+                </p>
+              </button>
+
+              {/* BUSINESS TAX SETTINGS */}
+              <button
+                type="button"
+                onClick={() => router.push("/settings/tax")}
+                className="group rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]">
+                    <ReceiptText size={22} />
+                  </div>
+                  <span className="text-sm text-[var(--fos-text-muted)]">Configure →</span>
+                </div>
+                <h3 className="mt-5 text-lg font-semibold text-[var(--fos-text)]">Business & Tax</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
+                  Configure VAT registration and whether service prices include VAT.
                 </p>
               </button>
 

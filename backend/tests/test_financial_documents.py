@@ -1233,3 +1233,91 @@ def test_receipts_are_tenant_isolated_and_numbered_per_business(
 
     for response in cross:
         assert response.status_code == 404, response.text
+
+
+# ============================================================
+# VAT CALCULATION
+# ============================================================
+
+def test_vat_registered_business_calculates_vat_instead_of_manual_tax(
+    client, db, test_data, auth_headers,
+):
+    business = test_data["business_a"]
+    business.vat_registered = True
+    business.vat_registration_number = "4999999999"
+    business.prices_include_vat = False
+    db.commit()
+    case = make_case(db, business)
+
+    document = create_document(
+        client,
+        auth_headers(test_data["manager"]),
+        case,
+        discount="10.00",
+        tax="999.00",
+        lines=[
+            {"description": "Standard-rated coffin", "quantity": "2", "unit_price": "100.00"},
+            {"description": "Standard-rated hearse hire", "quantity": "1", "unit_price": "50.00"},
+        ],
+    )
+
+    assert Decimal(document["subtotal"]) == Decimal("250.00")
+    assert Decimal(document["tax"]) == Decimal("36.00")
+    assert Decimal(document["total"]) == Decimal("276.00")
+    assert document["vat_registered_snapshot"] is True
+    assert document["prices_include_vat_snapshot"] is False
+    assert Decimal(document["lines"][0]["tax_amount"]) == Decimal("28.80")
+    assert Decimal(document["lines"][1]["tax_amount"]) == Decimal("7.20")
+
+
+def test_vat_treatment_is_applied_per_line(
+    client, db, test_data, auth_headers,
+):
+    business = test_data["business_a"]
+    business.vat_registered = True
+    business.vat_registration_number = "4999999999"
+    db.commit()
+    case = make_case(db, business)
+
+    document = create_document(
+        client,
+        auth_headers(test_data["manager"]),
+        case,
+        discount="10.00",
+        tax="0.00",
+        lines=[
+            {"description": "Standard-rated service", "unit_price": "200.00", "tax_treatment": "standard"},
+            {"description": "Zero-rated supply", "unit_price": "50.00", "tax_treatment": "zero_rated"},
+        ],
+    )
+
+    assert Decimal(document["tax"]) == Decimal("28.80")
+    assert Decimal(document["total"]) == Decimal("268.80")
+    assert document["lines"][0]["tax_treatment"] == "standard"
+    assert Decimal(document["lines"][0]["tax_amount"]) == Decimal("28.80")
+    assert document["lines"][1]["tax_treatment"] == "zero_rated"
+    assert Decimal(document["lines"][1]["tax_amount"]) == Decimal("0.00")
+
+
+def test_vat_inclusive_prices_extract_vat_without_adding_it_again(
+    client, db, test_data, auth_headers,
+):
+    business = test_data["business_a"]
+    business.vat_registered = True
+    business.vat_registration_number = "4999999999"
+    business.prices_include_vat = True
+    db.commit()
+    case = make_case(db, business)
+
+    document = create_document(
+        client,
+        auth_headers(test_data["manager"]),
+        case,
+        discount="0.00",
+        tax="0.00",
+        lines=[{"description": "VAT-inclusive service", "unit_price": "1150.00"}],
+    )
+
+    assert Decimal(document["subtotal"]) == Decimal("1150.00")
+    assert Decimal(document["tax"]) == Decimal("150.00")
+    assert Decimal(document["total"]) == Decimal("1150.00")

@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 DocumentType = Literal["quote", "invoice"]
+TaxTreatment = Literal["standard", "zero_rated", "exempt", "out_of_scope"]
 
 
 # ============================================================
@@ -20,12 +21,14 @@ class LineCreate(BaseModel):
     )
     unit_price: Decimal = Field(default=Decimal("0"), ge=0, decimal_places=2)
     case_service_id: UUID | None = None
+    tax_treatment: TaxTreatment = "standard"
 
 
 class LineUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=255)
     quantity: Decimal | None = Field(default=None, gt=0, decimal_places=2)
     unit_price: Decimal | None = Field(default=None, ge=0, decimal_places=2)
+    tax_treatment: TaxTreatment | None = None
 
 
 class LineResponse(BaseModel):
@@ -39,6 +42,10 @@ class LineResponse(BaseModel):
     unit_price: Decimal
     line_total: Decimal
     case_service_id: UUID | None
+    tax_treatment: str
+    vat_rate: Decimal
+    taxable_value: Decimal
+    tax_amount: Decimal
 
 
 # ============================================================
@@ -80,6 +87,9 @@ class DocumentResponse(BaseModel):
     discount: Decimal
     tax: Decimal
     total: Decimal
+    vat_registered_snapshot: bool | None
+    prices_include_vat_snapshot: bool | None
+    vat_rate_snapshot: Decimal | None
     valid_until: date | None
     due_date: date | None
     source_quote_id: UUID | None

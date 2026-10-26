@@ -198,6 +198,29 @@ class Business(Base):
     )
 
     # ========================================================
+    # TAX SETTINGS (business registration; rates are centrally controlled)
+    # ========================================================
+
+    vat_registered: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="false",
+        nullable=False,
+    )
+
+    vat_registration_number: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    prices_include_vat: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="false",
+        nullable=False,
+    )
+
+    # ========================================================
     # TIMESTAMPS
     # ========================================================
 

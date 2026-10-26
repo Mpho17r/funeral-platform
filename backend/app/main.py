@@ -9,6 +9,7 @@ from app.services import scheduler_state
 from app.database import engine
 
 from app.api.businesses import router as businesses_router
+from app.api.tax_settings import router as tax_settings_router
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
 from app.api.cases import router as cases_router
@@ -129,6 +130,8 @@ async def security_headers(request, call_next):
 app.include_router(
     businesses_router
 )
+
+app.include_router(tax_settings_router)
 
 app.include_router(
     auth_router
