@@ -14,6 +14,7 @@ from app.database import SessionLocal
 from app.models.arrangement import FuneralArrangement
 from app.models.funeral_case import FuneralCase
 from app.services.automatic_case_lifecycle import (
+    advance_from_signals,
     sync_case_status_from_arrangement,
 )
 
@@ -45,6 +46,20 @@ def run(db: Session) -> int:
         if changes:
             db.commit()
             changed_count += len(changes)
+
+    # Cases that have started for real (remains in care, funeral day).
+    waiting = (
+        db.query(FuneralCase)
+        .filter(
+            FuneralCase.is_archived.is_(False),
+            FuneralCase.status.in_(("open", "confirmed")),
+        )
+        .all()
+    )
+    for case in waiting:
+        if advance_from_signals(db, case=case, user_id=None):
+            db.commit()
+            changed_count += 1
 
     return changed_count
 

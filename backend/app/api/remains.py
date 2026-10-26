@@ -10,6 +10,7 @@ from app.dependencies.roles import require_permission
 
 from app.models.death_record import CasePaperworkItem, DeathRecord
 from app.models.funeral_case import FuneralCase
+from app.services.automatic_case_lifecycle import advance_from_signals
 from app.models.mortuary import CustodyEvent, MortuaryBelonging, RemainsRecord
 from app.models.resource import Resource
 from app.schemas.mortuary import (
@@ -405,6 +406,10 @@ def take_into_care(
         occurred_at=received_at,
         performed_by=get_user_id(current_user),
         to_location_id=remains.current_location_id,
+    )
+
+    advance_from_signals(
+        db, case=case, user_id=get_user_id(current_user)
     )
 
     audit_remains(

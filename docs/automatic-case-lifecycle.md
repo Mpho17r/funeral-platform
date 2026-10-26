@@ -35,3 +35,17 @@ silently mark the funeral itself as completed. An authorised staff member must
 record the arrangement as completed after the burial/cremation has happened;
 the linked case then advances automatically to `completed`. This prevents
 postponed funerals from being falsely reported as completed.
+
+## Automatic start (added 2026-10-26)
+
+A case also moves to `in_progress` by itself, without an arrangement, when
+real work has started:
+
+- the deceased is taken into the mortuary's care, or
+- the funeral day arrives (funeral date within the last 7 days, so old
+  imported records are left alone).
+
+This happens when the remains are received, when cases are opened or listed,
+and in the scheduled job. Each change is audited with its reason. Completion
+is still never guessed: a person records the funeral as completed, and
+closing the case stays a manual step.

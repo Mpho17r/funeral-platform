@@ -18,12 +18,12 @@ const NEXT: Record<string, { to: string; label: string; hint: string }> = {
   open: {
     to: "confirmed",
     label: "Confirm the funeral",
-    hint: "Moves on by itself when the funeral arrangements are confirmed.",
+    hint: "Moves on by itself when the arrangements are confirmed, the deceased is taken into care, or the funeral day arrives.",
   },
   confirmed: {
     to: "in_progress",
     label: "Start the funeral",
-    hint: "Moves on by itself once the committal time has passed.",
+    hint: "Moves on by itself once the committal time has passed or the funeral day arrives.",
   },
   in_progress: {
     to: "completed",

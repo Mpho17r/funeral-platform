@@ -30,6 +30,9 @@ ALLOWED_CASE_STATUSES = {
 CASE_STATUS_TRANSITIONS: dict[str, set[str]] = {
     CASE_STATUS_OPEN: {
         CASE_STATUS_CONFIRMED,
+        # Work can start before the family has signed off the arrangements
+        # (remains taken into care, or the funeral day arriving).
+        CASE_STATUS_IN_PROGRESS,
         CASE_STATUS_CANCELLED,
     },
     CASE_STATUS_CONFIRMED: {
@@ -89,6 +92,7 @@ def transition_case_status(
     business_id: UUID,
     user_id: UUID | None,
     new_status: str,
+    reason: str | None = None,
 ) -> FuneralCase:
     new_status = new_status.strip().lower()
 
@@ -111,8 +115,12 @@ def transition_case_status(
         details={
             "old_status": old_status,
             "new_status": new_status,
+            **({"reason": reason} if reason else {}),
         },
-        notes=f"Case status changed from {old_status} to {new_status}.",
+        notes=(
+            f"Case status changed from {old_status} to {new_status}."
+            + (f" {reason}" if reason else "")
+        ),
     )
 
     return case

@@ -6,7 +6,7 @@ skipping states. A passed date can move a confirmed case to in_progress;
 completion requires the arrangement itself to be recorded as completed.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -100,6 +100,65 @@ def sync_case_status_from_arrangement(
 
 
 # ------------------------------------------------------------------
+# Real-world signals that work has started
+# ------------------------------------------------------------------
+
+
+def advance_from_signals(
+    db: Session,
+    *,
+    case: FuneralCase,
+    user_id: UUID | None = None,
+    today=None,
+) -> bool:
+    """Start an open or confirmed case once work has really begun.
+
+    A case becomes "in progress" automatically when
+      * the deceased has been taken into the mortuary's care, or
+      * the funeral day has arrived (within the last week, so old imported
+      records are left alone).
+    Completion is never guessed: a person must record the funeral as done.
+    The caller commits.
+    """
+    from app.models.mortuary import RemainsRecord
+    from app.services.communications import today_in_south_africa
+
+    if case.is_archived or case.status not in ("open", "confirmed"):
+        return False
+
+    reason = None
+    has_remains = (
+        db.query(RemainsRecord.id)
+        .filter(RemainsRecord.case_id == case.id)
+        .execution_options(all_branches=True)
+        .first()
+        is not None
+    )
+    if has_remains:
+        reason = "Started automatically: the deceased was taken into care."
+    elif case.funeral_date is not None and (
+        (today or today_in_south_africa()) - timedelta(days=7)
+        <= case.funeral_date
+        <= (today or today_in_south_africa())
+    ):
+        # Within the last week only: an old date on an imported record is
+        # not evidence that the case is live.
+        reason = "Started automatically: the funeral day has arrived."
+    if reason is None:
+        return False
+
+    transition_case_status(
+        db,
+        case=case,
+        business_id=case.business_id,
+        user_id=user_id,
+        new_status="in_progress",
+        reason=reason,
+    )
+    return True
+
+
+# ------------------------------------------------------------------
 # Keeping statuses fresh without waiting for the background job
 # ------------------------------------------------------------------
 
@@ -149,6 +208,18 @@ def refresh_case_statuses(
             db, case=case, arrangement=arrangement, user_id=None
         )
         changed += len(changes)
+
+    # Work that has really started, with or without an arrangement.
+    waiting = db.query(FuneralCase).filter(
+        FuneralCase.business_id == business_id,
+        FuneralCase.is_archived.is_(False),
+        FuneralCase.status.in_(("open", "confirmed")),
+    ).execution_options(all_branches=True)
+    if case_id is not None:
+        waiting = waiting.filter(FuneralCase.id == case_id)
+    for case in waiting.all():
+        if advance_from_signals(db, case=case):
+            changed += 1
     if changed:
         db.commit()
     return changed
