@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    Boolean,
     String,
     Text,
     UniqueConstraint,
@@ -145,6 +146,17 @@ class FinancialDocument(Base):
         Numeric(12, 2),
         nullable=False,
         default=Decimal("0.00"),
+    )
+
+    # Tax settings snapshot captured when the draft is created.
+    vat_registered_snapshot: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True
+    )
+    prices_include_vat_snapshot: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True
+    )
+    vat_rate_snapshot: Mapped[Decimal | None] = mapped_column(
+        Numeric(5, 4), nullable=True
     )
 
     total: Mapped[Decimal] = mapped_column(
@@ -289,6 +301,19 @@ class FinancialDocumentLine(Base):
         Numeric(12, 2),
         nullable=False,
         default=Decimal("0.00"),
+    )
+
+    tax_treatment: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="standard", server_default="standard"
+    )
+    vat_rate: Mapped[Decimal] = mapped_column(
+        Numeric(5, 4), nullable=False, default=Decimal("0.0000")
+    )
+    taxable_value: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0.00")
+    )
+    tax_amount: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0.00")
     )
 
     case_service_id: Mapped[uuid.UUID | None] = mapped_column(
