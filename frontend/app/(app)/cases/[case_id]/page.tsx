@@ -26,6 +26,7 @@ import { useParams, useRouter } from "next/navigation";
 
 import api from "@/lib/api";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
+import { CaseStatusControl } from "@/components/CaseStatusControl";
 import { PortalLinkDialog } from "@/components/PortalLinkDialog";
 import { isAuthenticated } from "@/lib/auth";
 
@@ -656,6 +657,13 @@ export default function CaseDetailsPage() {
             </button>
             </div>
           </div>
+
+          <CaseStatusControl
+            caseId={funeralCase.id}
+            status={funeralCase.status}
+            canEdit={can("cases.edit")}
+            onChanged={() => setRefreshVersion((version) => version + 1)}
+          />
         </div>
       </header>
 

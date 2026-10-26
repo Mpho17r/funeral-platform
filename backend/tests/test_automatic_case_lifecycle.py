@@ -178,3 +178,36 @@ def test_scheduled_job_advances_past_confirmed_cases(db, test_data):
 
     assert changed >= 2
     assert case.status == "in_progress"
+
+
+def test_confirmed_arrangement_without_a_committal_time_still_confirms_case(
+    db, test_data
+):
+    case, arrangement = make_lifecycle_pair(db, test_data["business_a"])
+    arrangement.committal_at = None
+    db.commit()
+    changes = sync_case_status_from_arrangement(
+        db, case=case, arrangement=arrangement
+    )
+    assert changes == [("open", "confirmed")]
+    assert case.status == "confirmed"   # but never started on a guess
+
+
+def test_looking_at_a_case_moves_it_on_without_the_background_job(
+    client, auth_headers, db, test_data
+):
+    case, _ = make_lifecycle_pair(db, test_data["business_a"])  # committal passed
+    assert case.status == "open"
+    h = auth_headers(test_data["main_admin"])
+    got = client.get(f"/cases/{case.id}", headers=h)
+    assert got.status_code == 200, got.text
+    assert got.json()["status"] == "in_progress"
+
+
+def test_the_case_list_also_refreshes_stuck_cases(
+    client, auth_headers, db, test_data
+):
+    case, _ = make_lifecycle_pair(db, test_data["business_a"])
+    h = auth_headers(test_data["main_admin"])
+    rows = client.get("/cases", headers=h).json()
+    assert {r["id"]: r["status"] for r in rows}[str(case.id)] == "in_progress"
