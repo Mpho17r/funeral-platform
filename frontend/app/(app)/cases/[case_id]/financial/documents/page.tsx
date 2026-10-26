@@ -972,7 +972,7 @@ function DocumentCard({
               value={document.discount}
               negative
             />
-            <TotalRow label={document.vat_registered_snapshot ? "VAT" : "Tax"} value={document.tax} />
+            <TotalRow label={document.vat_registered_snapshot ? (document.prices_include_vat_snapshot ? "VAT included" : "VAT") : "Tax"} value={document.tax} />
             <div className="flex justify-between border-t pt-2 text-base font-bold text-slate-900">
               <dt>Total</dt>
               <dd>R {formatMoney(document.total)}</dd>
@@ -1104,7 +1104,6 @@ function CreateDialog({
 }) {
   const [lines, setLines] = useState<LineForm[]>([newLine()]);
   const [discount, setDiscount] = useState("0.00");
-  const [tax, setTax] = useState("0.00");
   const [date, setDate] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1138,7 +1137,6 @@ function CreateDialog({
 
       await onCreate(type, {
         discount: discount || "0",
-        tax: tax || "0",
         valid_until: isQuote && date ? date : null,
         due_date: !isQuote && date ? date : null,
         notes: notes.trim() || null,
@@ -1262,17 +1260,11 @@ function CreateDialog({
           </button>
         </fieldset>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <NumberField
             label="Discount (R)"
             value={discount}
             onChange={setDiscount}
-          />
-
-          <NumberField
-            label="Tax (R)"
-            value={tax}
-            onChange={setTax}
           />
 
           <DateField
@@ -1316,7 +1308,6 @@ function DetailsDialog({
 
   const [form, setForm] = useState<DetailsForm>({
     discount: document.discount,
-    tax: document.tax,
     date:
       (isQuote ? document.valid_until : document.due_date) ?? "",
     notes: document.notes ?? "",
@@ -1336,7 +1327,6 @@ function DetailsDialog({
         `/financial-documents/${document.id}`,
         {
           discount: form.discount || "0",
-          tax: form.tax || "0",
           [isQuote ? "valid_until" : "due_date"]:
             form.date || null,
           notes: form.notes.trim() || null,
@@ -1366,13 +1356,6 @@ function DetailsDialog({
             }
           />
 
-          <NumberField
-            label="Tax (R)"
-            value={form.tax}
-            onChange={(value) =>
-              setForm({ ...form, tax: value })
-            }
-          />
         </div>
 
         <DateField
