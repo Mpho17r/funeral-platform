@@ -211,3 +211,94 @@ def test_the_case_list_also_refreshes_stuck_cases(
     h = auth_headers(test_data["main_admin"])
     rows = client.get("/cases", headers=h).json()
     assert {r["id"]: r["status"] for r in rows}[str(case.id)] == "in_progress"
+
+
+# ---- real-world signals: the case starts by itself ------------------------
+
+
+def _bare_case(db, business, **fields):
+    from datetime import date  # noqa: F401
+
+    case = FuneralCase(
+        business_id=business.id,
+        case_number=f"SIG-{datetime.now(timezone.utc).timestamp()}",
+        deceased_full_name="Signal Test",
+        status="open",
+        **fields,
+    )
+    db.add(case)
+    db.commit()
+    return case
+
+
+def test_taking_remains_into_care_starts_the_case(
+    client, auth_headers, db, test_data
+):
+    case = _bare_case(db, test_data["business_a"])
+    h = auth_headers(test_data["main_admin"])
+    r = client.post(
+        f"/cases/{case.id}/remains",
+        json={"received_from_type": "hospital"},
+        headers=h,
+    )
+    assert r.status_code == 201, r.text
+    db.refresh(case)
+    assert case.status == "in_progress"
+
+
+def test_funeral_day_arriving_starts_the_case(client, auth_headers, db, test_data):
+    from app.services.communications import today_in_south_africa
+
+    today = today_in_south_africa()
+    due = _bare_case(db, test_data["business_a"], funeral_date=today)
+    later = _bare_case(db, test_data["business_a"],
+                       funeral_date=today + timedelta(days=3))
+    old = _bare_case(db, test_data["business_a"],
+                     funeral_date=today - timedelta(days=60))
+    h = auth_headers(test_data["main_admin"])
+    client.get("/cases", headers=h)
+    for c in (due, later, old):
+        db.refresh(c)
+    assert due.status == "in_progress"
+    assert later.status == "open"          # not yet
+    assert old.status == "open"            # old imported record left alone
+
+
+def test_the_scheduled_job_starts_cases_too(db, test_data):
+    from app.jobs.sync_case_lifecycle import run
+    from app.services.communications import today_in_south_africa
+
+    case = _bare_case(db, test_data["business_a"],
+                      funeral_date=today_in_south_africa())
+    run(db)
+    db.refresh(case)
+    assert case.status == "in_progress"
+
+
+def test_automatic_start_is_audited_with_the_reason(db, test_data):
+    from app.models.audit_log import AuditLog
+    from app.services.automatic_case_lifecycle import advance_from_signals
+    from app.services.communications import today_in_south_africa
+
+    case = _bare_case(db, test_data["business_a"],
+                      funeral_date=today_in_south_africa())
+    assert advance_from_signals(db, case=case) is True
+    db.commit()
+    entry = (
+        db.query(AuditLog)
+        .filter(AuditLog.entity_id == case.id,
+                AuditLog.action == "case.status_changed")
+        .one()
+    )
+    assert "funeral day" in entry.notes
+
+
+def test_completion_is_never_automatic_from_signals(db, test_data):
+    from app.services.automatic_case_lifecycle import advance_from_signals
+    from app.services.communications import today_in_south_africa
+
+    case = _bare_case(db, test_data["business_a"],
+                      funeral_date=today_in_south_africa())
+    advance_from_signals(db, case=case)
+    assert advance_from_signals(db, case=case) is False
+    assert case.status == "in_progress"
