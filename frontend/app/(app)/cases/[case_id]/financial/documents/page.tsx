@@ -868,17 +868,23 @@ function DocumentCard({
 
           {/* LINES */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-sm">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-400">
                   <th className="pb-2 font-medium">
                     Description
                   </th>
                   <th className="pb-2 text-right font-medium">
+                    Tax treatment
+                  </th>
+                  <th className="pb-2 text-right font-medium">
                     Qty
                   </th>
                   <th className="pb-2 text-right font-medium">
                     Unit price
+                  </th>
+                  <th className="pb-2 text-right font-medium">
+                    VAT
                   </th>
                   <th className="pb-2 text-right font-medium">
                     Total
@@ -895,7 +901,7 @@ function DocumentCard({
                 {document.lines.length === 0 && (
                   <tr>
                     <td
-                      colSpan={isDraft ? 5 : 4}
+                      colSpan={isDraft ? 7 : 6}
                       className="py-6 text-center text-slate-500"
                     >
                       No lines yet. Add at least one before
@@ -910,10 +916,16 @@ function DocumentCard({
                       {line.description}
                     </td>
                     <td className="py-3 text-right text-slate-600">
+                      {formatStatus(line.tax_treatment)}
+                    </td>
+                    <td className="py-3 text-right text-slate-600">
                       {formatQuantity(line.quantity)}
                     </td>
                     <td className="py-3 text-right text-slate-600">
                       R {formatMoney(line.unit_price)}
+                    </td>
+                    <td className="py-3 text-right text-slate-600">
+                      R {formatMoney(line.tax_amount)}
                     </td>
                     <td className="py-3 text-right font-medium text-slate-900">
                       R {formatMoney(line.line_total)}
