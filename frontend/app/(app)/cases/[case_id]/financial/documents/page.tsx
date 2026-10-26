@@ -81,7 +81,6 @@ type LineForm = {
 
 type DetailsForm = {
   discount: string;
-  tax: string;
   date: string;
   notes: string;
 };
