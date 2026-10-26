@@ -727,7 +727,7 @@ def update_line(
         old_values,
         snapshot_fields(
             line,
-            ("description", "quantity", "unit_price", "line_total"),
+            ("description", "quantity", "unit_price", "line_total", "tax_treatment"),
         ),
     )
 
