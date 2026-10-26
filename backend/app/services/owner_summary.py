@@ -12,8 +12,9 @@ dated in the period; outstanding is what is owed right now.
 
 import csv
 import io
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 from uuid import UUID
 
 from sqlalchemy import func
@@ -38,6 +39,8 @@ from app.services.reports import (
     validate_branch,
     validate_period,
 )
+
+BUSINESS_TZ = ZoneInfo("Africa/Johannesburg")
 
 TREND_MONTHS = 6
 LIST_LIMIT = 200
@@ -252,7 +255,7 @@ def overview(
     branch_id: UUID | None,
     today: date | None = None,
 ) -> dict:
-    today = today or datetime.now(timezone.utc).date()
+    today = today or datetime.now(BUSINESS_TZ).date()
 
     validate_period(date_from, date_to)
     validate_branch(db, business_id, branch_id)
@@ -293,7 +296,7 @@ def arrears_rows(
     """Memberships behind on contributions, longest first, with how long
     until the lapse rule applies."""
 
-    today = today or datetime.now(timezone.utc).date()
+    today = today or datetime.now(BUSINESS_TZ).date()
 
     business = db.get(Business, business_id)
     lapse_after = business.lapse_after_days if business else 0
@@ -370,7 +373,7 @@ def debtor_rows(
 ) -> dict:
     """Live cases that still owe money, biggest balance first."""
 
-    today = today or datetime.now(timezone.utc).date()
+    today = today or datetime.now(BUSINESS_TZ).date()
 
     query = (
         db.query(FuneralCase, CaseFinancial)
