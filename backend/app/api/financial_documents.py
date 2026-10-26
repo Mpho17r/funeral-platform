@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.roles import require_permission
 
+from app.models.business import Business
 from app.models.case_payment import CasePayment
 from app.models.case_service import CaseService
 from app.models.financial_document import (
@@ -252,6 +253,7 @@ def build_line(
             data.unit_price,
         ),
         case_service_id=data.case_service_id,
+        tax_treatment=data.tax_treatment,
     )
 
 
@@ -327,6 +329,10 @@ def create_document(
             business_id=business_id,
         )
 
+    business = db.get(Business, business_id)
+    if business is None:
+        raise HTTPException(status_code=404, detail="Business not found")
+
     document = FinancialDocument(
         business_id=business_id,
         case_id=case.id,
@@ -340,6 +346,9 @@ def create_document(
         valid_until=data.valid_until,
         due_date=data.due_date,
         notes=data.notes,
+        vat_registered_snapshot=business.vat_registered,
+        prices_include_vat_snapshot=business.prices_include_vat,
+        vat_rate_snapshot=Decimal("0.1500"),
         created_by=get_user_id(current_user),
     )
 
@@ -689,7 +698,7 @@ def update_line(
 
     old_values = snapshot_fields(
         line,
-        ("description", "quantity", "unit_price", "line_total"),
+        ("description", "quantity", "unit_price", "line_total", "tax_treatment"),
     )
 
     if "description" in updates:
@@ -701,6 +710,8 @@ def update_line(
 
     if "unit_price" in updates:
         line.unit_price = money(updates["unit_price"])
+    if "tax_treatment" in updates:
+        line.tax_treatment = updates["tax_treatment"]
 
     line.line_total = calculate_line_total(
         line.quantity,
@@ -1074,6 +1085,9 @@ def convert_quote_to_invoice(
         tax=Decimal("0.00"),
         notes=quote.notes,
         source_quote_id=quote.id,
+        vat_registered_snapshot=quote.vat_registered_snapshot,
+        prices_include_vat_snapshot=quote.prices_include_vat_snapshot,
+        vat_rate_snapshot=quote.vat_rate_snapshot,
         created_by=get_user_id(current_user),
     )
 
@@ -1091,6 +1105,7 @@ def convert_quote_to_invoice(
                 unit_price=source.unit_price,
                 line_total=source.line_total,
                 case_service_id=source.case_service_id,
+                tax_treatment=source.tax_treatment,
             )
         )
 
