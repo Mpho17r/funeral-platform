@@ -104,6 +104,14 @@ class BusinessResponse(BaseModel):
     break_expiry_notification_enabled: bool = True
 
     # ========================================================
+    # TAX SETTINGS
+    # ========================================================
+
+    vat_registered: bool = False
+    vat_registration_number: str | None = None
+    prices_include_vat: bool = False
+
+    # ========================================================
     # STATUS
     # ========================================================
 
