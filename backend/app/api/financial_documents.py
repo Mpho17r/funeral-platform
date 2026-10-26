@@ -33,6 +33,7 @@ from app.services.audit_service import (
     create_audit_log,
     snapshot_fields,
 )
+from app.services.vat import STANDARD_VAT_RATE
 from app.services.financial_documents import (
     INVOICE_DUE_DAYS,
     QUOTE_VALID_DAYS,
@@ -348,7 +349,7 @@ def create_document(
         notes=data.notes,
         vat_registered_snapshot=business.vat_registered,
         prices_include_vat_snapshot=business.prices_include_vat,
-        vat_rate_snapshot=Decimal("0.1500"),
+        vat_rate_snapshot=STANDARD_VAT_RATE,
         created_by=get_user_id(current_user),
     )
 
@@ -689,7 +690,7 @@ def update_line(
 
     updates = data.model_dump(exclude_unset=True)
 
-    for required in ("description", "quantity", "unit_price"):
+    for required in ("description", "quantity", "unit_price", "tax_treatment"):
         if required in updates and updates[required] is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
