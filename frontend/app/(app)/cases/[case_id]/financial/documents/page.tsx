@@ -40,6 +40,10 @@ type DocumentLine = {
   unit_price: string;
   line_total: string;
   case_service_id: string | null;
+  tax_treatment: "standard" | "zero_rated" | "exempt" | "out_of_scope";
+  vat_rate: string;
+  taxable_value: string;
+  tax_amount: string;
 };
 
 type FinancialDocument = {
@@ -52,6 +56,9 @@ type FinancialDocument = {
   discount: string;
   tax: string;
   total: string;
+  vat_registered_snapshot: boolean | null;
+  prices_include_vat_snapshot: boolean | null;
+  vat_rate_snapshot: string | null;
   valid_until: string | null;
   due_date: string | null;
   source_quote_id: string | null;
@@ -69,6 +76,7 @@ type LineForm = {
   description: string;
   quantity: string;
   unit_price: string;
+  tax_treatment: "standard" | "zero_rated" | "exempt" | "out_of_scope";
 };
 
 type DetailsForm = {
@@ -964,7 +972,7 @@ function DocumentCard({
               value={document.discount}
               negative
             />
-            <TotalRow label="Tax" value={document.tax} />
+            <TotalRow label={document.vat_registered_snapshot ? "VAT" : "Tax"} value={document.tax} />
             <div className="flex justify-between border-t pt-2 text-base font-bold text-slate-900">
               <dt>Total</dt>
               <dd>R {formatMoney(document.total)}</dd>
@@ -1138,6 +1146,7 @@ function CreateDialog({
           description: line.description.trim(),
           quantity: line.quantity || "1",
           unit_price: line.unit_price || "0",
+          tax_treatment: line.tax_treatment,
         })),
       });
     } catch (err) {
@@ -1200,6 +1209,23 @@ function CreateDialog({
                     updateLine(line.key, { unit_price: value })
                   }
                 />
+              </div>
+
+              <div className="col-span-12 md:col-span-4">
+                <label className="block">
+                  {index === 0 && <span className="mb-2 block text-sm font-medium text-slate-700">Tax treatment</span>}
+                  <select
+                    value={line.tax_treatment}
+                    aria-label={`Line ${index + 1} tax treatment`}
+                    onChange={(event) => updateLine(line.key, { tax_treatment: event.target.value as LineForm["tax_treatment"] })}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+                  >
+                    <option value="standard">Standard-rated</option>
+                    <option value="zero_rated">Zero-rated</option>
+                    <option value="exempt">Exempt</option>
+                    <option value="out_of_scope">Out of scope</option>
+                  </select>
+                </label>
               </div>
 
               <div className="col-span-2 md:col-span-1">
@@ -1395,6 +1421,9 @@ function LineDialog({
   const [unitPrice, setUnitPrice] = useState(
     line?.unit_price ?? "0.00"
   );
+  const [taxTreatment, setTaxTreatment] = useState<LineForm["tax_treatment"]>(
+    line?.tax_treatment ?? "standard"
+  );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1411,6 +1440,7 @@ function LineDialog({
       description: description.trim(),
       quantity: quantity || "1",
       unit_price: unitPrice || "0",
+      tax_treatment: taxTreatment,
     };
 
     try {
@@ -1465,6 +1495,16 @@ function LineDialog({
             onChange={setUnitPrice}
           />
         </div>
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-slate-700">Tax treatment</span>
+          <select value={taxTreatment} onChange={(event) => setTaxTreatment(event.target.value as LineForm["tax_treatment"])} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">
+            <option value="standard">Standard-rated</option>
+            <option value="zero_rated">Zero-rated</option>
+            <option value="exempt">Exempt</option>
+            <option value="out_of_scope">Out of scope</option>
+          </select>
+        </label>
 
         <DialogFooter
           onClose={onClose}
@@ -1902,6 +1942,7 @@ function newLine(): LineForm {
     description: "",
     quantity: "1",
     unit_price: "",
+    tax_treatment: "standard",
   };
 }
 
