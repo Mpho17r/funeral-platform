@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import {
+  Car,
   ArrowLeft,
   CalendarDays,
   CalendarHeart,
@@ -1145,6 +1146,33 @@ export default function CaseDetailsPage() {
 
                   <p className="text-xs text-[var(--fos-text-muted)]">
                     Manage funeral services
+                  </p>
+                </div>
+              </div>
+
+              <ChevronRight
+                size={18}
+                className="text-[var(--fos-text-muted)]"
+              />
+            </button>
+
+            {/* CARS AND DRIVERS */}
+
+            <button
+              type="button"
+              onClick={() => router.push(`/transport?case=${caseId}`)}
+              className="flex items-center justify-between rounded-xl border p-4 text-left hover:bg-[var(--fos-page)]"
+            >
+              <div className="flex items-center gap-3">
+                <Car size={20} className="text-[var(--fos-text-muted)]" />
+
+                <div>
+                  <p className="text-sm font-semibold text-[var(--fos-text)]">
+                    Cars &amp; drivers
+                  </p>
+
+                  <p className="text-xs text-[var(--fos-text-muted)]">
+                    Family cars and partner drivers
                   </p>
                 </div>
               </div>

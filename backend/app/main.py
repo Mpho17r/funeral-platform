@@ -112,7 +112,7 @@ async def security_headers(request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
-    if request.url.path.startswith("/portal"):
+    if request.url.path.startswith(("/portal", "/driver-portal")):
         response.headers.setdefault("Cache-Control", "no-store")
     if settings.is_production:
         response.headers.setdefault(
@@ -388,6 +388,11 @@ app.include_router(orders_router)
 from app.api.service_catalogue import router as catalogue_router  # noqa: E402
 
 app.include_router(catalogue_router)
+
+
+from app.api.transport import router as transport_router  # noqa: E402
+
+app.include_router(transport_router)
 
 
 # ============================================================
