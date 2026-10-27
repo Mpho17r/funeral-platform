@@ -81,3 +81,4 @@ from app.models.reconciliation import Reconciliation
 from app.models.notification import Notification
 from app.models.compliance import ComplianceItem, RemainsViewing
 from app.models.service_catalogue import ServiceCatalogueItem, ServicePackage, ServicePackageItem
+from app.models.transport import PartnerDriver, PartnerVehicle, TransportJob

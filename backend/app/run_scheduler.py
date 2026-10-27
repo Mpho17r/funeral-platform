@@ -89,12 +89,16 @@ def _reminders() -> str:
     from app.database import SessionLocal
     from app.services.auto_reminders import run_all
 
+    from app.services.transport import send_due_reminders
+
     db = SessionLocal()
     try:
         results = run_all(db)
+        drivers = send_due_reminders(db)
     finally:
         db.close()
-    return f"{sum(n for n in results.values() if n > 0)} reminder(s) queued"
+    queued = sum(n for n in results.values() if n > 0)
+    return f"{queued} reminder(s) queued, {drivers} driver reminder(s) sent"
 
 
 def _stock() -> str:
