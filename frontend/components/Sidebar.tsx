@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Tags,
   CalendarDays,
   CreditCard,
   FileText,
@@ -229,6 +230,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Services",
       icon: <HeartHandshake size={18} />,
       path: "/services",
+    },
+    {
+      label: "Price list",
+      icon: <Tags size={18} />,
+      path: "/service-catalog",
     },
     {
       label: "Run sheet",

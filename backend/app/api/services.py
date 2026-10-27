@@ -173,6 +173,7 @@ def create_service(
         provider=service_data.provider,
         notes=service_data.notes,
         inventory_item_id=service_data.inventory_item_id,
+        catalog_item_id=service_data.catalog_item_id,
     )
 
     if service.inventory_item_id is not None:

@@ -287,7 +287,7 @@ DEFAULT_ROLE_PERMISSIONS["manager"] |= {
     "viewings.view", "viewings.manage",
     "compliance.view", "compliance.manage",
 }
-DEFAULT_ROLE_PERMISSIONS["manager"] |= {"portal.manage"}
+DEFAULT_ROLE_PERMISSIONS["manager"] |= {"portal.manage", "services.catalog"}
 DEFAULT_ROLE_PERMISSIONS["staff"] |= {"viewings.view"}
 DEFAULT_ROLE_PERMISSIONS["mortuary"] |= {
     "viewings.view", "viewings.manage", "compliance.view",

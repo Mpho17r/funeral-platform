@@ -93,6 +93,12 @@ class CaseService(Base):
         ForeignKey("inventory_items.id"),
         nullable=True,
     )
+    # The price-list entry this line came from, if any.
+    catalog_item_id: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("service_catalog_items.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     stock_issued: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=text("0")
     )

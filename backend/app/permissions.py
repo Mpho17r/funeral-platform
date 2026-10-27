@@ -66,6 +66,7 @@ PERMISSIONS = {
     # Funeral services
     "services.view": "View funeral services",
     "services.manage": "Manage funeral services",
+    "services.catalog": "Edit the price list and service packages",
 
     # Contacts
     "contacts.view": "View case contacts",

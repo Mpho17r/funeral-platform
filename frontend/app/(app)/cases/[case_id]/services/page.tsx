@@ -16,6 +16,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 
 import axios from "axios";
+import { CatalogQuickAdd } from "@/components/CatalogQuickAdd";
 import api from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 
@@ -602,6 +603,8 @@ export default function ServicesPage() {
             icon={<HeartHandshake size={20} />}
           />
         </div>
+
+        <CatalogQuickAdd caseId={caseId} onAdded={loadServices} />
 
         {/* SERVICES CARD */}
 

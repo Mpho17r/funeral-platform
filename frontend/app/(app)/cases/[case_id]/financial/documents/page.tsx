@@ -11,6 +11,7 @@ import {
   Loader2,
   Lock,
   Pencil,
+  RefreshCw,
   Plus,
   Send,
   Trash2,
@@ -203,6 +204,9 @@ export default function FinancialDocumentsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId, router]);
 
+  const [building, setBuilding] = useState<DocumentType | null>(null);
+  const [buildError, setBuildError] = useState("");
+
   async function loadDocuments(showSpinner = true) {
     try {
       if (showSpinner) {
@@ -288,6 +292,44 @@ export default function FinancialDocumentsPage() {
     setDocuments((current) => [response.data, ...current]);
     setOpenId(response.data.id);
     setCreating(null);
+  }
+
+  async function handleBuildFromServices(type: DocumentType) {
+    try {
+      setBuildError("");
+      setBuilding(type);
+
+      const response = await api.post<FinancialDocument>(
+        `/cases/${caseId}/financial-documents/from-services`,
+        { document_type: type }
+      );
+
+      setDocuments((current) => [response.data, ...current]);
+      setOpenId(response.data.id);
+    } catch (err) {
+      setBuildError(
+        getApiErrorMessage(
+          err,
+          "Unable to build the document from the case services."
+        )
+      );
+    } finally {
+      setBuilding(null);
+    }
+  }
+
+  async function handleSyncServices(document: FinancialDocument) {
+    await runAction(
+      document,
+      "sync",
+      async () =>
+        (
+          await api.post<FinancialDocument>(
+            `/financial-documents/${document.id}/sync-services`
+          )
+        ).data,
+      "Unable to refresh the document from the services."
+    );
   }
 
   async function handleIssue(document: FinancialDocument) {
@@ -491,6 +533,36 @@ export default function FinancialDocumentsPage() {
               </button>
             </div>
           </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <span className="font-medium text-slate-700">
+              Skip the typing:
+            </span>
+
+            <button
+              onClick={() => handleBuildFromServices("quote")}
+              disabled={building !== null}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+            >
+              {building === "quote"
+                ? "Building..."
+                : "Quote from this case's services"}
+            </button>
+
+            <button
+              onClick={() => handleBuildFromServices("invoice")}
+              disabled={building !== null}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+            >
+              {building === "invoice"
+                ? "Building..."
+                : "Invoice from this case's services"}
+            </button>
+
+            {buildError && (
+              <span className="text-red-600">{buildError}</span>
+            )}
+          </div>
         </div>
       </header>
 
@@ -589,6 +661,7 @@ export default function FinancialDocumentsPage() {
                 handleQuoteDecision(document, "accept")
               }
               onConvert={() => handleConvert(document)}
+              onSync={() => handleSyncServices(document)}
             />
           ))}
         </div>
@@ -750,6 +823,7 @@ function DocumentCard({
   onConfirm,
   onAccept,
   onConvert,
+  onSync,
 }: {
   document: FinancialDocument;
   open: boolean;
@@ -766,6 +840,7 @@ function DocumentCard({
   ) => void;
   onAccept: () => void;
   onConvert: () => void;
+  onSync: () => void;
 }) {
   const isDraft = document.status === "draft";
   const isQuote = document.document_type === "quote";
@@ -1006,6 +1081,15 @@ function DocumentCard({
                   }
                 >
                   Issue
+                </ActionButton>
+
+                <ActionButton
+                  onClick={onSync}
+                  disabled={anyBusy}
+                  icon={<RefreshCw size={16} />}
+                  title="Add new services and update changed prices"
+                >
+                  Refresh from services
                 </ActionButton>
 
                 <ActionButton
