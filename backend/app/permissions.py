@@ -174,6 +174,11 @@ PERMISSIONS = {
     "remains.release": "Release remains to a family or undertaker",
     "viewings.view": "See scheduled family viewings of remains",
     "viewings.manage": "Schedule and cancel family viewings of remains",
+    "transport.view": "See partner drivers, their cars and car jobs",
+    "transport.manage": (
+        "Register partner drivers and cars, create car jobs, assign "
+        "drivers and record their pay"
+    ),
     "portal.manage": (
         "Create and revoke private family and member portal links"
     ),
