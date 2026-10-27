@@ -24,7 +24,7 @@ from app.models.member import Member
 from app.models.membership import Membership
 from app.models.membership_payment import MembershipPayment
 from app.models.mortuary import RemainsRecord
-from app.models.resource import ResourceBooking
+from app.models.resource import Resource, ResourceBooking
 from app.services.communications import today_in_south_africa
 from app.services.permission_service import has_permission
 
@@ -99,9 +99,11 @@ def _funerals_soon(db, user):
 def _no_vehicle(db, user):
     today = today_in_south_africa()
     end = today + timedelta(days=7)
+
     cases = (
         db.query(FuneralCase)
         .filter(
+            FuneralCase.business_id == user["business_id"],
             FuneralCase.is_archived.is_(False),
             FuneralCase.status.in_(LIVE),
             FuneralCase.funeral_date >= today,
@@ -110,21 +112,44 @@ def _no_vehicle(db, user):
         .order_by(FuneralCase.funeral_date)
         .all()
     )
-    booked = {
+
+    # Only a booked vehicle satisfies the vehicle-booking requirement.
+    booked_vehicle_case_ids = {
         row[0]
-        for row in db.query(ResourceBooking.case_id)
-        .filter(ResourceBooking.status == "booked")
-        .all()
+        for row in (
+            db.query(ResourceBooking.case_id)
+            .join(Resource, Resource.id == ResourceBooking.resource_id)
+            .filter(
+                ResourceBooking.business_id == user["business_id"],
+                Resource.business_id == user["business_id"],
+                ResourceBooking.status == "booked",
+                Resource.resource_type == "vehicle",
+            )
+            .all()
+        )
     }
-    missing = [c for c in cases if c.id not in booked]
+
+    missing = [
+        case for case in cases
+        if case.id not in booked_vehicle_case_ids
+    ]
+
+    if missing:
+        answer = (
+            f"{len(missing)} funeral(s) in the next 7 days "
+            "have no vehicle booked."
+        )
+    elif cases:
+        answer = "Every funeral in the next 7 days has a vehicle booked."
+    else:
+        answer = "No funerals are scheduled in the next 7 days."
+
     return {
-        "answer": (
-            f"{len(missing)} funeral(s) in the next 7 days have no resource "
-            "booked (vehicle, venue or equipment)."
-            if missing
-            else "Every funeral in the next 7 days has something booked."
-        ),
-        "items": [_case_item(c, str(c.funeral_date)) for c in missing],
+        "answer": answer,
+        "items": [
+            _case_item(case, str(case.funeral_date))
+            for case in missing
+        ],
     }
 
 

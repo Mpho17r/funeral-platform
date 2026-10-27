@@ -1,10 +1,11 @@
 """Ask FuneralOS: answers come from real data, within the person's access."""
 
-from datetime import timedelta
+from datetime import datetime, time, timedelta, timezone
 
 import pytest
 
 from app.services.communications import today_in_south_africa
+from app.models.resource import Resource, ResourceBooking
 from tests.test_branches import make_branch, make_case
 from tests.test_workspace_groups import make_staff
 
@@ -75,3 +76,85 @@ def test_every_question_runs(client, auth_headers, test_data):
         out = ask(client, auth_headers, test_data["main_admin"], example)
         assert out["understood"] and out["question"] == key, example
         assert out["answer"]
+
+
+def test_vehicle_booking_detection_ignores_venues(
+    client, auth_headers, db, test_data
+):
+    """A venue booking is not a vehicle booking; a booked vehicle is."""
+    business = test_data["business_a"]
+    soon = today_in_south_africa() + timedelta(days=2)
+
+    venue_only = make_case(db, business)
+    vehicle_booked = make_case(db, business)
+    vehicle_cancelled = make_case(db, business)
+    foreign_business_case = make_case(db, test_data["business_b"])
+
+    for case in (
+        venue_only,
+        vehicle_booked,
+        vehicle_cancelled,
+        foreign_business_case,
+    ):
+        case.funeral_date = soon
+
+    venue = Resource(
+        business_id=business.id,
+        resource_type="venue",
+        name="Assistant test venue",
+        is_active=True,
+    )
+    vehicle = Resource(
+        business_id=business.id,
+        resource_type="vehicle",
+        name="Assistant test vehicle",
+        is_active=True,
+    )
+    db.add_all([venue, vehicle])
+    db.commit()
+
+    starts_at = datetime.combine(soon, time(8), tzinfo=timezone.utc)
+    ends_at = datetime.combine(soon, time(12), tzinfo=timezone.utc)
+
+    db.add_all([
+        ResourceBooking(
+            business_id=business.id,
+            case_id=venue_only.id,
+            resource_id=venue.id,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            status="booked",
+        ),
+        ResourceBooking(
+            business_id=business.id,
+            case_id=vehicle_booked.id,
+            resource_id=vehicle.id,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            status="booked",
+        ),
+        ResourceBooking(
+            business_id=business.id,
+            case_id=vehicle_cancelled.id,
+            resource_id=vehicle.id,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            status="cancelled",
+        ),
+    ])
+    db.commit()
+
+    out = ask(
+        client,
+        auth_headers,
+        test_data["main_admin"],
+        "Which funerals this week have no vehicle booked?",
+    )
+
+    labels = " ".join(item["label"] for item in out["items"])
+
+    assert venue_only.case_number in labels
+    assert vehicle_cancelled.case_number in labels
+    assert vehicle_booked.case_number not in labels
+    assert foreign_business_case.case_number not in labels
+    assert "no vehicle booked" in out["answer"]
