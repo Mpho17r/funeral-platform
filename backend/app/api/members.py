@@ -67,6 +67,7 @@ AUDITED_MEMBER_FIELDS = (
     "phone",
     "email",
     "address",
+    "region",
     "join_date",
     "status",
 )
@@ -192,6 +193,7 @@ def create_member(
         phone=member_data.phone,
         email=member_data.email,
         address=member_data.address,
+        region=member_data.region,
         join_date=member_data.join_date or date.today(),
         status=member_data.status,
     )
@@ -589,6 +591,7 @@ def export_member_data(
                 "phone",
                 "email",
                 "address",
+                "region",
                 "join_date",
                 "status",
                 "created_at",
@@ -763,6 +766,7 @@ def anonymise_member(
     member.phone = None
     member.email = None
     member.address = None
+    member.region = None
     member.archive_reason = None
     member.anonymised_at = now
 

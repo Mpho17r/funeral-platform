@@ -15,6 +15,13 @@ MEMBER_STATUSES = (
 )
 
 
+def _clean_region(value):
+    if value is None:
+        return None
+    value = " ".join(str(value).split())
+    return value or None
+
+
 class MemberCreate(BaseModel):
     member_number: str = Field(min_length=1, max_length=50)
     first_name: str = Field(min_length=1, max_length=100)
@@ -24,6 +31,7 @@ class MemberCreate(BaseModel):
     phone: str | None = Field(default=None, max_length=30)
     email: EmailStr | None = None
     address: str | None = None
+    region: str | None = Field(default=None, max_length=100)
     join_date: date = Field(default_factory=date.today)
     status: str = "active"
 
@@ -43,6 +51,11 @@ class MemberCreate(BaseModel):
             )
 
         return value
+
+    @field_validator("region", mode="after")
+    @classmethod
+    def clean_region(cls, value):
+        return _clean_region(value)
 
     @field_validator("id_number", mode="after")
     @classmethod
@@ -64,8 +77,14 @@ class MemberUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=30)
     email: EmailStr | None = None
     address: str | None = None
+    region: str | None = Field(default=None, max_length=100)
     join_date: date | None = None
     status: str | None = None
+
+    @field_validator("region", mode="after")
+    @classmethod
+    def clean_region(cls, value):
+        return _clean_region(value)
 
     @field_validator("status")
     @classmethod
@@ -103,6 +122,7 @@ class MemberResponse(BaseModel):
     phone: str | None
     email: EmailStr | None
     address: str | None
+    region: str | None = None
     join_date: date
     status: str
     branch_id: UUID | None = None

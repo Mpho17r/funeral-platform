@@ -16,12 +16,17 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { ALL_BRANCHES, BranchFilter, matchesBranch } from "@/components/BranchControls";
+import { useBranches } from "@/lib/branches";
 
 type Member = {
   id: string;
   member_number: string;
   first_name: string;
   last_name: string;
+  branch_id?: string | null;
+  region?: string | null;
+  phone?: string | null;
 };
 
 type MembershipPlan = {
@@ -281,6 +286,12 @@ export default function CoveredDependentsPage() {
 
   const [search, setSearch] = useState("");
   const [membershipFilter, setMembershipFilter] = useState("");
+  const [view, setView] = useState<"households" | "list">("households");
+  const [branchFilter, setBranchFilter] = useState(ALL_BRANCHES);
+  const [regionFilter, setRegionFilter] = useState("");
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [focusMember, setFocusMember] = useState("");
+  const branchData = useBranches();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -334,6 +345,13 @@ export default function CoveredDependentsPage() {
 
     void initializeData();
   }, [loadData]);
+
+  useEffect(() => {
+    // Arriving from a member's row: open that member's household.
+    const id = new URLSearchParams(window.location.search).get("member");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (id) setFocusMember(id);
+  }, []);
 
   const memberMap = useMemo(
     () => new Map(members.map((member) => [member.id, member])),
@@ -423,6 +441,67 @@ export default function CoveredDependentsPage() {
     getMemberName,
   ]);
 
+  const regions = useMemo(
+    () =>
+      Array.from(
+        new Set(members.map((m) => m.region).filter(Boolean) as string[])
+      ).sort((a, b) => a.localeCompare(b)),
+    [members]
+  );
+
+  // One household per paying member's membership, with the people it covers.
+  const households = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const byMembership = new Map<string, CoveredDependent[]>();
+    for (const dependent of dependents) {
+      byMembership.set(dependent.membership_id, [
+        ...(byMembership.get(dependent.membership_id) ?? []),
+        dependent,
+      ]);
+    }
+
+    return memberships
+      .map((membership) => {
+        const payer = memberMap.get(membership.member_id);
+        const covered = byMembership.get(membership.id) ?? [];
+        return { membership, payer, covered };
+      })
+      .filter(({ membership, payer, covered }) => {
+        if (!payer) return false;
+        const focused = focusMember === payer.id;
+        if (!focused && covered.length === 0) return false;
+        if (!matchesBranch(branchFilter, payer.branch_id ?? null)) return false;
+        if (regionFilter && (payer.region || "") !== regionFilter) return false;
+        if (membershipFilter && membership.id !== membershipFilter) return false;
+        if (focusMember && !term) return focused;
+        if (!term) return true;
+        const text = [
+          payer.first_name,
+          payer.last_name,
+          payer.member_number,
+          membership.membership_number,
+          ...covered.map((d) => `${d.first_name} ${d.last_name} ${d.id_number || ""}`),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return text.includes(term);
+      })
+      .sort((a, b) =>
+        `${a.payer?.last_name} ${a.payer?.first_name}`.localeCompare(
+          `${b.payer?.last_name} ${b.payer?.first_name}`
+        )
+      );
+  }, [
+    dependents,
+    memberships,
+    memberMap,
+    search,
+    branchFilter,
+    regionFilter,
+    membershipFilter,
+    focusMember,
+  ]);
+
   const totalCount = dependents.length;
 
   const activeCount = dependents.filter(
@@ -437,11 +516,20 @@ export default function CoveredDependentsPage() {
     (dependent) => dependent.status === "deceased"
   ).length;
 
-  const hasFilters = Boolean(search.trim() || membershipFilter);
+  const hasFilters = Boolean(
+    search.trim() ||
+    membershipFilter ||
+    regionFilter ||
+    focusMember ||
+    branchFilter !== ALL_BRANCHES
+  );
 
   function clearFilters() {
     setSearch("");
     setMembershipFilter("");
+    setBranchFilter(ALL_BRANCHES);
+    setRegionFilter("");
+    setFocusMember("");
   }
 
   function openCreateForm() {
@@ -683,6 +771,58 @@ export default function CoveredDependentsPage() {
               </option>
             ))}
           </select>
+
+          {branchData.multiple && (
+            <BranchFilter
+              branches={branchData.branches}
+              value={branchFilter}
+              onChange={setBranchFilter}
+            />
+          )}
+
+          {regions.length > 0 && (
+            <select
+              aria-label="Filter by region"
+              value={regionFilter}
+              onChange={(event) => setRegionFilter(event.target.value)}
+              className={`${inputClassName} lg:w-[180px]`}
+            >
+              <option value="">All regions</option>
+              {regions.map((region) => (
+                <option key={region} value={region}>
+                  {region}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <div
+            role="tablist"
+            aria-label="How to show covered people"
+            className="inline-flex shrink-0 rounded-xl border border-[var(--fos-border)] p-1 text-sm"
+          >
+            {(
+              [
+                ["households", "By paying member"],
+                ["list", "All people"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                role="tab"
+                type="button"
+                aria-selected={view === value}
+                onClick={() => setView(value)}
+                className={`rounded-lg px-3 py-2 font-medium ${
+                  view === value
+                    ? "bg-emerald-700 text-white"
+                    : "text-[var(--fos-text-secondary)]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {hasFilters && (
@@ -703,6 +843,137 @@ export default function CoveredDependentsPage() {
         )}
       </div>
 
+      {view === "households" && (
+        <div className="space-y-3">
+          {loading ? (
+            <p className="rounded-2xl border p-8 text-center text-sm text-[var(--fos-text-muted)]">
+              Loading covered dependents...
+            </p>
+          ) : households.length === 0 ? (
+            <p className="rounded-2xl border p-8 text-center text-sm text-[var(--fos-text-muted)]">
+              No households match. Covered people are listed under the member who pays.
+            </p>
+          ) : (
+            households.map(({ membership, payer, covered }) => {
+              const expanded =
+                open.has(membership.id) ||
+                focusMember === payer?.id ||
+                Boolean(search.trim());
+              return (
+                <section
+                  key={membership.id}
+                  className="rounded-2xl border border-[var(--fos-border)]/80 bg-[var(--fos-surface)] shadow-[0_2px_12px_rgba(15,23,42,0.04)]"
+                >
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    onClick={() =>
+                      setOpen((current) => {
+                        const next = new Set(current);
+                        if (next.has(membership.id)) next.delete(membership.id);
+                        else next.add(membership.id);
+                        return next;
+                      })
+                    }
+                    className="flex w-full items-center justify-between gap-3 p-4 text-left"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-[var(--fos-text)]">
+                        {payer?.first_name} {payer?.last_name}
+                        <span className="ml-2 text-xs font-normal text-[var(--fos-text-muted)]">
+                          pays · {membership.membership_number}
+                        </span>
+                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--fos-text-muted)]">
+                        {getPlanName(membership.id)}
+                        {payer?.region ? ` · ${payer.region}` : ""}
+                        {branchData.multiple && payer?.branch_id
+                          ? ` · ${branchData.byId.get(payer.branch_id)?.name ?? ""}`
+                          : ""}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      {covered.filter((d) => d.status === "active").length} covered
+                      {covered.length !== covered.filter((d) => d.status === "active").length
+                        ? ` · ${covered.length} recorded`
+                        : ""}
+                    </span>
+                  </button>
+
+                  {expanded && (
+                    <div className="border-t border-[var(--fos-border)]">
+                      {covered.length === 0 && (
+                        <p className="p-4 text-sm text-[var(--fos-text-muted)]">
+                          No one else is covered under this membership yet.
+                        </p>
+                      )}
+                      <ul className="divide-y divide-slate-100">
+                        {covered.map((dependent) => (
+                          <li
+                            key={dependent.id}
+                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-[var(--fos-text)]">
+                                {dependent.first_name} {dependent.last_name}
+                              </p>
+                              <p className="text-xs text-[var(--fos-text-muted)]">
+                                {relationshipLabel(dependent.relationship)}
+                                {dependent.date_of_birth
+                                  ? ` · born ${formatDate(dependent.date_of_birth)}`
+                                  : ""}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(
+                                  dependent.status
+                                )}`}
+                              >
+                                {statusLabel(dependent.status)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openEditForm(dependent)}
+                                className="rounded-xl p-2 text-[var(--fos-text-muted)] hover:bg-[var(--fos-surface-muted)]"
+                                title="Edit dependent"
+                              >
+                                <Edit3 size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(dependent)}
+                                className="rounded-xl p-2 text-red-500 hover:bg-red-50"
+                                title="Delete dependent"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="p-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            openCreateForm();
+                            setForm((f) => ({ ...f, membership_id: membership.id }));
+                          }}
+                          className="text-sm font-semibold text-emerald-700 hover:underline"
+                        >
+                          + Add a covered person
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {view === "list" && (<>
       {/* Desktop table */}
       <div className="hidden overflow-hidden rounded-2xl border border-[var(--fos-border)]/80 bg-[var(--fos-surface)] shadow-[0_2px_12px_rgba(15,23,42,0.04)] lg:block">
         <div className="overflow-x-auto">
@@ -981,6 +1252,8 @@ export default function CoveredDependentsPage() {
           ))
         )}
       </div>
+
+      </>)}
 
       {/* Form modal */}
       {showForm && (
