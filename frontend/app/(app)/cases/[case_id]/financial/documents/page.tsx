@@ -290,6 +290,28 @@ export default function FinancialDocumentsPage() {
     setCreating(null);
   }
 
+  const [building, setBuilding] = useState(false);
+
+  // Build a draft from the services already on the case, no retyping.
+  async function buildFromServices(type: DocumentType) {
+    try {
+      setBuilding(true);
+      setPageError("");
+      const response = await api.post<FinancialDocument>(
+        `/cases/${caseId}/financial-documents/from-services`,
+        { document_type: type }
+      );
+      setDocuments((current) => [response.data, ...current]);
+      setOpenId(response.data.id);
+    } catch (err) {
+      setPageError(
+        getApiErrorMessage(err, "Could not build the document from services.")
+      );
+    } finally {
+      setBuilding(false);
+    }
+  }
+
   async function handleIssue(document: FinancialDocument) {
     const ok = await runAction(
       document,
@@ -474,6 +496,22 @@ export default function FinancialDocumentsPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => buildFromServices("quote")}
+                disabled={building}
+                className="flex items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+              >
+                Quote from services
+              </button>
+
+              <button
+                onClick={() => buildFromServices("invoice")}
+                disabled={building}
+                className="flex items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+              >
+                Invoice from services
+              </button>
+
               <button
                 onClick={() => setCreating("quote")}
                 className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"

@@ -385,6 +385,10 @@ from app.api.purchase_orders import router as orders_router  # noqa: E402
 
 app.include_router(orders_router)
 
+from app.api.service_catalogue import router as catalogue_router  # noqa: E402
+
+app.include_router(catalogue_router)
+
 
 # ============================================================
 # ROOT

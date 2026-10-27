@@ -15,6 +15,10 @@ from app.services.audit_service import (
 from app.models.case_service import CaseService
 from app.models.inventory import InventoryItem
 from app.services.inventory import InventoryError
+from app.services.service_billing import (
+    remove_service_from_drafts,
+    sync_service_into_drafts,
+)
 from app.services.stock_automation import sync_service_stock
 from app.models.funeral_case import FuneralCase
 
@@ -192,6 +196,9 @@ def create_service(
 
     if service.inventory_item_id is not None and service.status != "cancelled":
         _sync_stock(db, service, service.quantity, current_user, case_number)
+
+    # Draft quotes and invoices on this case pick the service up.
+    sync_service_into_drafts(db, service)
 
     create_audit_log(
         db,
@@ -372,6 +379,10 @@ def update_service(
             case.case_number if case else None,
         )
 
+    # Keep any draft quote or invoice in step with the new price/quantity.
+    db.flush()
+    sync_service_into_drafts(db, service)
+
     # --------------------------------------------------------
     # Audit
     # --------------------------------------------------------
@@ -465,6 +476,8 @@ def delete_service(
         _sync_stock(
             db, service, 0, current_user, case.case_number if case else None
         )
+
+    remove_service_from_drafts(db, service)
 
     db.delete(service)
     db.commit()

@@ -32,6 +32,7 @@ import {
   Sparkles,
   FileUp,
   HeartHandshake,
+  Tags,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -229,6 +230,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Services",
       icon: <HeartHandshake size={18} />,
       path: "/services",
+    },
+    {
+      label: "Price list",
+      icon: <Tags size={18} />,
+      path: "/catalogue",
     },
     {
       label: "Run sheet",

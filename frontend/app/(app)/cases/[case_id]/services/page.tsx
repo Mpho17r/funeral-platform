@@ -18,6 +18,7 @@ import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import api from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
+import CatalogueAddDialog from "@/components/CatalogueAddDialog";
 
 /* ============================================================
    TYPES
@@ -174,6 +175,7 @@ export default function ServicesPage() {
   const [formError, setFormError] = useState("");
 
   const [showForm, setShowForm] = useState(false);
+  const [showCatalogue, setShowCatalogue] = useState(false);
 
   const [form, setForm] = useState<ServiceForm>({
     service_type: "",
@@ -545,6 +547,14 @@ export default function ServicesPage() {
 
               <button
                 type="button"
+                onClick={() => setShowCatalogue(true)}
+                className="flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2.5 text-sm font-medium text-[var(--fos-text-secondary)] hover:bg-[var(--fos-page)]"
+              >
+                Add from price list
+              </button>
+
+              <button
+                type="button"
                 onClick={openForm}
                 className="flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
               >
@@ -776,6 +786,17 @@ export default function ServicesPage() {
       {/* ======================================================
           ADD SERVICE MODAL
       ====================================================== */}
+
+      {showCatalogue && (
+        <CatalogueAddDialog
+          caseId={caseId}
+          onClose={() => setShowCatalogue(false)}
+          onAdded={() => {
+            setShowCatalogue(false);
+            loadServices();
+          }}
+        />
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
