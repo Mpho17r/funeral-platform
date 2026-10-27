@@ -2,7 +2,10 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -27,6 +30,7 @@ from app.schemas.financial_document import (
     LineUpdate,
     ReceiptResponse,
 )
+from app.services.service_billing import add_missing_lines, unbilled_services
 from app.services.audit_service import (
     build_audit_changes,
     create_audit_log,
@@ -371,6 +375,144 @@ def create_document(
         },
     )
 
+    db.commit()
+    db.refresh(document)
+
+    return document_response(db, document)
+
+
+# ============================================================
+# DOCUMENTS: BUILD FROM THE CASE'S SERVICES
+# ============================================================
+
+class FromServices(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    document_type: Literal["quote", "invoice"]
+    discount: Decimal = Field(default=Decimal("0"), ge=0, decimal_places=2)
+    tax: Decimal = Field(default=Decimal("0"), ge=0, decimal_places=2)
+    valid_until: date | None = None
+    due_date: date | None = None
+    notes: str | None = None
+
+
+@router.post(
+    "/cases/{case_id}/financial-documents/from-services",
+    response_model=DocumentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_document_from_services(
+    case_id: UUID,
+    data: FromServices,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(
+        require_permission("financial_documents.manage")
+    ),
+):
+    """A draft quote or invoice built from the services on the case.
+
+    Services already on a live document of the same type are left out so
+    nothing is billed twice.
+    """
+
+    business_id = get_business_id(current_user)
+    case = get_case_or_404(db, case_id, business_id)
+
+    if case.is_archived:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Archived cases cannot receive new documents",
+        )
+
+    validate_type_fields(
+        data.document_type,
+        valid_until=data.valid_until,
+        due_date=data.due_date,
+    )
+
+    services = unbilled_services(db, case.id, data.document_type)
+    if not services:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Every service on this case is already on a "
+            f"{data.document_type}, or the case has no services yet",
+        )
+
+    document = FinancialDocument(
+        business_id=business_id,
+        case_id=case.id,
+        document_type=data.document_type,
+        status="draft",
+        discount=Decimal("0.00"),
+        tax=Decimal("0.00"),
+        valid_until=data.valid_until,
+        due_date=data.due_date,
+        notes=data.notes,
+        created_by=get_user_id(current_user),
+    )
+    db.add(document)
+    db.flush()
+
+    add_missing_lines(db, document, services)
+
+    document.discount = money(data.discount)
+    document.tax = money(data.tax)
+    try:
+        recalculate_document(db, document)
+    except DocumentError as error:
+        fail(db, error)
+
+    audit_document(
+        db,
+        document=document,
+        current_user=current_user,
+        action="financial_document.created",
+        notes="Draft built automatically from the case services.",
+        extra={
+            "total": str(document.total),
+            "line_count": len(services),
+            "automatic": True,
+        },
+    )
+
+    db.commit()
+    db.refresh(document)
+
+    return document_response(db, document)
+
+
+@router.post(
+    "/financial-documents/{document_id}/sync-services",
+    response_model=DocumentResponse,
+)
+def sync_document_services(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(
+        require_permission("financial_documents.manage")
+    ),
+):
+    """Pull any services not yet on this draft into it."""
+
+    business_id = get_business_id(current_user)
+    document = get_document_or_404(db, document_id, business_id, lock=True)
+
+    try:
+        ensure_draft(document)
+    except DocumentError as error:
+        fail(db, error)
+
+    services = unbilled_services(db, document.case_id, document.document_type)
+    if services:
+        add_missing_lines(db, document, services)
+        audit_document(
+            db,
+            document=document,
+            current_user=current_user,
+            action="financial_document.services_synced",
+            notes="Missing case services were added to the draft.",
+            extra={"added": len(services), "total": str(document.total)},
+        )
     db.commit()
     db.refresh(document)
 

@@ -80,3 +80,4 @@ from app.models.expense import Expense
 from app.models.reconciliation import Reconciliation
 from app.models.notification import Notification
 from app.models.compliance import ComplianceItem, RemainsViewing
+from app.models.service_catalogue import ServiceCatalogueItem, ServicePackage, ServicePackageItem
