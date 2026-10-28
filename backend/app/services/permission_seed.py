@@ -288,11 +288,14 @@ DEFAULT_ROLE_PERMISSIONS["manager"] |= {
     "compliance.view", "compliance.manage",
 }
 DEFAULT_ROLE_PERMISSIONS["manager"] |= {"portal.manage"}
+DEFAULT_ROLE_PERMISSIONS["manager"] |= {"transport.view", "transport.manage"}
+DEFAULT_ROLE_PERMISSIONS["staff"] |= {"transport.view"}
 DEFAULT_ROLE_PERMISSIONS["staff"] |= {"viewings.view"}
 DEFAULT_ROLE_PERMISSIONS["mortuary"] |= {
     "viewings.view", "viewings.manage", "compliance.view",
 }
 DEFAULT_ROLE_PERMISSIONS["operations"] |= {
+    "transport.view", "transport.manage",
     "viewings.view", "viewings.manage",
 }
 

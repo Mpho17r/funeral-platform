@@ -33,6 +33,7 @@ import {
   FileUp,
   HeartHandshake,
   Tags,
+  Car,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -235,6 +236,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Price list",
       icon: <Tags size={18} />,
       path: "/catalogue",
+    },
+    {
+      label: "Partner drivers",
+      icon: <Car size={18} />,
+      path: "/transport",
     },
     {
       label: "Run sheet",
