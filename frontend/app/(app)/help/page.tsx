@@ -1,7 +1,11 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Compass } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+import { useCurrentUser } from "@/components/CurrentUserProvider";
+import { useTour } from "@/components/GuidedTour";
+import { TOURS, tourForRole } from "@/lib/tours";
 
 type Topic = {
   title: string;
@@ -104,6 +108,9 @@ const TOPICS: Topic[] = [
 
 export default function HelpPage() {
   const router = useRouter();
+  const { start } = useTour();
+  const { user } = useCurrentUser();
+  const mine = tourForRole(user?.role);
 
   return (
     <main className="min-h-screen bg-[var(--fos-page)] text-[var(--fos-text)]">
@@ -113,6 +120,36 @@ export default function HelpPage() {
           How a funeral home runs on FuneralOS, in the order you will meet
           things. Open any topic.
         </p>
+
+        <div className="mt-6 rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5">
+          <div className="flex items-center gap-2 font-semibold">
+            <Compass size={18} /> Guided tours
+          </div>
+          <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
+            Click-through lessons that follow a funeral from the first call to a
+            completed case. Yours is highlighted.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {TOURS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => start(t.id)}
+                className={`rounded-xl border p-3 text-left hover:bg-[var(--fos-surface-muted)] ${
+                  t.id === mine.id ? "border-slate-900" : "border-[var(--fos-border)]"
+                }`}
+              >
+                <span className="block text-sm font-semibold">
+                  {t.title}
+                  {t.id === mine.id ? " (yours)" : ""}
+                </span>
+                <span className="block text-xs text-[var(--fos-text-muted)]">
+                  {t.summary}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="mt-6 space-y-3">
           {TOPICS.map((topic, index) => (
