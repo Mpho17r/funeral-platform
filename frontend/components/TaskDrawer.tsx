@@ -240,6 +240,21 @@ export default function TaskDrawer({
                   ))}
                 </div>
                 {!task.can_update && <p className="mt-1 text-xs text-slate-500">This task is not given to you, so you can only read it.</p>}
+                {task.can_update && task.status === "completed" && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        void run(() => api.post(`/archive/tasks/${taskId}/archive`), "Could not archive the task.").then(onClose);
+                      }}
+                      className="rounded-lg border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      Archive this task
+                    </button>
+                    <p className="text-xs text-slate-500">Finished tasks are archived automatically after a while.</p>
+                  </div>
+                )}
               </div>
 
               <section>

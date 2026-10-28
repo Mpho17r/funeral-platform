@@ -34,6 +34,7 @@ export type Attachment = {
   media_type: string;
   size_bytes: number;
   is_image: boolean;
+  is_audio?: boolean;
 };
 
 export type MeetingInvitee = {

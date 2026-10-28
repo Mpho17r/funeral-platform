@@ -181,3 +181,26 @@ def test_file_only_message_needs_no_text_but_empty_is_refused(
     a, b = test_data["manager"], test_data["staff"]
     conv = open_dm(client, auth_headers, a, b)
     assert say(client, auth_headers, a, conv["id"], "").status_code == 422
+
+
+def test_voice_note_is_sent_and_played_by_the_other_person(
+    client, test_data, auth_headers, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(chat_files, "STORAGE_ROOT", tmp_path)
+    a, b = test_data["manager"], test_data["staff"]
+    conv = open_dm(client, auth_headers, a, b)
+
+    note = b"\x1a\x45\xdf\xa3" + b"0" * 200  # what a browser records (webm)
+    up = upload(client, auth_headers, a, conv["id"], "voice-note.webm", note)
+    assert up.status_code == 201, up.text
+    assert up.json()["is_audio"] is True and up.json()["is_image"] is False
+
+    sent = say(client, auth_headers, a, conv["id"], "",
+               attachment_ids=[up.json()["id"]])
+    assert sent.status_code == 201
+    assert sent.json()["attachments"][0]["is_audio"] is True
+
+    got = client.get(f"/chat/attachments/{up.json()['id']}",
+                     headers=auth_headers(b))
+    assert got.status_code == 200 and got.content == note
+    assert got.headers["content-type"].startswith("audio/webm")

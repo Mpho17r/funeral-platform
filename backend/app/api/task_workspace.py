@@ -133,6 +133,10 @@ def _scopes_for(db: Session, current_user: dict) -> list[str]:
 def _build(db, current_user, scope, state):
     me = UUID(str(current_user["user_id"]))
     query = _visible_query(db, current_user, scope)
+    if state == "archived":
+        query = query.filter(CaseTask.archived_at.is_not(None))
+    else:
+        query = query.filter(CaseTask.archived_at.is_(None))
     if state == "open":
         query = query.filter(CaseTask.status != "completed")
     elif state == "done":
@@ -167,7 +171,7 @@ def list_workspace_tasks(
 @router.get("/board")
 def task_board(
     scope: str = Query("mine"),
-    state: str = Query("all", pattern="^(all|open|done)$"),
+    state: str = Query("all", pattern="^(all|open|done|archived)$"),
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("tasks.view")),
 ):

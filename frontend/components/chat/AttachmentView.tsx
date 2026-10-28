@@ -13,6 +13,42 @@ async function fetchBlob(id: string): Promise<Blob> {
   return response.data as Blob;
 }
 
+/** A voice note: loaded when it is first played. */
+function VoicePlayer({ file }: { file: Attachment }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let dead = false;
+    let objectUrl: string | null = null;
+    fetchBlob(file.id)
+      .then((blob) => {
+        if (dead) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      })
+      .catch(() => setFailed(true));
+    return () => {
+      dead = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [file.id]);
+
+  if (failed) return <p className="text-xs opacity-70">Voice note unavailable.</p>;
+  if (!src) {
+    return (
+      <div className="flex h-10 w-56 items-center justify-center rounded-xl bg-black/10">
+        <Loader2 size={16} className="animate-spin" />
+      </div>
+    );
+  }
+  return (
+    <audio controls preload="metadata" src={src} className="h-10 w-56 max-w-full">
+      Your browser cannot play this voice note.
+    </audio>
+  );
+}
+
 /** A shared file. Pictures show inline; other files download on click.
  *  Files need the sign-in token, so they are fetched, not linked. */
 export function AttachmentView({ file }: { file: Attachment }) {
@@ -51,6 +87,10 @@ export function AttachmentView({ file }: { file: Attachment }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (file.is_audio) {
+    return <VoicePlayer file={file} />;
   }
 
   if (file.is_image) {

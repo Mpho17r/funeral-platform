@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Archive, Check, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import api from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/format";
@@ -42,15 +43,31 @@ export function CaseStatusControl({
   caseId,
   status,
   canEdit,
+  canArchive = false,
   onChanged,
 }: {
   caseId: string;
   status: string;
   canEdit: boolean;
+  canArchive?: boolean;
   onChanged: () => void;
 }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  async function archive() {
+    if (!window.confirm("Archive this case? It leaves your lists and moves to the Archive, where you can find or restore it.")) return;
+    try {
+      setBusy(true);
+      setError("");
+      await api.post(`/cases/${caseId}/archive`);
+      router.push("/cases");
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not archive the case."));
+      setBusy(false);
+    }
+  }
 
   async function move(to: string, ask: string) {
     if (!window.confirm(ask)) return;
@@ -102,6 +119,21 @@ export function CaseStatusControl({
       </ol>
 
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+
+      {canArchive && (status === "closed" || cancelled) && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void archive()}
+            className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold text-slate-800 disabled:opacity-60"
+          >
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <Archive size={15} />}
+            Archive this case
+          </button>
+          <p className="text-xs text-slate-500">Finished cases are also archived automatically after a while.</p>
+        </div>
+      )}
 
       {canEdit && next && !cancelled && (
         <div className="mt-3 flex flex-wrap items-center gap-3">

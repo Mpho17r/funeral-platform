@@ -38,6 +38,7 @@ import { useCurrentUser } from "@/components/CurrentUserProvider";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Dialog, Field, inputClass } from "@/components/Dialog";
 import { Banner } from "@/components/Notices";
+import { VoiceRecorder } from "@/components/chat/VoiceRecorder";
 import { AttachmentView } from "@/components/chat/AttachmentView";
 import { MeetingCard } from "@/components/chat/MeetingCard";
 import ScheduleDialog from "@/components/chat/ScheduleDialog";
@@ -335,6 +336,7 @@ function Thread({
   const [sending, setSending] = useState(false);
   const [files, setFiles] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(false);
   const [mentions, setMentions] = useState<{ id: string; name: string }[]>(
     []
   );
@@ -549,6 +551,34 @@ function Thread({
       setError(getApiErrorMessage(err, "Could not upload that file."));
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function sendVoice(file: File) {
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const up = await api.post<Attachment>(
+        `/chat/conversations/${id}/attachments`,
+        form
+      );
+      const { data } = await api.post<Message>(
+        `/chat/conversations/${id}/messages`,
+        {
+          body: "",
+          reply_to_id: replyTo?.id ?? null,
+          mention_ids: [],
+          attachment_ids: [up.data.id],
+        }
+      );
+      stickRef.current = true;
+      setMessages((m) => (m.some((x) => x.id === data.id) ? m : [...m, data]));
+      latestRef.current = "";
+      setReplyTo(null);
+      onActivity();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not send the voice note."));
     }
   }
 
@@ -1048,6 +1078,14 @@ function Thread({
               }}
             />
           </label>
+          {!editing && (
+            <VoiceRecorder
+              disabled={uploading || sending}
+              onRecorded={sendVoice}
+              onError={setError}
+              onActive={setVoiceOn}
+            />
+          )}
           <textarea
             ref={inputRef}
             rows={1}
@@ -1061,7 +1099,7 @@ function Thread({
                 send();
               }
             }}
-            className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm text-[var(--fos-text)] outline-none focus:border-[var(--fos-primary)]"
+            className={`${voiceOn ? "hidden " : ""}max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-3 text-sm text-[var(--fos-text)] outline-none focus:border-[var(--fos-primary)]`}
           />
           <button
             type="button"
@@ -1070,6 +1108,7 @@ function Thread({
               (!draft.trim() && files.length === 0) || sending || uploading
             }
             aria-label="Send"
+            hidden={voiceOn}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--fos-primary)] text-[var(--fos-on-primary)] transition hover:opacity-90 disabled:opacity-40"
           >
             {sending ? (

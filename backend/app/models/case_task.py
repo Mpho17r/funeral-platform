@@ -85,6 +85,19 @@ class CaseTask(Base):
         nullable=True,
     )
 
+    # A finished task is archived (by hand or automatically). Archived
+    # tasks leave the working lists and live in the Archive.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+
+    archived_by: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     assignee_rows: Mapped[list["CaseTaskAssignee"]] = relationship(
         "CaseTaskAssignee",
         cascade="all, delete-orphan",

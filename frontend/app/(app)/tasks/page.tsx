@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { CalendarClock, ClipboardList, Loader2, RefreshCw, Users } from "lucide-react";
 
 import api from "@/lib/api";
@@ -155,6 +156,9 @@ export default function TasksWorkspacePage() {
             {s === "open" ? "To do" : s === "done" ? "Done" : "All"}
           </button>
         ))}
+        <Link href="/archive?kind=tasks" className="ml-auto text-sm text-slate-600 hover:underline">
+          Archived tasks
+        </Link>
       </div>
 
       <input

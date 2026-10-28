@@ -262,6 +262,7 @@ def list_case_tasks(
         .filter(
             CaseTask.case_id == case_id,
             CaseTask.business_id == business_id,
+            CaseTask.archived_at.is_(None),
         )
         .order_by(
             CaseTask.created_at.desc()

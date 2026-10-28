@@ -217,6 +217,7 @@ def _file_out(f: ChatAttachment) -> dict:
         "media_type": f.media_type,
         "size_bytes": f.size_bytes,
         "is_image": f.media_type in chat_files.IMAGE_TYPES,
+        "is_audio": f.media_type in chat_files.AUDIO_TYPES,
     }
 
 
