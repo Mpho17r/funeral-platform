@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useBranding } from "@/components/BrandingProvider";
 import { CurrentUserProvider } from "@/components/CurrentUserProvider";
+import { TourProvider } from "@/components/GuidedTour";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -42,6 +43,7 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <CurrentUserProvider>
+      <TourProvider>
       <div className="flex min-h-screen bg-[var(--fos-page)] text-[var(--fos-text)]">
         <a
           href="#main"
@@ -151,6 +153,7 @@ export default function AppShell({ children }: AppShellProps) {
           )}
         </div>
       </div>
+      </TourProvider>
     </CurrentUserProvider>
   );
 }

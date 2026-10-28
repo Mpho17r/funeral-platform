@@ -4,6 +4,7 @@ Pure business rules with no HTTP concerns, so the same rules can later
 serve portals, automation and integrations.
 """
 
+from app.services.tax import automatic_tax
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
@@ -131,6 +132,10 @@ def recalculate_document(
             422,
             "Discount cannot be greater than the subtotal",
         )
+
+    automatic = automatic_tax(db, document.business_id, subtotal, discount)
+    if automatic is not None:
+        tax = automatic
 
     document.subtotal = subtotal
     document.discount = discount

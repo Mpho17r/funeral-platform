@@ -82,6 +82,12 @@ class BusinessResponse(BaseModel):
     # MEMBERSHIP COVER POLICY
     # ========================================================
 
+    tax_enabled: bool = False
+
+    tax_name: str = "VAT"
+
+    tax_rate: float = 15.0
+
     grace_period_days: int
 
     cover_during_arrears: bool
@@ -108,3 +114,11 @@ class BusinessResponse(BaseModel):
     # ========================================================
 
     is_active: bool
+
+
+class BusinessTaxUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tax_enabled: bool
+    tax_name: str = Field(default="VAT", min_length=1, max_length=20)
+    tax_rate: float = Field(ge=0, le=100)

@@ -83,6 +83,7 @@ function NavItem({
   return (
     <button
       type="button"
+      data-tour={path}
       onClick={() => {
         router.push(path);
         onNavigate?.();
@@ -440,6 +441,7 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       >
         <button
           type="button"
+          data-tour="/dashboard"
           onClick={() => navigate("/dashboard")}
           className="flex min-w-0 items-center gap-3"
         >

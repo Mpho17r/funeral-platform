@@ -213,6 +213,14 @@ def recalculate_financial(
     # Calculate total, balance and credit
     # --------------------------------------------------------
 
+    from app.services.tax import automatic_tax
+
+    automatic = automatic_tax(
+        db, financial.business_id, financial.subtotal, financial.discount
+    )
+    if automatic is not None:
+        financial.tax = automatic
+
     total, balance, credit = calculate_totals(
         financial.subtotal,
         financial.discount,

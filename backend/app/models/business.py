@@ -2,7 +2,9 @@ import uuid
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from decimal import Decimal
+
+from sqlalchemy import Boolean, DateTime, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -66,6 +68,23 @@ class Business(Base):
         String(20),
         default="system",
         nullable=False,
+    )
+
+    # ========================================================
+    # TAX (VAT / GST / sales tax), set by the main admin
+    # ========================================================
+
+    tax_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+
+    tax_name: Mapped[str] = mapped_column(
+        String(20), default="VAT", nullable=False
+    )
+
+    # Percentage, e.g. 15.00 for South Africa.
+    tax_rate: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), default=Decimal("15.00"), nullable=False
     )
 
     # ========================================================

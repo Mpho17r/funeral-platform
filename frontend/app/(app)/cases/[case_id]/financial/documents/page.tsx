@@ -2,6 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
+import { AutoTaxNote } from "@/components/AutoTaxNote";
+import { useTax } from "@/lib/tax";
+
 import {
   ArrowLeft,
   Ban,
@@ -1135,6 +1138,7 @@ function CreateDialog({
   const [lines, setLines] = useState<LineForm[]>([newLine()]);
   const [discount, setDiscount] = useState("0.00");
   const [tax, setTax] = useState("0.00");
+  const taxSettings = useTax();
   const [date, setDate] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1281,11 +1285,15 @@ function CreateDialog({
             onChange={setDiscount}
           />
 
-          <NumberField
-            label="Tax (R)"
-            value={tax}
-            onChange={setTax}
-          />
+          {taxSettings.enabled ? (
+            <AutoTaxNote tax={taxSettings} />
+          ) : (
+            <NumberField
+              label="Tax (R)"
+              value={tax}
+              onChange={setTax}
+            />
+          )}
 
           <DateField
             label={
@@ -1326,6 +1334,7 @@ function DetailsDialog({
 }) {
   const isQuote = document.document_type === "quote";
 
+  const taxSettings = useTax();
   const [form, setForm] = useState<DetailsForm>({
     discount: document.discount,
     tax: document.tax,
@@ -1378,13 +1387,17 @@ function DetailsDialog({
             }
           />
 
-          <NumberField
-            label="Tax (R)"
-            value={form.tax}
-            onChange={(value) =>
-              setForm({ ...form, tax: value })
-            }
-          />
+          {taxSettings.enabled ? (
+            <AutoTaxNote tax={taxSettings} />
+          ) : (
+            <NumberField
+              label="Tax (R)"
+              value={form.tax}
+              onChange={(value) =>
+                setForm({ ...form, tax: value })
+              }
+            />
+          )}
         </div>
 
         <DateField
