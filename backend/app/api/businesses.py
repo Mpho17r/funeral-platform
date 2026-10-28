@@ -1,3 +1,4 @@
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import (
@@ -17,7 +18,11 @@ from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.roles import require_main_admin, require_permission
 from app.models.business import Business
-from app.schemas.business import BusinessCreate, BusinessResponse
+from app.schemas.business import (
+    BusinessCreate,
+    BusinessResponse,
+    BusinessTaxUpdate,
+)
 from app.services.audit_service import (
     build_audit_changes,
     create_audit_log,
@@ -307,6 +312,54 @@ def update_business_contact(
     db.commit()
     db.refresh(business)
 
+    return business
+
+
+@router.patch(
+    "/{business_id}/tax",
+    response_model=BusinessResponse,
+)
+def update_business_tax(
+    business_id: UUID,
+    data: BusinessTaxUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_main_admin),
+):
+    """Only the main admin sets the tax. New quotes and invoices use it;
+    issued documents are frozen and never change."""
+
+    verify_business_access(business_id, current_user)
+    business = get_business_or_404(business_id, db)
+
+    previous = {
+        "tax_enabled": business.tax_enabled,
+        "tax_name": business.tax_name,
+        "tax_rate": str(business.tax_rate),
+    }
+    business.tax_enabled = data.tax_enabled
+    business.tax_name = data.tax_name.strip() or "VAT"
+    business.tax_rate = Decimal(str(data.tax_rate)).quantize(Decimal("0.01"))
+    db.flush()
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=current_user["user_id"],
+        action="business.tax_updated",
+        entity_type="business",
+        entity_id=business.id,
+        details={
+            "previous": previous,
+            "new": {
+                "tax_enabled": business.tax_enabled,
+                "tax_name": business.tax_name,
+                "tax_rate": str(business.tax_rate),
+            },
+        },
+        notes="Tax settings were updated.",
+    )
+    db.commit()
+    db.refresh(business)
     return business
 
 

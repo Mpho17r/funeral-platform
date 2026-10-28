@@ -8,6 +8,7 @@ import {
   FileSpreadsheet,
   KeyRound,
   Palette,
+  Percent,
   ScrollText,
   ShieldCheck,
   Users,
@@ -167,6 +168,27 @@ export default function SettingsPage() {
                 <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                   Configure workday presence, idle timeouts, staff break durations,
                   warnings and break expiry behaviour.
+                </p>
+              </button>
+
+              {/* TAX */}
+              <button
+                type="button"
+                onClick={() => router.push("/settings/tax")}
+                className="group rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)] dark:bg-slate-800 dark:text-slate-200">
+                    <Percent size={22} />
+                  </div>
+                  <span className="text-sm text-[var(--fos-text-muted)]">Configure →</span>
+                </div>
+                <h3 className="mt-5 text-lg font-semibold text-[var(--fos-text)] dark:text-white">
+                  Tax (VAT)
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
+                  Set your country&apos;s VAT rate. It is added to quotes and
+                  invoices automatically.
                 </p>
               </button>
 

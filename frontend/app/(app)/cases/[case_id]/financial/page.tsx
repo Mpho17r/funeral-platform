@@ -20,6 +20,8 @@ import {
 
 import { useParams, useRouter } from "next/navigation";
 
+import { AutoTaxNote } from "@/components/AutoTaxNote";
+import { useTax } from "@/lib/tax";
 import api from "@/lib/api";
 import axios from "axios";
 import { isAuthenticated } from "@/lib/auth";
@@ -141,6 +143,7 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 ============================================================ */
 
 export default function FinancialPage() {
+  const taxSettings = useTax();
   const router = useRouter();
   const params = useParams();
 
@@ -1472,6 +1475,9 @@ export default function FinancialPage() {
                   }
                 />
 
+                {taxSettings.enabled ? (
+                  <AutoTaxNote tax={taxSettings} />
+                ) : (
                 <MoneyInput
                   label="Tax"
                   value={financialForm.tax}
@@ -1484,6 +1490,7 @@ export default function FinancialPage() {
                     )
                   }
                 />
+                )}
               </div>
 
               <div className="rounded-xl bg-[var(--fos-page)] p-5">
