@@ -395,7 +395,7 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       path: "/settings",
     },
     {
-      label: "Ask FuneralOS",
+      label: "KAI",
       icon: <Sparkles size={18} />,
       path: "/assistant",
     },

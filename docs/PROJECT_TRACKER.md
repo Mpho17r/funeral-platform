@@ -26,6 +26,7 @@ Status is conservative: "built and tested" means merged to `main` with CI green.
 | **Message delivery** (#32) | Email sent automatically over SMTP; WhatsApp/SMS remain one-tap manual | [MESSAGE_DELIVERY.md](./MESSAGE_DELIVERY.md) |
 | **Family and member portals** (#33) | Private, expiring, revocable links; no accounts |
 | **Platform admin, plan limits, Ask FuneralOS** (#34) | Separate operator login; limits enforced on save | [PLATFORM_ADMIN.md](./PLATFORM_ADMIN.md) |
+| **KAI assistant** | Greeting, branch/role context, conversation memory, case gaps, confirmed actions | [KAI.md](./KAI.md) |
 
 ## Known gaps (honest list)
 
