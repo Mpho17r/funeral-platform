@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
-  ClipboardList,
   Coffee,
   FileText,
   Loader2,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
+import MyTasksPanel from "@/components/MyTasksPanel";
 
 type AttendanceMe = {
   attendance: { checked_in_at: string; status: string } | null;
@@ -52,6 +52,7 @@ export default function WorkstationPage() {
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState("");
   const [error, setError] = useState("");
+  const [calling, setCalling] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -114,6 +115,26 @@ export default function WorkstationPage() {
   const card = "rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)]";
   const linkAction = "flex min-h-20 flex-col items-start justify-between rounded-xl border border-[var(--fos-border)] bg-[var(--fos-page)] p-3 text-sm font-medium text-[var(--fos-text)] transition hover:border-[var(--fos-primary)] hover:bg-[var(--fos-surface-muted)]";
 
+  async function voiceCall(personId: string) {
+    try {
+      setCalling(personId);
+      setError("");
+      const conversation = await api.post<{ id: string }>("/chat/conversations", {
+        kind: "direct",
+        user_id: personId,
+      });
+      const call = await api.post<{ join_url: string }>("/meetings/huddle", {
+        conversation_id: conversation.data.id,
+        voice_only: true,
+      });
+      window.open(call.data.join_url, "_blank", "noopener,noreferrer");
+    } catch {
+      setError("Could not start the voice call.");
+    } finally {
+      setCalling("");
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <header className="mb-6">
@@ -164,6 +185,8 @@ export default function WorkstationPage() {
           </section>
         </div>
 
+        <MyTasksPanel />
+
         <section className={`${card} overflow-hidden`}>
           <div className="flex items-center justify-between border-b border-[var(--fos-border)] px-5 py-4">
             <h2 className="font-display text-xl font-semibold">Your day</h2>
@@ -174,15 +197,15 @@ export default function WorkstationPage() {
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--fos-surface)] text-[var(--fos-secondary)]"><CalendarDays size={19} /></span>
               <div>
                 <p className="font-medium text-[var(--fos-text)]">Meetings and scheduled activities</p>
-                <p className="mt-1 text-sm leading-5 text-[var(--fos-text-muted)]">See your branch calendar for upcoming meetings, appointments and funeral arrangements.</p>
+                <p className="mt-1 text-sm leading-5 text-[var(--fos-text-muted)]">Open the calendar and switch it to just your own schedule if you like.</p>
                 <Link href="/calendar" className="mt-3 inline-flex text-sm font-semibold text-[var(--fos-text)] underline underline-offset-4">View calendar</Link>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Link href="/tasks" className="rounded-xl border border-[var(--fos-border)] p-4 transition hover:bg-[var(--fos-page)]">
-                <ClipboardList size={19} className="text-[var(--fos-secondary)]" />
-                <p className="mt-2 font-medium">My tasks</p>
-                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">Review assigned work and follow-ups.</p>
+              <Link href="/settings/sound" className="rounded-xl border border-[var(--fos-border)] p-4 transition hover:bg-[var(--fos-page)]">
+                <Phone size={19} className="text-[var(--fos-secondary)]" />
+                <p className="mt-2 font-medium">Sounds and calls</p>
+                <p className="mt-1 text-sm text-[var(--fos-text-muted)]">Pick your alert tone and call ring.</p>
               </Link>
               <Link href="/groups" className="rounded-xl border border-[var(--fos-border)] p-4 transition hover:bg-[var(--fos-page)]">
                 <Users size={19} className="text-[var(--fos-secondary)]" />
@@ -210,6 +233,18 @@ export default function WorkstationPage() {
                         <span className="block truncate text-sm font-medium text-[var(--fos-text)]">{person.user_name}{person.user_id === user?.user_id ? " (you)" : ""}</span>
                         <span className="block truncate text-xs text-[var(--fos-text-muted)]">{person.role.replaceAll("_", " ")}</span>
                       </span>
+                      {person.user_id !== user?.user_id && (
+                        <button
+                          type="button"
+                          disabled={calling === person.user_id}
+                          onClick={() => void voiceCall(person.user_id)}
+                          aria-label={`Voice call ${person.user_name}`}
+                          title="Voice call"
+                          className="rounded-lg p-1.5 text-[var(--fos-text-muted)] hover:bg-[var(--fos-page)] hover:text-[var(--fos-text)] disabled:opacity-50"
+                        >
+                          <Phone size={15} />
+                        </button>
+                      )}
                       <span title={status.label} className={`h-2.5 w-2.5 shrink-0 rounded-full ${status.dot}`} />
                     </li>;
                   })}

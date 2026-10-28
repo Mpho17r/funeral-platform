@@ -31,7 +31,7 @@ EXCLUDED_COLUMNS = {"password_hash", "token_hash"}
 SKIPPED_TABLES = {"permissions", "role_permissions", "alembic_version"}
 
 # Uploaded files live here, in a folder per business.
-FILE_FOLDERS = ("documents", "chat", "branding", "avatars")
+FILE_FOLDERS = ("documents", "chat", "branding", "avatars", "task_files")
 STORAGE_ROOT = Path("storage")
 
 README = """FuneralOS data export

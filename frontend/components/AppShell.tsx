@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import { useBranding } from "@/components/BrandingProvider";
 import { CurrentUserProvider } from "@/components/CurrentUserProvider";
 import { TourProvider } from "@/components/GuidedTour";
+import TaskAlert from "@/components/TaskAlert";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -44,6 +45,7 @@ export default function AppShell({ children }: AppShellProps) {
   return (
     <CurrentUserProvider>
       <TourProvider>
+      <TaskAlert />
       <div className="flex min-h-screen bg-[var(--fos-page)] text-[var(--fos-text)]">
         <a
           href="#main"

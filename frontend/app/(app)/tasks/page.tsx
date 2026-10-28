@@ -1,376 +1,217 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ClipboardList, Loader2, RefreshCw } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { CalendarClock, ClipboardList, Loader2, RefreshCw, Users } from "lucide-react";
 
 import api from "@/lib/api";
-import axios from "axios";
-import { isAuthenticated } from "@/lib/auth";
+import { getApiErrorMessage } from "@/lib/format";
+import { ErrorNote } from "@/components/Notices";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
+import TaskDrawer, { STATUS_LABEL, type TaskStatus, whenDue } from "@/components/TaskDrawer";
 
-type WorkspaceTask = {
+type Row = {
   id: string;
-  business_id: string;
   case_id: string;
   case_number: string;
   deceased_full_name: string;
   title: string;
-  description: string | null;
-  status: "pending" | "in_progress" | "completed";
+  status: TaskStatus;
   due_date: string | null;
-  assigned_to: string | null;
-  assigned_to_name: string | null;
+  due_at: string | null;
+  assignees: { id: string; name: string }[];
+  is_mine: boolean;
+  shared: boolean;
   created_at: string;
-  updated_at: string;
   completed_at: string | null;
 };
 
-type ApiErrorResponse = {
-  detail?: unknown;
+type Board = { scope: Scope; scopes: Scope[]; tasks: Row[] };
+type Scope = "mine" | "branch" | "organisation";
+
+const SCOPE_LABEL: Record<Scope, string> = {
+  mine: "My tasks",
+  branch: "Whole branch",
+  organisation: "Whole organisation",
 };
 
-function getApiErrorMessage(err: unknown, fallback: string): string {
-  const detail = axios.isAxiosError<ApiErrorResponse>(err)
-    ? err.response?.data?.detail
-    : undefined;
+const STATUS_STYLE: Record<TaskStatus, string> = {
+  pending: "bg-amber-50 text-amber-700",
+  in_progress: "bg-blue-50 text-blue-700",
+  completed: "bg-emerald-50 text-emerald-700",
+};
 
-  if (typeof detail === "string") {
-    return detail;
-  }
-
-  if (Array.isArray(detail)) {
-    return detail
-      .map((item: unknown) => {
-        if (typeof item === "string") {
-          return item;
-        }
-
-        if (
-          item !== null &&
-          typeof item === "object" &&
-          "msg" in item &&
-          typeof item.msg === "string"
-        ) {
-          return item.msg;
-        }
-
-        return "Invalid request.";
-      })
-      .join(" ");
-  }
-
-  if (err instanceof Error && typeof err.message === "string") {
-    return err.message;
-  }
-
-  return fallback;
+function dayLabel(value: string) {
+  const d = new Date(value);
+  const today = new Date();
+  const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  const yesterday = new Date(today.getTime() - 86400000);
+  if (same(d, today)) return "Given today";
+  if (same(d, yesterday)) return "Given yesterday";
+  return `Given ${d.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`;
 }
 
-function formatStatus(status: string) {
-  return status
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function formatDate(value: string | null) {
-  if (!value) {
-    return "No due date";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString("en-ZA", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function getStatusClass(status: string) {
-  switch (status) {
-    case "completed":
-      return "bg-emerald-50 text-emerald-700";
-    case "in_progress":
-      return "bg-blue-50 text-blue-700";
-    case "pending":
-    default:
-      return "bg-amber-50 text-amber-700";
-  }
+function isOverdue(t: Row, now: number) {
+  if (t.status === "completed") return false;
+  if (t.due_at) return new Date(t.due_at).getTime() < now;
+  if (t.due_date) return new Date(`${t.due_date}T23:59:59`).getTime() < now;
+  return false;
 }
 
 export default function TasksWorkspacePage() {
-  const router = useRouter();
-
-  const [tasks, setTasks] = useState<WorkspaceTask[]>([]);
+  const { user } = useCurrentUser();
+  const [scope, setScope] = useState<Scope>("mine");
+  const [state, setState] = useState<"open" | "done" | "all">("open");
+  const [board, setBoard] = useState<Board | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pageError, setPageError] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [assigneeFilter, setAssigneeFilter] = useState("all");
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [now] = useState(() => Date.now());
 
-  const loadTasks = useCallback(async () => {
-    try {
-      setLoading(true);
-      setPageError("");
-      const response = await api.get<WorkspaceTask[]>("/tasks");
-      setTasks(response.data);
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response?.status === 401) {
-        router.push("/login");
-        return;
-      }
-
-      setPageError(
-        getApiErrorMessage(
-          err,
-          "Unable to load the task workspace."
-        )
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
+  const load = useCallback(() => {
+    return api
+      .get<Board>("/tasks/board", { params: { scope, state } })
+      .then((r) => {
+        setBoard(r.data);
+        setError("");
+      })
+      .catch((err) => setError(getApiErrorMessage(err, "Could not load tasks.")))
+      .finally(() => setLoading(false));
+  }, [scope, state]);
 
   useEffect(() => {
-    async function initializeTasks() {
-      if (!isAuthenticated()) {
-        router.push("/login");
-        return;
-      }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
+    void load();
+  }, [load]);
 
-      await loadTasks();
+  const groups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const rows = (board?.tasks ?? []).filter(
+      (t) =>
+        !q ||
+        t.title.toLowerCase().includes(q) ||
+        t.deceased_full_name.toLowerCase().includes(q) ||
+        t.assignees.some((a) => a.name.toLowerCase().includes(q)),
+    );
+    const byDay = new Map<string, Row[]>();
+    for (const t of rows) {
+      const key = new Date(t.created_at).toDateString();
+      byDay.set(key, [...(byDay.get(key) ?? []), t]);
     }
+    return [...byDay.values()]
+      .map((list) => ({
+        label: dayLabel(list[0].created_at),
+        at: new Date(list[0].created_at).getTime(),
+        tasks: list.sort((a, b) => {
+          const ad = a.due_at ?? a.due_date;
+          const bd = b.due_at ?? b.due_date;
+          if (!ad) return 1;
+          if (!bd) return -1;
+          return new Date(ad).getTime() - new Date(bd).getTime();
+        }),
+      }))
+      .sort((a, b) => b.at - a.at);
+  }, [board, search]);
 
-    void initializeTasks();
-  }, [router, loadTasks]);
-
-  const assignees = useMemo(() => {
-    const names = tasks
-      .map((task) => task.assigned_to_name)
-      .filter((name): name is string => Boolean(name));
-
-    return Array.from(new Set(names)).sort();
-  }, [tasks]);
-
-  const filteredTasks = useMemo(() => {
-    return tasks.filter((task) => {
-      const matchesStatus =
-        statusFilter === "all" ||
-        task.status === statusFilter;
-
-      const matchesAssignee =
-        assigneeFilter === "all" ||
-        task.assigned_to_name === assigneeFilter;
-
-      return matchesStatus && matchesAssignee;
-    });
-  }, [tasks, statusFilter, assigneeFilter]);
+  const scopes = board?.scopes ?? ["mine"];
 
   return (
-    <main className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-[var(--fos-surface-muted)] p-3">
-              <ClipboardList className="h-6 w-6 text-[var(--fos-text-secondary)]" />
-            </div>
-
-            <div>
-              <h1 className="text-2xl font-semibold text-[var(--fos-text)]">
-                Tasks
-              </h1>
-              <p className="text-sm text-[var(--fos-text-muted)]">
-                Business-wide task workspace
-              </p>
-            </div>
+    <main className="mx-auto max-w-4xl space-y-5 p-4 sm:p-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-slate-900 p-3 text-white">
+            <ClipboardList size={20} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Tasks</h1>
+            <p className="text-sm text-slate-500">Grouped by the day they were given, with when each is due.</p>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={loadTasks}
-          disabled={loading}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-4 py-2 text-sm font-medium text-[var(--fos-text-secondary)] shadow-sm transition hover:bg-[var(--fos-page)] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh
+        <button type="button" onClick={() => void load()} className="flex items-center gap-1 rounded-lg border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+          <RefreshCw size={14} /> Refresh
         </button>
+      </header>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {scopes.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setScope(s)}
+            className={`rounded-full px-4 py-1.5 text-sm ${scope === s ? "bg-slate-900 text-white" : "border bg-white text-slate-700 hover:bg-slate-50"}`}
+          >
+            {SCOPE_LABEL[s]}
+          </button>
+        ))}
+        <span className="mx-1 hidden h-5 w-px bg-slate-200 sm:block" />
+        {(["open", "done", "all"] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setState(s)}
+            className={`rounded-full px-3 py-1.5 text-sm ${state === s ? "bg-slate-200 font-medium text-slate-900" : "text-slate-600 hover:bg-slate-100"}`}
+          >
+            {s === "open" ? "To do" : s === "done" ? "Done" : "All"}
+          </button>
+        ))}
       </div>
 
-      <section className="rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-4 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end">
-          <div className="w-full md:w-56">
-            <label
-              htmlFor="status-filter"
-              className="mb-1 block text-sm font-medium text-[var(--fos-text-secondary)]"
-            >
-              Status
-            </label>
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by task, family or person…"
+        className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-900"
+      />
 
-            <select
-              id="status-filter"
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value)
-              }
-              className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2 text-sm outline-none focus:border-slate-500"
-            >
-              <option value="all">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="in_progress">In progress</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
+      {error && <ErrorNote message={error} />}
+      {loading && <Loader2 className="animate-spin text-slate-400" />}
 
-          <div className="w-full md:w-64">
-            <label
-              htmlFor="assignee-filter"
-              className="mb-1 block text-sm font-medium text-[var(--fos-text-secondary)]"
-            >
-              Assigned to
-            </label>
-
-            <select
-              id="assignee-filter"
-              value={assigneeFilter}
-              onChange={(event) =>
-                setAssigneeFilter(event.target.value)
-              }
-              className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2 text-sm outline-none focus:border-slate-500"
-            >
-              <option value="all">Everyone</option>
-
-              {assignees.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="text-sm text-[var(--fos-text-muted)]">
-            Showing{" "}
-            <span className="font-semibold text-[var(--fos-text)]">
-              {filteredTasks.length}
-            </span>{" "}
-            of{" "}
-            <span className="font-semibold text-[var(--fos-text)]">
-              {tasks.length}
-            </span>{" "}
-            tasks
-          </div>
-        </div>
-      </section>
-
-      {pageError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {pageError}
-        </div>
+      {!loading && groups.length === 0 && !error && (
+        <p className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">
+          {scope === "mine" ? "Nothing is waiting for you. Nice." : "No tasks here."}
+        </p>
       )}
 
-      <section className="overflow-hidden rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-sm">
-        {loading ? (
-          <div className="flex items-center justify-center gap-2 px-6 py-16 text-sm text-[var(--fos-text-muted)]">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Loading tasks...
-          </div>
-        ) : filteredTasks.length === 0 ? (
-          <div className="px-6 py-16 text-center">
-            <ClipboardList className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-            <h2 className="text-lg font-semibold text-[var(--fos-text)]">
-              No tasks found
-            </h2>
-            <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
-              There are no tasks matching the current filters.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-[var(--fos-page)]">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
-                    Task
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
-                    Case
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
-                    Assigned to
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
-                    Due
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">
-                    Status
-                  </th>
-                </tr>
-              </thead>
+      {groups.map((g) => (
+        <section key={g.label + g.at}>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{g.label}</h2>
+          <ul className="divide-y overflow-hidden rounded-2xl border bg-white">
+            {g.tasks.map((t) => (
+              <li key={t.id}>
+                <button type="button" onClick={() => setOpenId(t.id)} className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left hover:bg-slate-50">
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate font-medium ${t.status === "completed" ? "text-slate-400 line-through" : "text-slate-900"}`}>{t.title}</p>
+                    <p className="truncate text-xs text-slate-500">
+                      {t.deceased_full_name} · {t.case_number}
+                    </p>
+                  </div>
+                  <span className={`flex items-center gap-1 text-xs ${isOverdue(t, now) ? "font-semibold text-red-600" : "text-slate-600"}`}>
+                    <CalendarClock size={13} /> {whenDue(t.due_at, t.due_date)}
+                    {isOverdue(t, now) ? " · overdue" : ""}
+                  </span>
+                  {scope !== "mine" || t.shared ? (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                      <Users size={13} />
+                      {t.assignees.length ? t.assignees.map((a) => a.name.split(" ")[0]).join(", ") : "Nobody"}
+                    </span>
+                  ) : null}
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs ${STATUS_STYLE[t.status]}`}>{STATUS_LABEL[t.status]}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
 
-              <tbody className="divide-y divide-slate-100">
-                {filteredTasks.map((task) => (
-                  <tr
-                    key={task.id}
-                    className="transition hover:bg-[var(--fos-page)]"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-[var(--fos-text)]">
-                        {task.title}
-                      </div>
-
-                      {task.description && (
-                        <div className="mt-1 max-w-md text-sm text-[var(--fos-text-muted)]">
-                          {task.description}
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          router.push(
-                            `/cases/${task.case_id}`
-                          )
-                        }
-                        className="text-left"
-                      >
-                        <div className="font-medium text-[var(--fos-text)] hover:underline">
-                          {task.case_number}
-                        </div>
-                        <div className="text-sm text-[var(--fos-text-muted)]">
-                          {task.deceased_full_name}
-                        </div>
-                      </button>
-                    </td>
-
-                    <td className="px-6 py-4 text-sm text-[var(--fos-text-secondary)]">
-                      {task.assigned_to_name || "Unassigned"}
-                    </td>
-
-                    <td className="px-6 py-4 text-sm text-[var(--fos-text-secondary)]">
-                      {formatDate(task.due_date)}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
-                          task.status
-                        )}`}
-                      >
-                        {formatStatus(task.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      {openId && (
+        <TaskDrawer
+          taskId={openId}
+          meId={user?.user_id}
+          onClose={() => setOpenId(null)}
+          onChanged={() => void load()}
+        />
+      )}
     </main>
   );
 }

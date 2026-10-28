@@ -32,7 +32,9 @@ type CaseTask = {
   description: string | null;
   status: "pending" | "in_progress" | "completed";
   due_date: string | null;
+  due_at?: string | null;
   assigned_to: string | null;
+  assignee_ids?: string[];
   created_at: string;
   updated_at: string;
   completed_at: string | null;
@@ -52,7 +54,8 @@ type TaskForm = {
   description: string;
   status: "pending" | "in_progress" | "completed";
   due_date: string;
-  assigned_to: string;
+  due_time: string;
+  assignee_ids: string[];
 };
 
 /* ============================================================
@@ -140,6 +143,18 @@ function isValidUuid(value: string) {
   );
 }
 
+function localDate(value: string) {
+  const d = new Date(value);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function localTime(value: string) {
+  const d = new Date(value);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /* ============================================================
    EMPTY FORM
 ============================================================ */
@@ -149,7 +164,8 @@ const emptyForm: TaskForm = {
   description: "",
   status: "pending",
   due_date: "",
-  assigned_to: "",
+  due_time: "",
+  assignee_ids: [],
 };
 
 /* ============================================================
@@ -290,10 +306,14 @@ export default function TasksPage() {
       title: task.title,
       description: task.description || "",
       status: task.status,
-      due_date: task.due_date
-        ? task.due_date.slice(0, 10)
-        : "",
-      assigned_to: task.assigned_to || "",
+      due_date: task.due_at
+        ? localDate(task.due_at)
+        : task.due_date
+          ? task.due_date.slice(0, 10)
+          : "",
+      due_time: task.due_at ? localTime(task.due_at) : "",
+      assignee_ids:
+        task.assignee_ids ?? (task.assigned_to ? [task.assigned_to] : []),
     });
 
     setFormError("");
@@ -334,8 +354,12 @@ export default function TasksPage() {
         description:
           form.description.trim() || null,
         status: form.status,
-        due_date: form.due_date || null,
-        assigned_to: form.assigned_to || null,
+        due_date: form.due_date && !form.due_time ? form.due_date : null,
+        due_at:
+          form.due_date && form.due_time
+            ? new Date(`${form.due_date}T${form.due_time}`).toISOString()
+            : null,
+        assignee_ids: form.assignee_ids,
       };
 
       if (editingTask) {
@@ -649,21 +673,32 @@ export default function TasksPage() {
                         />
 
                         <InfoItem
-                          label="Due Date"
-                          value={formatDate(
-                            task.due_date
-                          )}
+                          label="Due"
+                          value={
+                            task.due_at
+                              ? new Date(task.due_at).toLocaleString("en-ZA", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : formatDate(task.due_date)
+                          }
                         />
 
                         <InfoItem
-                          label="Assigned To"
+                          label="Given To"
                           value={
-                            task.assigned_to
-                              ? users.find(
-                                  (user) =>
-                                    user.id === task.assigned_to
-                                )?.full_name || task.assigned_to
-                              : "Unassigned"
+                            (task.assignee_ids ??
+                              (task.assigned_to ? [task.assigned_to] : [])
+                            )
+                              .map(
+                                (id) =>
+                                  users.find((user) => user.id === id)
+                                    ?.full_name || "Colleague"
+                              )
+                              .join(", ") || "Unassigned"
                           }
                         />
                       </div>
@@ -852,34 +887,50 @@ export default function TasksPage() {
                     }
                     className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   />
+                  <input
+                    type="time"
+                    value={form.due_time}
+                    onChange={(event) =>
+                      updateForm("due_time", event.target.value)
+                    }
+                    aria-label="Due time"
+                    className="mt-2 w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
-                  Assigned To
-                </label>
-                <select
-                  value={form.assigned_to}
-                  onChange={(event) =>
-                    updateForm(
-                      "assigned_to",
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                >
-                  <option value="">
-                    Unassigned
-                  </option>
+                <p className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
+                  Given to
+                </p>
+                <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-[var(--fos-border)] p-2">
                   {users.map((user) => (
-                    <option key={user.id} value={user.id}>
+                    <label
+                      key={user.id}
+                      className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-[var(--fos-page)]"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.assignee_ids.includes(user.id)}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            assignee_ids: event.target.checked
+                              ? [...current.assignee_ids, user.id]
+                              : current.assignee_ids.filter(
+                                  (id) => id !== user.id
+                                ),
+                          }))
+                        }
+                      />
                       {user.full_name} ({user.role})
-                    </option>
+                    </label>
                   ))}
-                </select>
+                </div>
                 <p className="mt-1.5 text-xs text-[var(--fos-text-muted)]">
-                  Assign this task to an active manager or staff member.
+                  Tick more than one person to share the task. Each of them
+                  is alerted and can update its status, write a report and
+                  upload files.
                 </p>
               </div>
               <div className="flex justify-end gap-3 border-t pt-5">

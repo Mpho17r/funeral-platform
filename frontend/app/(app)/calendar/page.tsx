@@ -244,13 +244,32 @@ export default function CalendarWorkspacePage() {
   );
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
+  // "Only my schedule" is remembered on this device.
+  const [mine, setMine] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem("fos.calendar.mine") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  function chooseMine(value: boolean) {
+    setMine(value);
+    try {
+      window.localStorage.setItem("fos.calendar.mine", value ? "1" : "0");
+    } catch {
+      /* storage blocked: the choice lasts until the page closes */
+    }
+  }
 
   const loadEvents = useCallback(async () => {
     try {
       setLoading(true);
       setPageError("");
 
-      const response = await api.get<CalendarEvent[]>("/calendar");
+      const response = await api.get<CalendarEvent[]>("/calendar", {
+        params: mine ? { mine: true } : undefined,
+      });
       setEvents(response.data);
     } catch (err: unknown) {
       const errorRecord = asRecord(err);
@@ -270,7 +289,7 @@ export default function CalendarWorkspacePage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, mine]);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -440,6 +459,15 @@ export default function CalendarWorkspacePage() {
               />
             </div>
           </div>
+
+          <label className="flex w-full items-center gap-2 rounded-lg border border-[var(--fos-border)] px-3 py-2 text-sm font-medium text-[var(--fos-text-secondary)] lg:w-auto">
+            <input
+              type="checkbox"
+              checked={mine}
+              onChange={(event) => chooseMine(event.target.checked)}
+            />
+            Only my schedule
+          </label>
 
           <div className="w-full lg:w-52">
             <label
