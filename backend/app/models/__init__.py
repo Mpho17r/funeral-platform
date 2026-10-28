@@ -1,7 +1,7 @@
 from app.models.business import Business
 from app.models.user import User
 from app.models.funeral_case import FuneralCase
-from app.models.case_task import CaseTask
+from app.models.case_task import CaseTask, CaseTaskAssignee, CaseTaskEntry
 from app.models.case_document import CaseDocument
 from app.models.case_contact import CaseContact
 from app.models.case_service import CaseService

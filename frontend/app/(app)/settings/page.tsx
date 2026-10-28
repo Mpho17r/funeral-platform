@@ -12,6 +12,7 @@ import {
   ScrollText,
   ShieldCheck,
   Users,
+  Volume2,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -189,6 +190,29 @@ export default function SettingsPage() {
                 <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
                   Set your country&apos;s VAT rate. It is added to quotes and
                   invoices automatically.
+                </p>
+              </button>
+
+              {/* SOUNDS AND CALLS (per person) */}
+              <button
+                type="button"
+                onClick={() => router.push("/settings/sound")}
+                className="group rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]">
+                    <Volume2 size={22} />
+                  </div>
+                  <span className="text-sm text-[var(--fos-text-muted)] transition group-hover:text-[var(--fos-text-secondary)]">
+                    Choose →
+                  </span>
+                </div>
+                <h3 className="mt-5 text-lg font-semibold text-[var(--fos-text)]">
+                  Sounds and calls
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
+                  Pick your alert tone and voice-call ring, and set the volume.
+                  These are just for you.
                 </p>
               </button>
 

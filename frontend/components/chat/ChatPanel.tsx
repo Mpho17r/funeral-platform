@@ -26,6 +26,7 @@ import {
   Smile,
   Trash2,
   Users,
+  Phone,
   Video,
   X,
 } from "lucide-react";
@@ -567,11 +568,11 @@ function Thread({
     }
   }
 
-  async function startCall() {
+  async function startCall(voiceOnly = false) {
     try {
       const { data } = await api.post<{ join_url: string }>(
         "/meetings/huddle",
-        { conversation_id: id }
+        { conversation_id: id, voice_only: voiceOnly }
       );
       window.open(data.join_url, "_blank", "noopener,noreferrer");
       stickRef.current = true;
@@ -888,9 +889,18 @@ function Thread({
         <div className="ml-auto flex gap-1">
           <button
             type="button"
-            onClick={startCall}
-            aria-label="Start a call"
-            title="Start a call"
+            onClick={() => void startCall(true)}
+            aria-label="Start a voice call"
+            title="Voice call"
+            className="rounded-lg p-2 text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
+          >
+            <Phone size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={() => void startCall(false)}
+            aria-label="Start a video call"
+            title="Video call"
             className="rounded-lg p-2 text-[var(--fos-text-secondary)] hover:bg-[var(--fos-surface-muted)]"
           >
             <Video size={20} />

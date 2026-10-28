@@ -9,12 +9,14 @@ import {
   CheckCheck,
   ClipboardCheck,
   ListTodo,
+  Phone,
   Scale,
   Snowflake,
   TriangleAlert,
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { playTone } from "@/lib/sound";
 
 type Note = {
   id: string;
@@ -26,10 +28,12 @@ type Note = {
   read: boolean;
 };
 
-const POLL_MS = 30_000;
+const POLL_MS = 15_000;
 
 const ICONS: Record<string, React.ReactNode> = {
   task_assigned: <ListTodo size={16} />,
+  task_update: <ListTodo size={16} />,
+  call: <Phone size={16} />,
   meeting_invite: <CalendarClock size={16} />,
   meeting_changed: <CalendarClock size={16} />,
   mention: <AtSign size={16} />,
@@ -62,6 +66,7 @@ export function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<Note[]>([]);
   const [failed, setFailed] = useState(false);
+  const seen = useRef<Set<string> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -69,6 +74,15 @@ export function NotificationBell() {
         "/notifications",
         { params: { limit: 15 } },
       );
+      // Make a sound for anything that arrived since the last check
+      // (not for what was already there when the page opened).
+      const fresh = response.data.items.filter((n) => !n.read);
+      if (seen.current) {
+        const arrived = fresh.filter((n) => !seen.current!.has(n.id));
+        if (arrived.some((n) => n.kind === "call")) playTone("call");
+        else if (arrived.length) playTone("alert");
+      }
+      seen.current = new Set(fresh.map((n) => n.id));
       setUnread(response.data.unread);
       setItems(response.data.items);
       setFailed(false);

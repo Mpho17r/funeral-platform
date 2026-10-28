@@ -32,7 +32,7 @@ def test_task_assignment_notifies_the_assignee_only(
     note = mine["items"][0]
     assert note["kind"] == "task_assigned"
     assert note["body"] == "Call the family"
-    assert note["link"] == f"/cases/{case.id}"
+    assert note["link"] == "/tasks"  # opens the task list
 
     # The person who assigned it is not told about their own action.
     assert inbox(client, auth_headers, manager)["unread"] == 0

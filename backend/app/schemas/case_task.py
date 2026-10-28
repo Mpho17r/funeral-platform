@@ -28,7 +28,13 @@ class CaseTaskCreate(BaseModel):
 
     due_date: date | None = None
 
+    # Date and time due. When given, due_date follows it.
+    due_at: datetime | None = None
+
     assigned_to: UUID | None = None
+
+    # Everyone the task is given to (shared tasks).
+    assignee_ids: list[UUID] | None = None
 
     @field_validator("title")
     @classmethod
@@ -71,7 +77,13 @@ class CaseTaskUpdate(BaseModel):
 
     due_date: date | None = None
 
+    # Date and time due. When given, due_date follows it.
+    due_at: datetime | None = None
+
     assigned_to: UUID | None = None
+
+    # Everyone the task is given to (shared tasks).
+    assignee_ids: list[UUID] | None = None
 
     @field_validator("title")
     @classmethod
@@ -123,8 +135,10 @@ class CaseTaskResponse(BaseModel):
     status: str
 
     due_date: date | None
+    due_at: datetime | None = None
 
     assigned_to: UUID | None
+    assignee_ids: list[UUID] = []
 
     created_at: datetime
     updated_at: datetime

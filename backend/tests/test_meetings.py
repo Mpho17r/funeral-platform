@@ -236,3 +236,29 @@ def test_meetings_need_permission(client, db, test_data, auth_headers):
     assert meet(client, auth_headers, a, "get").status_code == 403
     assert meet(client, auth_headers, a, "post",
                 json=body()).status_code == 403
+
+
+def test_voice_call_starts_with_camera_off_and_rings_the_other(
+    client, test_data, auth_headers, db
+):
+    from app.models.notification import Notification
+
+    a, b = test_data["manager"], test_data["staff"]
+    conv = open_dm(client, auth_headers, a, b)
+    r = meet(client, auth_headers, a, "post", "/huddle",
+             json={"conversation_id": conv["id"], "voice_only": True})
+    assert r.status_code == 201
+    assert "startWithVideoMuted=true" in r.json()["join_url"]
+
+    msgs = chat_call(client, auth_headers, b, "get",
+                     f"/conversations/{conv['id']}/messages"
+                     ).json()["messages"]
+    assert msgs[-1]["body"] == "started a voice call"
+    ring = db.query(Notification).filter(
+        Notification.user_id == b.id, Notification.kind == "call"
+    ).one()
+    assert "calling you" in ring.title
+    # The caller is not rung.
+    assert db.query(Notification).filter(
+        Notification.user_id == a.id, Notification.kind == "call"
+    ).count() == 0

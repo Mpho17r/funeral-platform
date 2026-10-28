@@ -25,6 +25,7 @@ from app.database import get_db
 from app.dependencies.roles import require_permission
 from app.models.chat import ChatConversation, ChatMessage, ChatParticipant
 from app.models.meeting import Meeting, MeetingInvitee
+from app.models.user import User
 from app.services.notifications import notify
 
 router = APIRouter(prefix="/meetings", tags=["Meetings"])
@@ -58,6 +59,8 @@ class Respond(BaseModel):
 
 class Huddle(BaseModel):
     conversation_id: UUID
+    # Audio only: the camera starts off and the pre-join page is skipped.
+    voice_only: bool = False
 
 
 def _aware(value: datetime) -> datetime:
@@ -75,9 +78,15 @@ def _clean_url(url: str | None) -> str | None:
     return url
 
 
-def _new_call_link() -> str:
+def _new_call_link(voice_only: bool = False) -> str:
     base = settings.call_base_url.rstrip("/")
-    return f"{base}/FuneralOS-{secrets.token_urlsafe(12)}"
+    link = f"{base}/FuneralOS-{secrets.token_urlsafe(12)}"
+    if voice_only:
+        link += (
+            "#config.startWithVideoMuted=true"
+            "&config.prejoinPageEnabled=false"
+        )
+    return link
 
 
 def _check_times(starts: datetime, ends: datetime) -> tuple[datetime, datetime]:
@@ -437,20 +446,41 @@ def start_huddle(
 
     conv, seat = _membership(db, user, payload.conversation_id)
     now = _now()
-    url = _new_call_link()
+    url = _new_call_link(payload.voice_only)
 
     message = ChatMessage(
         business_id=user["business_id"],
         conversation_id=conv.id,
         sender_id=user["user_id"],
         kind="call",
-        body="started a call",
-        meta={"join_url": url},
+        body="started a voice call" if payload.voice_only else "started a call",
+        meta={"join_url": url, "voice_only": payload.voice_only},
         created_at=now,
     )
     db.add(message)
     conv.last_message_at = now
     seat.last_read_at = now
+
+    # Ring the others: they hear the call tone when the bell next checks.
+    others = [
+        row[0]
+        for row in db.query(ChatParticipant.user_id).filter(
+            ChatParticipant.conversation_id == conv.id
+        )
+    ]
+    caller = db.get(User, user["user_id"])
+    notify(
+        db,
+        business_id=user["business_id"],
+        user_ids=others,
+        kind="call",
+        title=f"{caller.full_name if caller else 'A colleague'} is calling you"
+        if payload.voice_only
+        else f"{caller.full_name if caller else 'A colleague'} started a call",
+        body="Open Team chat to join.",
+        link="/staff",
+        actor_id=user["user_id"],
+    )
     db.commit()
 
     return {"join_url": url, "message_id": str(message.id)}

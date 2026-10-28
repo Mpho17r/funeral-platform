@@ -1,12 +1,12 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_permission
 from app.models.case_service import CaseService
-from app.models.case_task import CaseTask
+from app.models.case_task import CaseTask, CaseTaskAssignee
 from app.models.funeral_case import FuneralCase
 from app.models.user import User
 from app.schemas.calendar import CalendarEventResponse
@@ -28,6 +28,11 @@ def get_business_id(current_user: dict):
     response_model=list[CalendarEventResponse],
 )
 def list_calendar_events(
+    mine: bool = Query(
+        False,
+        description="Only my own schedule: my tasks, and the funerals "
+        "and services of the cases I have tasks on.",
+    ),
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("cases.view")),
 ):
@@ -37,15 +42,25 @@ def list_calendar_events(
 
     events: list[CalendarEventResponse] = []
 
-    cases = (
-        db.query(FuneralCase)
-        .filter(
-            FuneralCase.business_id == business_id,
-            FuneralCase.funeral_date.is_not(None),
-        )
-        .order_by(FuneralCase.funeral_date.asc())
-        .all()
+    my_task_ids = (
+        db.query(CaseTaskAssignee.task_id)
+        .filter(CaseTaskAssignee.user_id == user_id)
     )
+    is_mine_task = (CaseTask.assigned_to == user_id) | CaseTask.id.in_(
+        my_task_ids
+    )
+    my_case_ids = (
+        db.query(CaseTask.case_id)
+        .filter(CaseTask.business_id == business_id, is_mine_task)
+    )
+
+    case_query = db.query(FuneralCase).filter(
+        FuneralCase.business_id == business_id,
+        FuneralCase.funeral_date.is_not(None),
+    )
+    if mine:
+        case_query = case_query.filter(FuneralCase.id.in_(my_case_ids))
+    cases = case_query.order_by(FuneralCase.funeral_date.asc()).all()
 
     for case in cases:
         events.append(
@@ -69,7 +84,7 @@ def list_calendar_events(
         role=role,
         permission_key="services.view",
     ):
-        services = (
+        service_query = (
             db.query(CaseService, FuneralCase)
             .join(
                 FuneralCase,
@@ -80,9 +95,14 @@ def list_calendar_events(
                 FuneralCase.business_id == business_id,
                 CaseService.scheduled_date.is_not(None),
             )
-            .order_by(CaseService.scheduled_date.asc())
-            .all()
         )
+        if mine:
+            service_query = service_query.filter(
+                FuneralCase.id.in_(my_case_ids)
+            )
+        services = service_query.order_by(
+            CaseService.scheduled_date.asc()
+        ).all()
 
         for service, case in services:
             events.append(
@@ -105,7 +125,7 @@ def list_calendar_events(
         role=role,
         permission_key="tasks.view",
     ):
-        tasks = (
+        task_query = (
             db.query(CaseTask, FuneralCase, User.full_name)
             .join(
                 FuneralCase,
@@ -120,9 +140,10 @@ def list_calendar_events(
                 FuneralCase.business_id == business_id,
                 CaseTask.due_date.is_not(None),
             )
-            .order_by(CaseTask.due_date.asc())
-            .all()
         )
+        if mine:
+            task_query = task_query.filter(is_mine_task)
+        tasks = task_query.order_by(CaseTask.due_date.asc()).all()
 
         for task, case, assigned_to_name in tasks:
             events.append(
