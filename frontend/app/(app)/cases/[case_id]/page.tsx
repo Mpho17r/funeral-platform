@@ -663,6 +663,7 @@ export default function CaseDetailsPage() {
             caseId={funeralCase.id}
             status={funeralCase.status}
             canEdit={can("cases.edit")}
+            canArchive={can("cases.archive")}
             onChanged={() => setRefreshVersion((version) => version + 1)}
           />
         </div>

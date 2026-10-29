@@ -71,6 +71,22 @@ class Business(Base):
     )
 
     # ========================================================
+    # ARCHIVE
+    # ========================================================
+
+    # Finished cases and tasks are archived this many days after they
+    # finish. 0 turns automatic archiving off.
+    archive_after_days: Mapped[int] = mapped_column(
+        Integer, default=14, nullable=False
+    )
+
+    # The main admin can let the platform delete archived items this many
+    # months after they were archived. None means never delete.
+    delete_archived_after_months: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+
+    # ========================================================
     # TAX (VAT / GST / sales tax), set by the main admin
     # ========================================================
 

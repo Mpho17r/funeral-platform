@@ -25,6 +25,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/communications": "communications.view",
   "/contacts": "contacts.view",
   "/tasks": "tasks.view",
+  "/archive": "tasks.view",
   "/groups": "groups.view",
   "/staff": "chat.use",
   "/branches": "branches.view",

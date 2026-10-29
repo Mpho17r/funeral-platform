@@ -14,6 +14,8 @@ STORAGE_ROOT = Path("storage/chat")
 
 IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
+AUDIO_TYPES = {"audio/webm", "audio/ogg", "audio/mp4", "audio/wav", "audio/mpeg"}
+
 OFFICE = {
     ".docx": "application/vnd.openxmlformats-officedocument."
     "wordprocessingml.document",
@@ -57,6 +59,18 @@ def detect(filename: str, contents: bytes) -> str:
     if contents.startswith(b"%PDF-"):
         return "application/pdf"
 
+    # Voice notes recorded in the browser. Decided by the contents.
+    if contents.startswith(b"\x1a\x45\xdf\xa3"):
+        return "audio/webm"
+    if contents.startswith(b"OggS"):
+        return "audio/ogg"
+    if contents[4:8] == b"ftyp":
+        return "audio/mp4"
+    if contents[:4] == b"RIFF" and contents[8:12] == b"WAVE":
+        return "audio/wav"
+    if contents.startswith(b"ID3") or contents[:2] in (b"\xff\xfb", b"\xff\xf3"):
+        return "audio/mpeg"
+
     extension = Path(filename).suffix.lower()
 
     if extension in OFFICE and contents.startswith(b"PK\x03\x04"):
@@ -70,7 +84,7 @@ def detect(filename: str, contents: bytes) -> str:
             pass
 
     raise ChatFileError(
-        "Share a picture, PDF, Word, Excel, PowerPoint, text or CSV file."
+        "Share a picture, voice note, PDF, Word, Excel, PowerPoint, text or CSV file."
     )
 
 

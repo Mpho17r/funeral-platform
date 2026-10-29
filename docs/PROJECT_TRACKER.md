@@ -27,6 +27,7 @@ Status is conservative: "built and tested" means merged to `main` with CI green.
 | **Family and member portals** (#33) | Private, expiring, revocable links; no accounts |
 | **Platform admin, plan limits, Ask FuneralOS** (#34) | Separate operator login; limits enforced on save | [PLATFORM_ADMIN.md](./PLATFORM_ADMIN.md) |
 | **KAI assistant** | Greeting, branch/role context, conversation memory, case gaps, confirmed actions | [KAI.md](./KAI.md) |
+| **Archive and voice notes** | Finished cases/tasks archived automatically or by hand; main admin sets retention and can delete; chat voice notes | [ARCHIVE.md](./ARCHIVE.md) |
 | **Tasks overhaul** | Assignees update status, shared tasks, reports and files, due date/time grouping, My/Branch/Organisation views, sign-in alert, own-schedule calendar, voice call and alert tones | — |
 
 ## Known gaps (honest list)

@@ -112,6 +112,21 @@ def _stock() -> str:
         db.close()
 
 
+def _archive() -> str:
+    from app.database import SessionLocal
+    from app.services.archive import sweep_all
+
+    db = SessionLocal()
+    try:
+        r = sweep_all(db)
+    finally:
+        db.close()
+    return (
+        f"{r['tasks_archived']} task(s) and {r['cases_archived']} case(s) "
+        f"archived, {r['deleted']} deleted, {r['kept']} kept"
+    )
+
+
 def _delivery() -> str:
     from app.database import SessionLocal
     from app.services.message_delivery import deliver_queued
@@ -142,6 +157,7 @@ def build_jobs() -> list[Job]:
             daily_hour=settings.scheduler_reminders_hour, window_hours=8),
         Job("delivery", _delivery, every_minutes=10),
         Job("stock", _stock, every_minutes=60),
+        Job("archive", _archive, every_minutes=360),
     ]
     if settings.scheduler_backups_enabled:
         jobs.append(

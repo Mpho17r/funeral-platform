@@ -382,8 +382,10 @@ from app.api.assistant import router as assistant_router  # noqa: E402
 app.include_router(assistant_router)
 
 from app.api.kai import router as kai_router  # noqa: E402
+from app.api.archive import router as archive_router  # noqa: E402
 
 app.include_router(kai_router)
+app.include_router(archive_router)
 
 from app.api.purchase_orders import router as orders_router  # noqa: E402
 

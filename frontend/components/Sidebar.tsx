@@ -34,6 +34,7 @@ import {
   HeartHandshake,
   Tags,
   Car,
+  Archive,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -343,6 +344,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Tasks",
       icon: <ClipboardList size={18} />,
       path: "/tasks",
+    },
+    {
+      label: "Archive",
+      icon: <Archive size={18} />,
+      path: "/archive",
     },
   ];
 
