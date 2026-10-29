@@ -122,7 +122,8 @@ def _archive() -> str:
     finally:
         db.close()
     return (
-        f"{r['tasks_archived']} task(s), {r['services_archived']} service(s) and "
+        f"{r['tasks_archived']} task(s), {r['services_archived']} service(s), "
+        f"{r['orders_archived']} order(s) and "
         f"{r['cases_archived']} case(s) "
         f"archived, {r['deleted']} deleted, {r['kept']} kept"
     )

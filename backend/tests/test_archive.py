@@ -132,3 +132,34 @@ def test_settings_are_main_admin_only(client, auth_headers, test_data):
     assert r.status_code == 200 and r.json()["delete_archived_after_months"] == 24
     got = client.get("/archive/settings", headers=auth_headers(test_data["manager"])).json()
     assert got["archive_after_days"] == 30 and got["can_change"] is False
+
+
+def test_old_finished_orders_are_archived_and_old_read_notifications_removed(
+    client, auth_headers, db, test_data
+):
+    from app.models.inventory import PurchaseOrder, Supplier
+    from app.models.notification import Notification
+
+    biz = db.get(Business, test_data["business_a"].id)
+    supplier = Supplier(business_id=biz.id, name="S", email="s@x.test", is_active=True)
+    db.add(supplier)
+    db.commit()
+    h = auth_headers(test_data["main_admin"])
+    item = client.post("/inventory/items", headers=h, json={
+        "sku": "C-1", "name": "Candles", "category": "other", "supplier_id": str(supplier.id),
+        "reorder_level": "1", "reorder_quantity": "5", "opening_quantity": "4"}).json()
+    old = PurchaseOrder(business_id=biz.id, item_id=item["id"], supplier_id=supplier.id,
+                        number="PO-1", quantity=2, status="received", created_at=LONG_AGO)
+    db.add(old)
+    db.add(Notification(business_id=biz.id, user_id=test_data["manager"].id, kind="x", title="old",
+                        read_at=datetime.now(timezone.utc) - timedelta(days=90)))
+    db.add(Notification(business_id=biz.id, user_id=test_data["manager"].id, kind="x", title="new",
+                        read_at=datetime.now(timezone.utc)))
+    db.commit()
+    result = service.sweep(db, biz)
+    assert result["orders_archived"] == 1
+    db.refresh(old)
+    assert old.archived_at is not None
+    assert [n.title for n in db.query(Notification).filter(Notification.kind == "x")] == ["new"]
+    assert client.get("/inventory/orders", headers=h).json() == []
+    assert len(client.get("/archive?kind=orders", headers=h).json()) == 1

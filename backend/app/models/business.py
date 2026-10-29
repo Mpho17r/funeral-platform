@@ -86,6 +86,10 @@ class Business(Base):
         Integer, nullable=True
     )
 
+    # How a family pays (bank details, reference). Shown on the family
+    # portal while something is still owed.
+    payment_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # ========================================================
     # KAI AUTOPILOT (KAI as platform manager) - off unless the main admin
     # turns it on. "suggest" = KAI proposes, a person approves.

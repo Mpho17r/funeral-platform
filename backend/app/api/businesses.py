@@ -246,7 +246,7 @@ def update_business_branding(
     return business
 
 
-CONTACT_FIELDS = ("name", "phone", "email", "address")
+CONTACT_FIELDS = ("name", "phone", "email", "address", "payment_instructions")
 
 
 class BusinessContactUpdate(BaseModel):
@@ -256,6 +256,7 @@ class BusinessContactUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=50)
     email: str | None = Field(default=None, max_length=255)
     address: str | None = Field(default=None, max_length=1000)
+    payment_instructions: str | None = Field(default=None, max_length=1000)
 
     @model_validator(mode="after")
     def tidy(self):
@@ -264,7 +265,7 @@ class BusinessContactUpdate(BaseModel):
         if not self.name:
             raise ValueError("The business name cannot be empty")
 
-        for field in ("phone", "email", "address"):
+        for field in ("phone", "email", "address", "payment_instructions"):
             value = getattr(self, field)
             setattr(self, field, (value or "").strip() or None)
 
@@ -291,6 +292,7 @@ def update_business_contact(
     business.phone = data.phone
     business.email = data.email
     business.address = data.address
+    business.payment_instructions = data.payment_instructions
 
     changes = build_audit_changes(
         before,
