@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Archive, Loader2, RotateCcw, Search, Trash2 } from "lucide-react";
@@ -45,7 +45,7 @@ function day(iso: string) {
   });
 }
 
-export default function ArchivePage() {
+function ArchiveView() {
   const { can, user } = useCurrentUser();
   const params = useSearchParams();
   const isMainAdmin = user?.role === "main_admin";
@@ -281,5 +281,13 @@ export default function ArchivePage() {
         </section>
       )}
     </main>
+  );
+}
+
+export default function ArchivePage() {
+  return (
+    <Suspense fallback={null}>
+      <ArchiveView />
+    </Suspense>
   );
 }
