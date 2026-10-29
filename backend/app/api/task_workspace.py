@@ -71,6 +71,7 @@ def _row(task: CaseTask, case: FuneralCase, names: dict, me: UUID) -> dict:
         "case_number": case.case_number,
         "deceased_full_name": case.deceased_full_name,
         "title": task.title,
+        "by_kai": task.by_kai,
         "description": task.description,
         "status": task.status,
         "due_date": task.due_date,

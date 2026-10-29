@@ -139,6 +139,32 @@ def _overdue() -> str:
         db.close()
 
 
+def _autopilot() -> str:
+    from app.database import SessionLocal
+    from app.services.autopilot import run_all
+
+    db = SessionLocal()
+    try:
+        r = run_all(db)
+    finally:
+        db.close()
+    return (
+        f"{r['applied']} done, {r['proposed']} proposed, "
+        f"{r['escalated']} escalated"
+    )
+
+
+def _briefing() -> str:
+    from app.database import SessionLocal
+    from app.services.autopilot import briefing_all
+
+    db = SessionLocal()
+    try:
+        return f"{briefing_all(db)} briefing(s) sent"
+    finally:
+        db.close()
+
+
 def _delivery() -> str:
     from app.database import SessionLocal
     from app.services.message_delivery import deliver_queued
@@ -171,6 +197,8 @@ def build_jobs() -> list[Job]:
         Job("stock", _stock, every_minutes=60),
         Job("archive", _archive, every_minutes=360),
         Job("overdue", _overdue, every_minutes=30),
+        Job("autopilot", _autopilot, every_minutes=15),
+        Job("autopilot_briefing", _briefing, daily_hour=7, window_hours=10),
     ]
     if settings.scheduler_backups_enabled:
         jobs.append(
