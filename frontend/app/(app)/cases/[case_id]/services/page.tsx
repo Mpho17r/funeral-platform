@@ -19,6 +19,8 @@ import axios from "axios";
 import api from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import CatalogueAddDialog from "@/components/CatalogueAddDialog";
+import ServiceAssignDialog from "@/components/ServiceAssignDialog";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 /* ============================================================
    TYPES
@@ -40,6 +42,10 @@ type CaseService = {
   notes: string | null;
   inventory_item_id: string | null;
   stock_issued: number;
+  due_at?: string | null;
+  completed_at?: string | null;
+  archived_at?: string | null;
+  assignee_ids?: string[];
   created_at: string;
   updated_at: string;
 };
@@ -159,6 +165,11 @@ function isValidUuid(value: string) {
 ============================================================ */
 
 export default function ServicesPage() {
+  const { can, user } = useCurrentUser();
+  const me = user?.user_id;
+  const [people, setPeople] = useState<Record<string, string>>({});
+  const [assigning, setAssigning] = useState<CaseService | null>(null);
+  const [statusBusy, setStatusBusy] = useState<string | null>(null);
   const router = useRouter();
   const params = useParams();
 
@@ -208,6 +219,17 @@ export default function ServicesPage() {
       .then((r) => setStockItems(r.data))
       .catch(() => setStockItems([]));
   }, []);
+
+  useEffect(() => {
+    // Names for "Responsible"; only people who manage services can list the team.
+    if (!can("services.manage")) return;
+    api
+      .get<{ id: string; name: string }[]>("/service-work/people")
+      .then((r) =>
+        setPeople(Object.fromEntries(r.data.map((p) => [p.id, p.name]))),
+      )
+      .catch(() => setPeople({}));
+  }, [can]);
 
   /* ==========================================================
      LOAD SERVICES
@@ -437,6 +459,19 @@ export default function ServicesPage() {
       );
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function changeStatus(id: string, status: string) {
+    try {
+      setStatusBusy(id);
+      await api.post(`/service-work/${id}/status`, { status });
+      await loadServices();
+    } catch {
+      // The page reloads below and shows what the server really holds.
+      await loadServices();
+    } finally {
+      setStatusBusy(null);
     }
   }
 
@@ -737,6 +772,91 @@ export default function ServicesPage() {
                         </div>
                       )}
 
+                      <div className="mt-4 rounded-lg border border-[var(--fos-border)] p-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
+                          Progress
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {(
+                            [
+                              ["pending", "Not started"],
+                              ["in_progress", "In progress"],
+                              ["completed", "Completed"],
+                            ] as const
+                          ).map(([value, label]) => {
+                            const mine = (service.assignee_ids ?? []).includes(
+                              me ?? ""
+                            );
+                            const allowed = can("services.manage") || mine;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                disabled={
+                                  !allowed || statusBusy === service.id
+                                }
+                                onClick={() =>
+                                  void changeStatus(service.id, value)
+                                }
+                                className={`rounded-full border px-3 py-1 text-xs font-medium disabled:opacity-50 ${
+                                  service.status === value
+                                    ? "border-slate-900 bg-slate-900 text-white"
+                                    : "hover:bg-slate-50"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                          {service.status === "confirmed" && (
+                            <span className="text-xs text-[var(--fos-text-muted)]">
+                              (Confirmed)
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                          <span className="text-[var(--fos-text-muted)]">
+                            Responsible:
+                          </span>
+                          {(service.assignee_ids ?? []).length === 0 ? (
+                            <span className="text-[var(--fos-text-secondary)]">
+                              nobody yet
+                            </span>
+                          ) : (
+                            (service.assignee_ids ?? []).map((id) => (
+                              <span
+                                key={id}
+                                className="rounded-full bg-[var(--fos-surface-muted)] px-2.5 py-0.5 text-xs"
+                              >
+                                {id === me ? "You" : (people[id] ?? "Team member")}
+                              </span>
+                            ))
+                          )}
+                          {can("services.manage") && (
+                            <button
+                              type="button"
+                              onClick={() => setAssigning(service)}
+                              className="text-xs font-medium text-slate-700 underline"
+                            >
+                              {(service.assignee_ids ?? []).length
+                                ? "Change"
+                                : "Give to someone"}
+                            </button>
+                          )}
+                          {service.due_at && (
+                            <span className="text-xs text-[var(--fos-text-muted)]">
+                              · due{" "}
+                              {new Date(service.due_at).toLocaleString("en-ZA", {
+                                day: "numeric",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
                       {service.notes && (
                         <div className="mt-4 rounded-lg bg-[var(--fos-page)] p-4">
                           <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
@@ -787,6 +907,20 @@ export default function ServicesPage() {
           ADD SERVICE MODAL
       ====================================================== */}
 
+      {assigning && (
+        <ServiceAssignDialog
+          serviceId={assigning.id}
+          serviceName={assigning.service_name}
+          current={assigning.assignee_ids ?? []}
+          dueAt={assigning.due_at ?? null}
+          onClose={() => setAssigning(null)}
+          onSaved={() => {
+            setAssigning(null);
+            void loadServices();
+          }}
+        />
+      )}
+
       {showCatalogue && (
         <CatalogueAddDialog
           caseId={caseId}
@@ -799,8 +933,8 @@ export default function ServicesPage() {
       )}
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 p-4">
+          <div className="m-auto max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-5">
               <div>
                 <h2 className="text-lg font-bold text-[var(--fos-text)]">

@@ -95,6 +95,10 @@ def recalculate_financials(
     if not financial:
         return None
 
+    from app.services.case_account import apply_invoice_basis
+
+    apply_invoice_basis(db, financial)
+
     # --------------------------------------------------------
     # Calculate total payments
     # --------------------------------------------------------

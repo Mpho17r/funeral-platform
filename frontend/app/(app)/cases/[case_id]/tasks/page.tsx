@@ -762,8 +762,8 @@ export default function TasksPage() {
       {/* FORM MODAL */}
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-[var(--fos-surface)] shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 p-4">
+          <div className="m-auto w-full max-w-2xl rounded-2xl bg-[var(--fos-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-5">
               <div>
                 <h2 className="text-lg font-bold text-[var(--fos-text)]">

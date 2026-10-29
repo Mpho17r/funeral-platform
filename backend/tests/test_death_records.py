@@ -282,7 +282,7 @@ def test_passport_numbers_are_not_checked_as_sa_ids(
     assert response.status_code == 201
 
 
-def test_invalid_informant_sa_id_is_refused(
+def test_informant_id_typo_warns_but_does_not_block(
     client, db, test_data, auth_headers
 ):
     case = make_case(db, test_data["business_a"])
@@ -295,8 +295,22 @@ def test_invalid_informant_sa_id_is_refused(
         informant_id_number="1234567890123",
     )
 
-    assert response.status_code == 422
-    assert "Informant" in response.json()["detail"]
+    assert response.status_code == 201
+    assert response.json()["informant_id_warning"]
+
+
+def test_valid_informant_id_has_no_warning(
+    client, db, test_data, auth_headers
+):
+    case = make_case(db, test_data["business_a"])
+
+    response = create_record(
+        client, auth_headers, test_data["manager"], case,
+        informant_id_number="8001015009087",
+    )
+
+    assert response.status_code == 201
+    assert response.json()["informant_id_warning"] is None
 
 
 def test_natural_death_cannot_have_a_forensic_status(

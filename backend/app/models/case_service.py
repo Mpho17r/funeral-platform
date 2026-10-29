@@ -1,9 +1,9 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func, text
+from sqlalchemy import UniqueConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -97,6 +97,35 @@ class CaseService(Base):
         Integer, nullable=False, default=0, server_default=text("0")
     )
 
+    # Services work like tasks: someone is responsible, and they update
+    # the status. A finished service is archived after a while.
+    due_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+
+    archived_by: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    assignee_rows: Mapped[list["CaseServiceAssignee"]] = relationship(
+        "CaseServiceAssignee",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="CaseServiceAssignee.created_at",
+    )
+
+    @property
+    def assignee_ids(self) -> list[UUID]:
+        return [row.user_id for row in self.assignee_rows]
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -108,4 +137,25 @@ class CaseService(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+
+
+
+class CaseServiceAssignee(Base):
+    __tablename__ = "case_service_assignees"
+    __table_args__ = (
+        UniqueConstraint("service_id", "user_id", name="uq_case_service_assignees"),
+    )
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    service_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("case_services.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

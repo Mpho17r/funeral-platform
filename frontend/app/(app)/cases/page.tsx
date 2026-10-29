@@ -909,8 +909,8 @@ export default function CasesPage() {
 
       {/* Create case modal */}
       {showCreateForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-[2px] sm:p-6">
-          <div className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-[2px] sm:p-6">
+          <div className="m-auto flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-[var(--fos-border)] px-5 py-4 sm:px-6">
               <div>
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">

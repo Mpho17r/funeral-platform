@@ -1257,8 +1257,8 @@ export default function CoveredDependentsPage() {
 
       {/* Form modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-5">
-          <div className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-[var(--fos-surface)] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm sm:p-5">
+          <div className="m-auto flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-[var(--fos-surface)] shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-[var(--fos-border)] px-5 py-5 sm:px-7">
               <div>
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">

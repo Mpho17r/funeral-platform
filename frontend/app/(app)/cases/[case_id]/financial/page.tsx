@@ -1403,8 +1403,8 @@ export default function FinancialPage() {
       ====================================================== */}
 
       {showFinancialForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4">
+          <div className="m-auto max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-2xl">
             <div className="sticky top-0 flex items-center justify-between border-b bg-[var(--fos-surface)] px-6 py-5">
               <div>
                 <h3 className="text-lg font-bold text-[var(--fos-text)]">
@@ -1583,8 +1583,8 @@ export default function FinancialPage() {
       ====================================================== */}
 
       {showPaymentForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4">
+          <div className="m-auto max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-2xl">
             <div className="sticky top-0 flex items-center justify-between border-b bg-[var(--fos-surface)] px-6 py-5">
               <div>
                 <h3 className="text-lg font-bold text-[var(--fos-text)]">

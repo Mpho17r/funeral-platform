@@ -10,7 +10,7 @@ import { getApiErrorMessage } from "@/lib/format";
 import { ErrorNote } from "@/components/Notices";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 
-type Kind = "cases" | "tasks";
+type Kind = "cases" | "tasks" | "services";
 type Item = {
   id: string;
   title: string;
@@ -50,7 +50,9 @@ function ArchiveView() {
   const params = useSearchParams();
   const isMainAdmin = user?.role === "main_admin";
   const canCases = can("cases.view");
-  const first: Kind = params.get("kind") === "tasks" || !canCases ? "tasks" : "cases";
+  const asked = params.get("kind");
+  const first: Kind =
+    asked === "services" ? "services" : asked === "tasks" || !canCases ? "tasks" : "cases";
 
   const [kind, setKind] = useState<Kind>(first);
   const [q, setQ] = useState("");
@@ -91,7 +93,7 @@ function ArchiveView() {
       setError("");
       await (kind === "cases"
         ? api.post(`/cases/${item.id}/restore`)
-        : api.post(`/archive/tasks/${item.id}/restore`));
+        : api.post(`/archive/${kind}/${item.id}/restore`));
       setNotice(`"${item.title}" is back in your lists.`);
       setVersion((v) => v + 1);
     } catch (err) {
@@ -158,8 +160,8 @@ function ArchiveView() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {(["cases", "tasks"] as Kind[])
-          .filter((k) => k === "tasks" || canCases)
+        {(["cases", "tasks", "services"] as Kind[])
+          .filter((k) => k !== "cases" || canCases)
           .map((k) => (
             <button
               key={k}
@@ -170,7 +172,7 @@ function ArchiveView() {
               }}
               className={`rounded-full px-4 py-1.5 text-sm ${kind === k ? "bg-slate-900 text-white" : "border text-slate-700 hover:bg-slate-50"}`}
             >
-              {k === "cases" ? "Cases" : "Tasks"}
+              {k === "cases" ? "Cases" : k === "tasks" ? "Tasks" : "Services"}
             </button>
           ))}
         <div className="relative ml-auto min-w-48 flex-1 sm:max-w-xs">
@@ -178,7 +180,7 @@ function ArchiveView() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={kind === "cases" ? "Search name or case number" : "Search tasks"}
+            placeholder={kind === "cases" ? "Search name or case number" : `Search ${kind}`}
             className="w-full rounded-lg border px-9 py-2 text-sm outline-none focus:border-slate-900"
           />
         </div>
@@ -204,7 +206,7 @@ function ArchiveView() {
                   {item.subtitle} · {item.status.replace("_", " ")} · archived {day(item.archived_at)}
                 </p>
               </div>
-              {(kind === "tasks" || can("cases.restore")) && (
+              {(kind !== "cases" || can("cases.restore")) && (
                 <button
                   type="button"
                   disabled={busy}
@@ -214,7 +216,7 @@ function ArchiveView() {
                   <RotateCcw size={14} /> Restore
                 </button>
               )}
-              {isMainAdmin && (
+              {isMainAdmin && kind !== "services" && (
                 <button
                   type="button"
                   disabled={busy}

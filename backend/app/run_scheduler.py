@@ -122,9 +122,21 @@ def _archive() -> str:
     finally:
         db.close()
     return (
-        f"{r['tasks_archived']} task(s) and {r['cases_archived']} case(s) "
+        f"{r['tasks_archived']} task(s), {r['services_archived']} service(s) and "
+        f"{r['cases_archived']} case(s) "
         f"archived, {r['deleted']} deleted, {r['kept']} kept"
     )
+
+
+def _overdue() -> str:
+    from app.database import SessionLocal
+    from app.services.overdue_alerts import run
+
+    db = SessionLocal()
+    try:
+        return f"{run(db)} overdue alert(s)"
+    finally:
+        db.close()
 
 
 def _delivery() -> str:
@@ -158,6 +170,7 @@ def build_jobs() -> list[Job]:
         Job("delivery", _delivery, every_minutes=10),
         Job("stock", _stock, every_minutes=60),
         Job("archive", _archive, every_minutes=360),
+        Job("overdue", _overdue, every_minutes=30),
     ]
     if settings.scheduler_backups_enabled:
         jobs.append(

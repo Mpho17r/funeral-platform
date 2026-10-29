@@ -9,3 +9,12 @@
 
 ## Voice notes
 Microphone button in chat: record, **Send**, the other person plays it in the message. Up to 5 minutes. Stored like other chat files and visible only to the conversation.
+
+## Services work like tasks
+A service on a case can be given to one or more people (**Give to someone**), who update its status (Not started → In progress → Completed). Responsible people get an alert when they open the platform. Finished services are archived automatically (Archive → Services); they stay on the case's invoice either way.
+
+## What the family owes follows the invoice
+The case account (amount due, paid, balance) now follows the case's live invoice, so a line added only on the invoice raises the amount due. With no invoice it is built from the services as before.
+
+## Late work
+Every 30 minutes the platform tells the people responsible, once, about tasks and services whose due time has passed.

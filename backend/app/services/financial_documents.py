@@ -142,6 +142,12 @@ def recalculate_document(
     document.tax = tax
     document.total = money(subtotal - discount + tax)
 
+    if document.document_type == "invoice":
+        # What the family owes follows the invoice.
+        from app.services.case_account import refresh_case_account
+
+        refresh_case_account(db, document.case_id, document.business_id)
+
     return document
 
 

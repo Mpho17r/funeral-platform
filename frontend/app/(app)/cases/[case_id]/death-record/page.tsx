@@ -24,6 +24,7 @@ import {
   PLACE_TYPES,
   labelFor,
   type DeathRecord,
+  saIdProblem,
   type Paperwork,
   type PaperworkItem,
 } from "@/lib/deathRecord";
@@ -945,6 +946,11 @@ export default function DeathRecordPage() {
                   }
                   className={inputClass}
                 />
+                {saIdProblem(form.informant_id_number) && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    {saIdProblem(form.informant_id_number)} You can still save.
+                  </p>
+                )}
               </Field>
             </div>
 

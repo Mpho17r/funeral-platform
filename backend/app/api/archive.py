@@ -9,9 +9,11 @@ from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.roles import require_main_admin, require_permission
 from app.models.business import Business
+from app.models.case_service import CaseService
 from app.models.case_task import CaseTask
 from app.models.funeral_case import FuneralCase
 from app.services import archive as service
+from app.services import archive as service_module
 from app.services.permission_service import has_permission
 
 router = APIRouter(prefix="/archive", tags=["Archive"])
@@ -29,7 +31,7 @@ def _fail(error: service.ArchiveError):
 
 @router.get("")
 def list_archive(
-    kind: str = Query("cases", pattern="^(cases|tasks)$"),
+    kind: str = Query("cases", pattern="^(cases|tasks|services)$"),
     q: str | None = Query(None, max_length=100),
     limit: int = Query(200, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -64,6 +66,39 @@ def list_archive(
                 "href": f"/cases/{c.id}",
             }
             for c in rows
+        ]
+
+    if kind == "services":
+        if not _can(db, user, "services.view"):
+            raise HTTPException(403, "You cannot view services.")
+        query = (
+            db.query(CaseService, FuneralCase)
+            .join(FuneralCase, FuneralCase.id == CaseService.case_id)
+            .filter(
+                CaseService.business_id == business_id,
+                CaseService.archived_at.is_not(None),
+            )
+        )
+        if not _can(db, user, "services.manage"):
+            from app.models.case_service import CaseServiceAssignee
+
+            mine = db.query(CaseServiceAssignee.service_id).filter(
+                CaseServiceAssignee.user_id == user["user_id"]
+            )
+            query = query.filter(CaseService.id.in_(mine))
+        if text:
+            query = query.filter(CaseService.service_name.ilike(f"%{text}%"))
+        rows = query.order_by(CaseService.archived_at.desc()).limit(limit).all()
+        return [
+            {
+                "id": str(s.id),
+                "title": s.service_name,
+                "subtitle": c.deceased_full_name,
+                "status": s.status,
+                "archived_at": s.archived_at,
+                "href": f"/cases/{c.id}/services",
+            }
+            for s, c in rows
         ]
 
     if not _can(db, user, "tasks.view"):
@@ -129,6 +164,50 @@ def restore_task(
     try:
         service.restore_task(db, task, user["user_id"])
     except service.ArchiveError as error:
+        _fail(error)
+    db.commit()
+    return {"ok": True}
+
+
+def _service(db: Session, user: dict, service_id: UUID) -> CaseService:
+    service = (
+        db.query(CaseService)
+        .filter(CaseService.id == service_id, CaseService.business_id == user["business_id"])
+        .first()
+    )
+    if service is None:
+        raise HTTPException(404, "Service not found")
+    mine = str(user["user_id"]) in {str(i) for i in service.assignee_ids}
+    if not mine and not _can(db, user, "services.manage"):
+        raise HTTPException(403, "You can only archive your own services.")
+    return service
+
+
+@router.post("/services/{service_id}/archive")
+def archive_service(
+    service_id: UUID,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_permission("services.view")),
+):
+    service = _service(db, user, service_id)
+    try:
+        service_module.archive_service(db, service, user["user_id"])
+    except service_module.ArchiveError as error:
+        _fail(error)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/services/{service_id}/restore")
+def restore_service(
+    service_id: UUID,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_permission("services.view")),
+):
+    service = _service(db, user, service_id)
+    try:
+        service_module.restore_service(db, service, user["user_id"])
+    except service_module.ArchiveError as error:
         _fail(error)
     db.commit()
     return {"ok": True}

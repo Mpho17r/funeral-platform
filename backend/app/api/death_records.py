@@ -171,16 +171,9 @@ def check_record_rules(values: dict) -> None:
                 detail=problem,
             )
 
-    informant_id = values.get("informant_id_number")
-
-    if informant_id and informant_id.isdigit() and len(informant_id) == 13:
-        problem = validate_sa_id(informant_id)
-
-        if problem:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"Informant: {problem}",
-            )
+    # The informant's ID is not blocked here: a typo in a living person's
+    # number must not stop a record being saved. The record carries a
+    # warning (informant_id_warning) so the screen can ask for a re-check.
 
     if (
         values.get("unnatural_cause") is not None
