@@ -42,7 +42,7 @@ export function Dialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 md:items-center"
+      className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -53,7 +53,7 @@ export function Dialog({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`w-full rounded-2xl bg-white p-6 shadow-xl ${
+        className={`m-auto w-full rounded-2xl bg-white p-6 shadow-xl ${
           wide ? "max-w-3xl" : "max-w-lg"
         }`}
       >

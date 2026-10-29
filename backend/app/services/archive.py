@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.business import Business
+from app.models.case_service import CaseService
 from app.models.case_task import CaseTask
 from app.models.funeral_case import FuneralCase
 from app.services.audit_service import create_audit_log
@@ -96,6 +97,49 @@ def delete_archived_task(db: Session, task: CaseTask, user_id: UUID | None) -> N
     shutil.rmtree(TASK_FILES / str(business_id) / str(task_id), ignore_errors=True)
 
 
+# ------------------------------------------------------------------ services
+# Services are part of what a family was charged, so they are archived and
+# restored but never deleted.
+
+
+def archive_service(db: Session, service: CaseService, user_id: UUID | None):
+    if service.archived_at is not None:
+        raise ArchiveError(409, "This service is already archived.")
+    if service.status not in ("completed", "cancelled"):
+        raise ArchiveError(409, "Only finished services can be archived.")
+    service.archived_at = _now()
+    service.archived_by = user_id
+    create_audit_log(
+        db,
+        business_id=service.business_id,
+        user_id=user_id,
+        action="case.service_archived",
+        entity_type="case_service",
+        entity_id=service.id,
+        details={"service": service.service_name},
+        notes="Service archived.",
+    )
+    return service
+
+
+def restore_service(db: Session, service: CaseService, user_id: UUID | None):
+    if service.archived_at is None:
+        raise ArchiveError(409, "This service is not archived.")
+    service.archived_at = None
+    service.archived_by = None
+    create_audit_log(
+        db,
+        business_id=service.business_id,
+        user_id=user_id,
+        action="case.service_restored",
+        entity_type="case_service",
+        entity_id=service.id,
+        details={"service": service.service_name},
+        notes="Service restored from the archive.",
+    )
+    return service
+
+
 # ------------------------------------------------------------------ cases
 
 
@@ -134,7 +178,7 @@ def sweep(db: Session, business: Business, now: datetime | None = None) -> dict:
     """Archive what has finished, and delete what is past its retention."""
 
     now = now or _now()
-    done = {"tasks_archived": 0, "cases_archived": 0, "deleted": 0, "kept": 0}
+    done = {"tasks_archived": 0, "services_archived": 0, "cases_archived": 0, "deleted": 0, "kept": 0}
 
     days = business.archive_after_days or 0
     if days > 0:
@@ -152,6 +196,18 @@ def sweep(db: Session, business: Business, now: datetime | None = None) -> dict:
         ):
             archive_task(db, task, None)
             done["tasks_archived"] += 1
+        for service in (
+            db.query(CaseService)
+            .filter(
+                CaseService.business_id == business.id,
+                CaseService.archived_at.is_(None),
+                CaseService.status.in_(("completed", "cancelled")),
+                CaseService.updated_at < cutoff,
+            )
+            .all()
+        ):
+            archive_service(db, service, None)
+            done["services_archived"] += 1
         for case in (
             db.query(FuneralCase)
             .filter(
@@ -199,7 +255,7 @@ def sweep(db: Session, business: Business, now: datetime | None = None) -> dict:
 
 
 def sweep_all(db: Session) -> dict:
-    total = {"tasks_archived": 0, "cases_archived": 0, "deleted": 0, "kept": 0}
+    total = {"tasks_archived": 0, "services_archived": 0, "cases_archived": 0, "deleted": 0, "kept": 0}
     for business in db.query(Business).filter(Business.is_active.is_(True)).all():
         # The sweep runs for the whole business, not one branch.
         db.info.pop("branch_scope", None)

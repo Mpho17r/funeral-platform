@@ -49,5 +49,9 @@ class CaseServiceResponse(BaseModel):
     notes: str | None
     inventory_item_id: UUID | None = None
     stock_issued: int = 0
+    due_at: datetime | None = None
+    completed_at: datetime | None = None
+    archived_at: datetime | None = None
+    assignee_ids: list[UUID] = []
     created_at: datetime
     updated_at: datetime

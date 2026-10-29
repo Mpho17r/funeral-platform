@@ -725,6 +725,10 @@ def delete_document(
     )
 
     db.delete(document)
+    from app.services.case_account import refresh_case_account
+
+    refresh_case_account(db, document.case_id, document.business_id)
+
     db.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -1067,6 +1071,10 @@ def issue_document(
         extra={"total": str(document.total)},
     )
 
+    from app.services.case_account import refresh_case_account
+
+    refresh_case_account(db, document.case_id, document.business_id)
+
     db.commit()
     db.refresh(document)
 
@@ -1330,6 +1338,10 @@ def void_document(
         notes="Financial document was voided.",
         extra={"reason_recorded": True},
     )
+
+    from app.services.case_account import refresh_case_account
+
+    refresh_case_account(db, document.case_id, document.business_id)
 
     db.commit()
     db.refresh(document)

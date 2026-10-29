@@ -8,6 +8,7 @@ import api from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/format";
 import { ErrorNote } from "@/components/Notices";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
+import MyServicesPanel from "@/components/MyServicesPanel";
 import TaskDrawer, { STATUS_LABEL, type TaskStatus, whenDue } from "@/components/TaskDrawer";
 
 type Row = {
@@ -133,6 +134,8 @@ export default function TasksWorkspacePage() {
           <RefreshCw size={14} /> Refresh
         </button>
       </header>
+
+      <MyServicesPanel />
 
       <div className="flex flex-wrap items-center gap-2">
         {scopes.map((s) => (

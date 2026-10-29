@@ -17,6 +17,7 @@ import {
 import api from "@/lib/api";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 import MyTasksPanel from "@/components/MyTasksPanel";
+import MyServicesPanel from "@/components/MyServicesPanel";
 
 type AttendanceMe = {
   attendance: { checked_in_at: string; status: string } | null;
@@ -186,6 +187,7 @@ export default function WorkstationPage() {
         </div>
 
         <MyTasksPanel />
+        <MyServicesPanel />
 
         <section className={`${card} overflow-hidden`}>
           <div className="flex items-center justify-between border-b border-[var(--fos-border)] px-5 py-4">

@@ -18,6 +18,7 @@ export type DeathRecord = {
   informant_relationship: string | null;
   informant_phone: string | null;
   informant_id_number: string | null;
+  informant_id_warning?: string | null;
   notes: string | null;
 };
 
@@ -95,4 +96,33 @@ export function labelFor(
   return (
     options.find((option) => option.value === value)?.label ?? "—"
   );
+}
+
+
+/** A reason to re-check a 13-digit South African ID number, or null.
+ *  Same rule as the server: 13 digits, a real date of birth, citizenship
+ *  digit 0 or 1, and the Luhn check digit. Anything else is not judged. */
+export function saIdProblem(value: string): string | null {
+  const n = value.replace(/[\s-]/g, "");
+  if (!/^\d{13}$/.test(n)) return null;
+  const month = Number(n.slice(2, 4));
+  const day = Number(n.slice(4, 6));
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return "The ID number does not start with a valid date of birth.";
+  }
+  if (n[10] !== "0" && n[10] !== "1") {
+    return "The ID number has an invalid citizenship digit.";
+  }
+  let total = 0;
+  [...n].reverse().forEach((ch, i) => {
+    let d = Number(ch);
+    if (i % 2 === 1) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    total += d;
+  });
+  return total % 10 === 0
+    ? null
+    : "The last digit does not match the rest of the number. Please re-check it.";
 }

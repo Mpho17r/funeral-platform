@@ -280,8 +280,8 @@ export default function GroupsPage() {
 
       {/* Create Group Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-lg rounded-xl border bg-background shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4">
+          <div className="m-auto w-full max-w-lg rounded-xl border bg-background shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold">Create Group</h2>

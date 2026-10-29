@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -353,6 +354,11 @@ def update_service(
 
     for field, value in updates.items():
         setattr(service, field, value)
+
+    if "status" in updates:
+        service.completed_at = (
+            datetime.now(timezone.utc) if service.status == "completed" else None
+        )
 
     # --------------------------------------------------------
     # Recalculate total price

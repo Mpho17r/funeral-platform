@@ -557,8 +557,8 @@ export default function MembershipsPage() {
       </main>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-[var(--fos-surface)] shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4">
+          <div className="m-auto w-full max-w-lg rounded-2xl bg-[var(--fos-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b border-[var(--fos-border)] px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--fos-text)]">

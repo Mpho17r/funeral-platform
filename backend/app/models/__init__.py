@@ -4,7 +4,7 @@ from app.models.funeral_case import FuneralCase
 from app.models.case_task import CaseTask, CaseTaskAssignee, CaseTaskEntry
 from app.models.case_document import CaseDocument
 from app.models.case_contact import CaseContact
-from app.models.case_service import CaseService
+from app.models.case_service import CaseService, CaseServiceAssignee  # noqa: F401
 from app.models.case_financial import CaseFinancial
 from app.models.case_payment import CasePayment
 from app.models.membership import Membership

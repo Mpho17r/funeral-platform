@@ -565,8 +565,8 @@ export default function GroupDetailsPage() {
 
       {/* Edit modal */}
       {showEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-lg rounded-xl border bg-background shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4">
+          <div className="m-auto w-full max-w-lg rounded-xl border bg-background shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold">Edit Group</h2>
@@ -659,8 +659,8 @@ export default function GroupDetailsPage() {
 
       {/* Add member modal */}
       {showAddMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-lg rounded-xl border bg-background shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4">
+          <div className="m-auto w-full max-w-lg rounded-xl border bg-background shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold">Add Member</h2>

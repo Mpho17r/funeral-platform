@@ -2,7 +2,7 @@ from datetime import date, datetime, time
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 
 IdType = Literal["sa_id", "passport", "other"]
@@ -106,6 +106,20 @@ class DeathRecordResponse(BaseModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field
+    @property
+    def informant_id_warning(self) -> str | None:
+        """A reason to re-check the informant's ID, never a block."""
+
+        from app.services.identity import validate_sa_id
+
+        number = (self.informant_id_number or "").strip()
+
+        if number.isdigit() and len(number) == 13:
+            return validate_sa_id(number)
+
+        return None
 
 
 # ============================================================
