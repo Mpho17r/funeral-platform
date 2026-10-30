@@ -31,7 +31,7 @@ def _fail(error: service.ArchiveError):
 
 @router.get("")
 def list_archive(
-    kind: str = Query("cases", pattern="^(cases|tasks|services)$"),
+    kind: str = Query("cases", pattern="^(cases|tasks|services|orders)$"),
     q: str | None = Query(None, max_length=100),
     limit: int = Query(200, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -66,6 +66,34 @@ def list_archive(
                 "href": f"/cases/{c.id}",
             }
             for c in rows
+        ]
+
+    if kind == "orders":
+        if not _can(db, user, "inventory.view"):
+            raise HTTPException(403, "You cannot view stock orders.")
+        from app.models.inventory import InventoryItem, PurchaseOrder
+
+        query = (
+            db.query(PurchaseOrder, InventoryItem)
+            .join(InventoryItem, InventoryItem.id == PurchaseOrder.item_id)
+            .filter(
+                PurchaseOrder.business_id == business_id,
+                PurchaseOrder.archived_at.is_not(None),
+            )
+        )
+        if text:
+            query = query.filter(InventoryItem.name.ilike(f"%{text}%"))
+        rows = query.order_by(PurchaseOrder.archived_at.desc()).limit(limit).all()
+        return [
+            {
+                "id": str(o.id),
+                "title": f"{i.name} x{o.quantity}",
+                "subtitle": o.number,
+                "status": o.status,
+                "archived_at": o.archived_at,
+                "href": "/inventory",
+            }
+            for o, i in rows
         ]
 
     if kind == "services":
@@ -209,6 +237,28 @@ def restore_service(
         service_module.restore_service(db, service, user["user_id"])
     except service_module.ArchiveError as error:
         _fail(error)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/orders/{order_id}/restore")
+def restore_order(
+    order_id: UUID,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_permission("inventory.view")),
+):
+    from app.models.inventory import PurchaseOrder
+
+    if not _can(db, user, "inventory.manage"):
+        raise HTTPException(403, "You cannot restore stock orders.")
+    order = (
+        db.query(PurchaseOrder)
+        .filter(PurchaseOrder.id == order_id, PurchaseOrder.business_id == user["business_id"])
+        .first()
+    )
+    if order is None or order.archived_at is None:
+        raise HTTPException(404, "Not found")
+    order.archived_at = None
     db.commit()
     return {"ok": True}
 

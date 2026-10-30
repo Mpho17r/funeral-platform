@@ -10,7 +10,7 @@ import { getApiErrorMessage } from "@/lib/format";
 import { ErrorNote } from "@/components/Notices";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 
-type Kind = "cases" | "tasks" | "services";
+type Kind = "cases" | "tasks" | "services" | "orders";
 type Item = {
   id: string;
   title: string;
@@ -52,7 +52,11 @@ function ArchiveView() {
   const canCases = can("cases.view");
   const asked = params.get("kind");
   const first: Kind =
-    asked === "services" ? "services" : asked === "tasks" || !canCases ? "tasks" : "cases";
+    asked === "services" || asked === "orders"
+      ? asked
+      : asked === "tasks" || !canCases
+        ? "tasks"
+        : "cases";
 
   const [kind, setKind] = useState<Kind>(first);
   const [q, setQ] = useState("");
@@ -160,8 +164,8 @@ function ArchiveView() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {(["cases", "tasks", "services"] as Kind[])
-          .filter((k) => k !== "cases" || canCases)
+        {(["cases", "tasks", "services", "orders"] as Kind[])
+          .filter((k) => (k !== "cases" || canCases) && (k !== "orders" || can("inventory.view")))
           .map((k) => (
             <button
               key={k}
@@ -172,7 +176,7 @@ function ArchiveView() {
               }}
               className={`rounded-full px-4 py-1.5 text-sm ${kind === k ? "bg-slate-900 text-white" : "border text-slate-700 hover:bg-slate-50"}`}
             >
-              {k === "cases" ? "Cases" : k === "tasks" ? "Tasks" : "Services"}
+              {k === "cases" ? "Cases" : k === "tasks" ? "Tasks" : k === "services" ? "Services" : "Stock orders"}
             </button>
           ))}
         <div className="relative ml-auto min-w-48 flex-1 sm:max-w-xs">
@@ -216,7 +220,7 @@ function ArchiveView() {
                   <RotateCcw size={14} /> Restore
                 </button>
               )}
-              {isMainAdmin && kind !== "services" && (
+              {isMainAdmin && (kind === "cases" || kind === "tasks") && (
                 <button
                   type="button"
                   disabled={busy}

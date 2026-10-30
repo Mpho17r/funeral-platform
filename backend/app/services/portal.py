@@ -118,6 +118,12 @@ def family_view(db: Session, link: PortalLink) -> dict:
         "funeral_date": case.funeral_date,
         "funeral_venue": case.funeral_venue,
         "status": case.status,
+        "payment_instructions": (
+            business.payment_instructions
+            if business and fin is not None and fin.balance and fin.balance > 0
+            else None
+        ),
+        "payment_reference": case.case_number,
         "schedule": [
             {
                 "name": s.service_name,

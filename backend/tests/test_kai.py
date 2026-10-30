@@ -283,3 +283,28 @@ def test_every_example_runs(client, auth_headers, test_data):
     for example in body["suggestions"]:
         r = say(client, auth_headers, admin, example)
         assert r["reply"], example
+
+
+def test_kai_lists_my_services_and_reports_autopilot(client, auth_headers, db, test_data):
+    from app.models.business import Business
+    from app.models.case_service import CaseServiceAssignee
+    from tests.test_financial_documents import make_service
+
+    biz = test_data["business_a"]
+    case = make_case(db, biz)
+    service = make_service(db, biz, case, name="Hearse")
+    staffer = test_data["staff"]
+    service.assignee_rows = [CaseServiceAssignee(user_id=staffer.id)]
+    db.commit()
+    r = say(client, auth_headers, staffer, "what services are waiting for me?")
+    assert "1 service" in r["reply"] and r["items"][0]["label"].startswith("Hearse")
+
+    # Plain staff are not told about Autopilot or the team's workload.
+    denied = say(client, auth_headers, staffer, "what has autopilot done?")
+    assert "can't" in denied["reply"].lower() or "not" in denied["reply"].lower()
+    asked = say(client, auth_headers, test_data["manager"], "what has autopilot done?")
+    assert "switched off" in asked["reply"]
+    db.get(Business, biz.id).autopilot_mode = "auto"
+    db.commit()
+    asked = say(client, auth_headers, test_data["manager"], "who is free? show the workload")
+    assert "lightest" in asked["reply"]

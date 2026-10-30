@@ -75,11 +75,15 @@ def _audit(db, order, user, action, notes):
 @router.get("/inventory/orders")
 def list_orders(
     status: str | None = None,
+    archived: bool = False,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("inventory.view")),
 ):
     query = db.query(PurchaseOrder).filter(
-        PurchaseOrder.business_id == current_user["business_id"]
+        PurchaseOrder.business_id == current_user["business_id"],
+        PurchaseOrder.archived_at.is_not(None)
+        if archived
+        else PurchaseOrder.archived_at.is_(None),
     )
     if status:
         query = query.filter(PurchaseOrder.status == status)

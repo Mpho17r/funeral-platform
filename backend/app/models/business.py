@@ -86,6 +86,33 @@ class Business(Base):
         Integer, nullable=True
     )
 
+    # How a family pays (bank details, reference). Shown on the family
+    # portal while something is still owed.
+    payment_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # ========================================================
+    # KAI AUTOPILOT (KAI as platform manager) - off unless the main admin
+    # turns it on. "suggest" = KAI proposes, a person approves.
+    # "auto" = KAI acts and everything is logged with an undo.
+    # ========================================================
+
+    autopilot_mode: Mapped[str] = mapped_column(
+        String(10), default="off", nullable=False
+    )
+    autopilot_create_tasks: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    autopilot_assign: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    autopilot_escalate: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    # Nobody is given more than this many open tasks and services.
+    autopilot_max_open: Mapped[int] = mapped_column(
+        Integer, default=8, nullable=False
+    )
+
     # ========================================================
     # TAX (VAT / GST / sales tax), set by the main admin
     # ========================================================

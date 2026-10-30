@@ -22,6 +22,8 @@ type Family = {
     status: string;
   }[];
   balance: { total: number; paid: number; outstanding: number } | null;
+  payment_instructions?: string | null;
+  payment_reference?: string | null;
   documents: {
     type: string;
     number: string | null;
@@ -141,6 +143,17 @@ export default function PortalPage() {
                   <div><dt className="text-slate-500">Paid</dt><dd className="font-semibold">{rand(data.balance.paid)}</dd></div>
                   <div><dt className="text-slate-500">Still to pay</dt><dd className="font-semibold">{rand(data.balance.outstanding)}</dd></div>
                 </dl>
+                {data.payment_instructions && (
+                  <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">
+                    <p className="font-medium text-slate-800">How to pay</p>
+                    <p className="mt-1 whitespace-pre-wrap text-slate-700">{data.payment_instructions}</p>
+                    {data.payment_reference && (
+                      <p className="mt-2 text-slate-700">
+                        Reference: <span className="font-semibold">{data.payment_reference}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
               </Card>
             )}
 

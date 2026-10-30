@@ -358,6 +358,11 @@ class PurchaseOrder(Base):
         ),
     )
 
+    # Received and cancelled orders are archived after a while.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )

@@ -803,6 +803,15 @@ def _answer(db, user, text, focus, ctx):
     if re.search(r"needs? (my |our )?attention|what.s urgent|needs me", lowered):
         return _attention(db, user)
 
+    if re.search(r"\bservices?\b.*\b(waiting|for me|mine|assigned to me|to update)\b|\bmy services?\b", lowered):
+        return _my_services(db, user)
+
+    if re.search(r"autopilot|what (have|did) you (do|done|assign|handle)|what.s kai (done|doing)", lowered):
+        return _autopilot_report(db, user)
+
+    if re.search(r"workload|who (is|has|are).*(busy|busiest|free|most work|available)|who can take", lowered):
+        return _workload_report(db, user)
+
     ref = resolve_case(db, user, text, focus)
 
     if ref is not None and ref[0] == "notfound":
@@ -856,6 +865,101 @@ def _answer(db, user, text, focus, ctx):
             "mortuary, payments, tasks and the schedule. Try one of these:"
         ),
         "suggestions": examples(db, user),
+    }
+
+
+# ============================================================
+# SERVICES, AUTOPILOT AND WORKLOAD
+# ============================================================
+
+def _my_services(db, user):
+    if not _can(db, user, "services.view"):
+        return _denied()
+    from app.models.case_service import CaseService, CaseServiceAssignee
+
+    rows = (
+        db.query(CaseService, FuneralCase)
+        .join(FuneralCase, FuneralCase.id == CaseService.case_id)
+        .join(CaseServiceAssignee, CaseServiceAssignee.service_id == CaseService.id)
+        .filter(
+            CaseServiceAssignee.user_id == user["user_id"],
+            CaseService.status.in_(("pending", "confirmed", "in_progress")),
+            CaseService.archived_at.is_(None),
+        )
+        .order_by(CaseService.due_at.is_(None), CaseService.due_at)
+        .limit(10)
+        .all()
+    )
+    if not rows:
+        return {"reply": "You have no services waiting on you right now."}
+    items = [
+        {"label": f"{s.service_name} - {c.deceased_full_name} ({s.status.replace('_', ' ')})",
+         "href": f"/cases/{c.id}/services"}
+        for s, c in rows
+    ]
+    return {
+        "reply": f"You have {len(rows)} service(s) to look after. Update each one as you go, and I'll leave the finished ones for the archive.",
+        "items": items,
+    }
+
+
+def _is_manager(user) -> bool:
+    return user["role"] in ("main_admin", "manager")
+
+
+def _autopilot_report(db, user):
+    if not _is_manager(user):
+        return _denied()
+    from app.models.business import Business
+    from app.models.kai import KaiAutopilotItem
+
+    business = db.get(Business, user["business_id"])
+    if business.autopilot_mode == "off":
+        return {"reply": "Autopilot is switched off, so I'm not handing out work on my own. "
+                         "The Main Admin can turn it on under KAI Autopilot."}
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    rows = (
+        db.query(KaiAutopilotItem)
+        .filter(KaiAutopilotItem.business_id == user["business_id"],
+                KaiAutopilotItem.created_at >= since)
+        .order_by(KaiAutopilotItem.created_at.desc())
+        .all()
+    )
+    done = [r for r in rows if r.status in ("applied", "approved")]
+    waiting = [r for r in rows if r.status == "pending"]
+    mode = "acting on my own" if business.autopilot_mode == "auto" else "suggesting and waiting for approval"
+    if not rows:
+        return {"reply": f"Autopilot is on ({mode}). I haven't needed to do anything in the last day."}
+    return {
+        "reply": (f"Autopilot is on ({mode}). In the last day I handled {len(done)} thing(s) "
+                  f"and {len(waiting)} are waiting for approval. Open KAI Autopilot to approve or undo."),
+        "items": [{"label": r.summary, "href": "/autopilot"} for r in rows[:6]],
+    }
+
+
+def _workload_report(db, user):
+    if not _is_manager(user):
+        return _denied()
+    from app.services.autopilot import present_today, workload
+
+    loads = workload(db, user["business_id"])
+    present = present_today(db, user["business_id"])
+    people = (
+        db.query(User)
+        .filter(User.business_id == user["business_id"], User.is_active.is_(True))
+        .all()
+    )
+    ranked = sorted(people, key=lambda p: loads.get(p.id, 0))
+    lines = [
+        {"label": f"{p.full_name} - {loads.get(p.id, 0)} open"
+                  + (" (in today)" if p.id in present else ""), "href": "/autopilot"}
+        for p in ranked[:8]
+    ]
+    free = ranked[0] if ranked else None
+    return {
+        "reply": (f"{free.full_name} has the lightest load right now." if free else "There is nobody active yet.")
+                 + " Here is everyone, lightest first:",
+        "items": lines,
     }
 
 

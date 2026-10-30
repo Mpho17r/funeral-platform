@@ -108,3 +108,31 @@ def test_guessing_links_is_throttled(client, monkeypatch):
     assert codes[:3] == [404, 404, 404]
     assert codes[3] == 429
     svc._failures.clear()
+
+
+def test_family_sees_how_to_pay_only_while_something_is_owed(
+    client, auth_headers, db, test_data
+):
+    from decimal import Decimal
+
+    from app.models.business import Business
+    from app.models.case_financial import CaseFinancial
+
+    biz = test_data["business_a"]
+    case = make_case(db, biz)
+    db.get(Business, biz.id).payment_instructions = "FNB 123456 - use the case number"
+    fin = CaseFinancial(
+        business_id=biz.id, case_id=case.id, subtotal=Decimal("100"), discount=Decimal("0"),
+        tax=Decimal("0"), total=Decimal("100"), amount_paid=Decimal("0"), balance=Decimal("100"),
+    )
+    db.add(fin)
+    db.commit()
+    token = mint(client, auth_headers, test_data["manager"],
+                 kind="family", case_id=str(case.id)).json()["token"]
+    data = client.get(f"/portal/{token}").json()
+    assert data["payment_instructions"] == "FNB 123456 - use the case number"
+    assert data["payment_reference"] == case.case_number
+
+    fin.balance = Decimal("0")
+    db.commit()
+    assert client.get(f"/portal/{token}").json()["payment_instructions"] is None

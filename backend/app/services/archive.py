@@ -21,6 +21,8 @@ from app.models.business import Business
 from app.models.case_service import CaseService
 from app.models.case_task import CaseTask
 from app.models.funeral_case import FuneralCase
+from app.models.inventory import PurchaseOrder
+from app.models.notification import Notification
 from app.services.audit_service import create_audit_log
 from app.services.case_archival import ARCHIVABLE_CASE_STATUSES, archive_case
 
@@ -178,7 +180,7 @@ def sweep(db: Session, business: Business, now: datetime | None = None) -> dict:
     """Archive what has finished, and delete what is past its retention."""
 
     now = now or _now()
-    done = {"tasks_archived": 0, "services_archived": 0, "cases_archived": 0, "deleted": 0, "kept": 0}
+    done = {"tasks_archived": 0, "services_archived": 0, "orders_archived": 0, "cases_archived": 0, "deleted": 0, "kept": 0}
 
     days = business.archive_after_days or 0
     if days > 0:
@@ -208,6 +210,18 @@ def sweep(db: Session, business: Business, now: datetime | None = None) -> dict:
         ):
             archive_service(db, service, None)
             done["services_archived"] += 1
+        for order in (
+            db.query(PurchaseOrder)
+            .filter(
+                PurchaseOrder.business_id == business.id,
+                PurchaseOrder.archived_at.is_(None),
+                PurchaseOrder.status.in_(("received", "cancelled")),
+                PurchaseOrder.created_at < cutoff,
+            )
+            .all()
+        ):
+            order.archived_at = now
+            done["orders_archived"] += 1
         for case in (
             db.query(FuneralCase)
             .filter(
@@ -250,12 +264,19 @@ def sweep(db: Session, business: Business, now: datetime | None = None) -> dict:
             except ArchiveError:
                 done["kept"] += 1
 
+    # Notifications people have read are only useful for a while.
+    db.query(Notification).filter(
+        Notification.business_id == business.id,
+        Notification.read_at.is_not(None),
+        Notification.read_at < now - timedelta(days=60),
+    ).delete(synchronize_session=False)
+
     db.commit()
     return done
 
 
 def sweep_all(db: Session) -> dict:
-    total = {"tasks_archived": 0, "services_archived": 0, "cases_archived": 0, "deleted": 0, "kept": 0}
+    total = {"tasks_archived": 0, "services_archived": 0, "orders_archived": 0, "cases_archived": 0, "deleted": 0, "kept": 0}
     for business in db.query(Business).filter(Business.is_active.is_(True)).all():
         # The sweep runs for the whole business, not one branch.
         db.info.pop("branch_scope", None)

@@ -78,6 +78,8 @@ class BusinessResponse(BaseModel):
 
     address: str | None
 
+    payment_instructions: str | None = None
+
     # ========================================================
     # MEMBERSHIP COVER POLICY
     # ========================================================

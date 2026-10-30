@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -84,6 +85,13 @@ class CaseTask(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+    # Set when KAI Autopilot made the task. auto_key stops the same kind of
+    # task being made twice for one case.
+    by_kai: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    auto_key: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
 
     # A finished task is archived (by hand or automatically). Archived
     # tasks leave the working lists and live in the Archive.
