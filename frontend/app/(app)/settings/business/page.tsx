@@ -16,6 +16,7 @@ type Business = {
   phone: string | null;
   email: string | null;
   address: string | null;
+  payment_instructions: string | null;
 };
 
 export default function BusinessDetailsPage() {
@@ -28,6 +29,7 @@ export default function BusinessDetailsPage() {
     phone: "",
     email: "",
     address: "",
+    payment_instructions: "",
   });
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -51,6 +53,7 @@ export default function BusinessDetailsPage() {
           phone: b.phone ?? "",
           email: b.email ?? "",
           address: b.address ?? "",
+          payment_instructions: b.payment_instructions ?? "",
         });
         setLoaded(true);
       })
@@ -158,6 +161,18 @@ export default function BusinessDetailsPage() {
               onChange={(e) => set("address")(e.target.value)}
               maxLength={1000}
               disabled={!loaded}
+            />
+          </Field>
+
+          <Field label="How families pay (shown on their portal while something is owed)">
+            <textarea
+              className={inputClass}
+              rows={4}
+              value={form.payment_instructions}
+              onChange={(e) => set("payment_instructions")(e.target.value)}
+              maxLength={1000}
+              disabled={!loaded}
+              placeholder={"Bank, account number, branch code.\nUse the case number as the reference."}
             />
           </Field>
 

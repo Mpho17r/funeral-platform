@@ -35,6 +35,7 @@ import {
   Tags,
   Car,
   Archive,
+  Bot,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -344,6 +345,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Tasks",
       icon: <ClipboardList size={18} />,
       path: "/tasks",
+    },
+    {
+      label: "KAI Autopilot",
+      icon: <Bot size={18} />,
+      path: "/autopilot",
     },
     {
       label: "Archive",

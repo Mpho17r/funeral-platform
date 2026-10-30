@@ -23,6 +23,7 @@ type Row = {
   assignees: { id: string; name: string }[];
   is_mine: boolean;
   shared: boolean;
+  by_kai?: boolean;
   created_at: string;
   completed_at: string | null;
 };

@@ -78,6 +78,7 @@ PERMISSIONS = {
     # Tasks
     "tasks.view": "View tasks",
     "tasks.manage": "Manage tasks",
+    "autopilot.view": "See and approve what KAI Autopilot does",
 
     # Case financials
     "financials.view": "View case financial records",
