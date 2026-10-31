@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -6,6 +8,9 @@ class RegisterRequest(BaseModel):
     business_phone: str | None = Field(default=None, max_length=30)
     business_email: EmailStr | None = None
     business_address: str | None = None
+    # "funeral" = the full funeral platform; "general" = any other
+    # business that wants jobs, tasks, money and staff managed.
+    business_type: Literal["funeral", "general"] = "funeral"
 
     full_name: str = Field(min_length=2, max_length=150)
     email: EmailStr

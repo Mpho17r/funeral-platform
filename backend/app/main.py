@@ -383,11 +383,15 @@ app.include_router(assistant_router)
 
 from app.api.kai import router as kai_router  # noqa: E402
 from app.api.archive import router as archive_router  # noqa: E402
+from app.api.money import router as money_router  # noqa: E402
+from app.api.work import router as work_router  # noqa: E402
 from app.api.autopilot import router as autopilot_router  # noqa: E402
 from app.api.service_work import router as service_work_router  # noqa: E402
 
 app.include_router(kai_router)
 app.include_router(archive_router)
+app.include_router(money_router)
+app.include_router(work_router)
 app.include_router(autopilot_router)
 app.include_router(service_work_router)
 

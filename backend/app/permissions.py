@@ -80,6 +80,10 @@ PERMISSIONS = {
     "tasks.manage": "Manage tasks",
     "autopilot.view": "See and approve what KAI Autopilot does",
 
+    # Money in and out (general businesses)
+    "income.view": "See money received and the profit and loss",
+    "income.manage": "Record and void money received",
+
     # Case financials
     "financials.view": "View case financial records",
     "financials.manage": "Manage case financial records",

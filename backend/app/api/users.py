@@ -234,8 +234,11 @@ def my_access(
     """What the signed-in person may do, so the screen can show them
     only their own work. The server still enforces every request."""
 
+    from app.services.business_type import business_type_of
+
     return {
         "role": current_user["role"],
+        "business_type": business_type_of(db, current_user["business_id"]),
         "work_area": work_area_for(current_user["role"]),
         "permissions": effective_permissions(
             db,

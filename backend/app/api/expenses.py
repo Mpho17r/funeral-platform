@@ -148,9 +148,23 @@ def _get(db, business_id, expense_id) -> Expense:
 
 @router.get("/categories")
 def categories(
+    db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("expenses.view")),
 ):
-    return {"categories": list(EXPENSE_CATEGORIES)}
+    from app.services import business_type as kinds
+    from app.services.finance_books import (
+        FUNERAL_EXPENSE_CATEGORIES,
+        GENERAL_EXPENSE_CATEGORIES,
+    )
+
+    general = (
+        kinds.business_type_of(db, current_user["business_id"]) == kinds.GENERAL
+    )
+    return {
+        "categories": list(
+            GENERAL_EXPENSE_CATEGORIES if general else FUNERAL_EXPENSE_CATEGORIES
+        )
+    }
 
 
 @router.get("/summary")

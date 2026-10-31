@@ -36,6 +36,7 @@ import {
   Car,
   Archive,
   Bot,
+  PiggyBank,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -345,6 +346,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Tasks",
       icon: <ClipboardList size={18} />,
       path: "/tasks",
+    },
+    {
+      label: "Money",
+      icon: <PiggyBank size={18} />,
+      path: "/money",
     },
     {
       label: "KAI Autopilot",

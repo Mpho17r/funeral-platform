@@ -44,8 +44,10 @@ from app.models.staff_attendance_session import StaffAttendanceSession
 from app.models.transport import TransportJob
 from app.models.user import User
 from app.services.audit_service import create_audit_log
+from app.services.business_type import GENERAL, business_type_of
 from app.services.notifications import notify
 from app.services.permission_service import has_permission
+from app.services.staff_roles import category_for_text, suitability
 
 SA = timezone(timedelta(hours=2))
 LIVE = ("open", "confirmed", "in_progress")
@@ -140,6 +142,7 @@ def pick_person(
     loads: dict[UUID, int] | None = None,
     present: set[UUID] | None = None,
     exclude: set[UUID] | None = None,
+    text: str | None = None,
 ) -> User | None:
     """The best person for a piece of work, or None when nobody fits."""
 
@@ -147,6 +150,8 @@ def pick_person(
     present = present if present is not None else present_today(db, business.id)
     exclude = exclude or set()
     cap = business.autopilot_max_open or 8
+    # First detect what the work needs, then who does that job.
+    wanted = category_for_text(text) if text else "general"
 
     best: tuple[int, User] | None = None
     fallback: tuple[int, User] | None = None
@@ -169,6 +174,7 @@ def pick_person(
             score -= 8
         if area != "general" and person.role == area:
             score -= 20
+        score -= 30 * suitability(person.job_title, person.role, wanted)
         if person.role == "main_admin":
             if fallback is None or score < fallback[0]:
                 fallback = (score, person)
@@ -310,7 +316,8 @@ def plan(db: Session, business: Business) -> list[dict]:
             merged[uid] = merged.get(uid, 0) + n
         return merged
 
-    if business.autopilot_create_tasks:
+    general = business_type_of(db, business.id) == GENERAL
+    if business.autopilot_create_tasks and not general:
         cases = (
             db.query(FuneralCase)
             .filter(FuneralCase.business_id == business.id, FuneralCase.is_archived.is_(False))
@@ -326,6 +333,7 @@ def plan(db: Session, business: Business) -> list[dict]:
                     person = pick_person(
                         db, business, permission="tasks.view", branch_id=case.branch_id,
                         area=w["area"], loads=load_now(), present=present,
+                        text=w["title"],
                     )
                     if person:
                         taken[person.id] = taken.get(person.id, 0) + 1
@@ -361,6 +369,7 @@ def plan(db: Session, business: Business) -> list[dict]:
             person = pick_person(
                 db, business, permission="tasks.view", branch_id=case.branch_id,
                 area=_area_for_text(task.title), loads=load_now(), present=present,
+                text=f"{task.title} {task.description or ''}",
             )
             if person is None:
                 continue
@@ -391,6 +400,7 @@ def plan(db: Session, business: Business) -> list[dict]:
                 db, business, permission="services.view", branch_id=case.branch_id,
                 area=_area_for_text(f"{service.service_type} {service.service_name}"),
                 loads=load_now(), present=present,
+                text=f"{service.service_type} {service.service_name}",
             )
             if person is None:
                 continue

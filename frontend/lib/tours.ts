@@ -354,7 +354,86 @@ const done: TourStep = {
   body: "That is the whole journey from the first call to a completed case. You can take this tour again, or another role's tour, from the Guide page.",
 };
 
+const businessSteps: TourStep[] = [
+  welcome("running your business on FuneralOS"),
+  {
+    id: "b-dashboard",
+    path: "/dashboard",
+    nav: "/dashboard",
+    title: "Your business at a glance",
+    body: "Money received and spent this month, whether you are in profit or loss, your open work and your team.",
+  },
+  {
+    id: "b-tasks-nav",
+    path: "/dashboard",
+    nav: "/tasks",
+    click: true,
+    title: "Step 1 · Give people work",
+    body: "Click Tasks in the menu.",
+  },
+  {
+    id: "b-tasks",
+    path: "/tasks",
+    nav: "/tasks",
+    title: "Tasks",
+    body: "Press New task. Tick “Let KAI choose” and KAI works out what kind of job it is, matches it to people's job titles and roles, and prefers whoever has the least on. Or pick people yourself. Several people can share one task. Each person updates the status and can add a report or files.",
+  },
+  {
+    id: "b-kai",
+    path: "/assistant",
+    nav: "/assistant",
+    title: "KAI",
+    body: "Ask KAI for things in plain words: “Create a task to chase the supplier invoices”. KAI shows who it would give it to and why, and only does it when you confirm.",
+  },
+  {
+    id: "b-money",
+    path: "/money",
+    nav: "/money",
+    title: "Money in",
+    body: "Record money you receive: what it was for, how much, when. Mistakes are cancelled, never deleted, so the books stay honest.",
+  },
+  {
+    id: "b-expenses",
+    path: "/expenses",
+    nav: "/expenses",
+    title: "Money out",
+    body: "Record what you spend. Together with the money received, this gives your profit or loss each month on the Money page.",
+  },
+  {
+    id: "b-team",
+    path: "/settings/team",
+    title: "Your team and their job titles",
+    body: "Invite people and give each a job title (for example Accountant or Driver). KAI reads job titles to give work to the right person.",
+  },
+  {
+    id: "b-autopilot",
+    path: "/autopilot",
+    nav: "/autopilot",
+    title: "KAI Autopilot",
+    body: "If you allow it, KAI can hand out unassigned tasks for you. Start on Suggest, so you approve each one, and switch to Automatic when you trust it. Every step can be undone.",
+  },
+  {
+    id: "b-archive",
+    path: "/archive",
+    nav: "/archive",
+    title: "The archive",
+    body: "Finished work is archived automatically so you only see what needs attention. It is all still here to search and restore.",
+  },
+  {
+    id: "b-done",
+    path: "/dashboard",
+    title: "You're all set",
+    body: "You can take this tour again from the Guide page.",
+  },
+];
+
 export const TOURS: Tour[] = [
+  {
+    id: "business",
+    title: "Running your business",
+    summary: "Tasks, KAI, money in and out, and your team.",
+    steps: businessSteps,
+  },
   {
     id: "owner",
     title: "The whole system",
@@ -481,7 +560,11 @@ export const TOURS: Tour[] = [
 ];
 
 /** The tour that suits a role. */
-export function tourForRole(role: string | null | undefined): Tour {
+export function tourForRole(
+  role: string | null | undefined,
+  general = false,
+): Tour {
+  if (general) return TOURS.find((t) => t.id === "business")!;
   const id =
     role === "main_admin" || role === "manager"
       ? "owner"

@@ -29,6 +29,7 @@ Status is conservative: "built and tested" means merged to `main` with CI green.
 | **KAI assistant** | Greeting, branch/role context, conversation memory, case gaps, confirmed actions | [KAI.md](./KAI.md) |
 | **Archive and voice notes** | Finished cases/tasks archived automatically or by hand; main admin sets retention and can delete; chat voice notes | [ARCHIVE.md](./ARCHIVE.md) |
 | **KAI Autopilot** | KAI as platform manager: suggests or auto-creates and assigns tasks, undo, audit | [KAI_AUTOPILOT.md](./KAI_AUTOPILOT.md) |
+| **Business mode (general businesses)** | Register as funeral or general; tasks without cases, KAI picks by job title, income/profit-loss, own dashboard and tour | [BUSINESS_MODE.md](./BUSINESS_MODE.md) |
 | **Tasks overhaul** | Assignees update status, shared tasks, reports and files, due date/time grouping, My/Branch/Organisation views, sign-in alert, own-schedule calendar, voice call and alert tones | — |
 
 ## Known gaps (honest list)
