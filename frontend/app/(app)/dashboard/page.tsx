@@ -23,6 +23,7 @@ import { SetupChecklist } from "@/components/SetupChecklist";
 import MortuaryDashboard from "@/components/dashboards/MortuaryDashboard";
 import FinanceDashboard from "@/components/dashboards/FinanceDashboard";
 import OperationsDashboard from "@/components/dashboards/OperationsDashboard";
+import BusinessDashboard from "@/components/dashboards/BusinessDashboard";
 import { removeToken } from "@/lib/auth";
 
 type RecentCase = {
@@ -931,6 +932,9 @@ export default function DashboardPage() {
       <p className="p-8 text-sm text-[var(--fos-text-muted)]">Loading…</p>
     );
   }
+
+  // A general (non-funeral) business has its own home screen.
+  if (access?.business_type === "general") return <BusinessDashboard />;
 
   // Work-area roles get their own dashboard and nothing else.
   if (access?.work_area === "mortuary") return <MortuaryDashboard />;

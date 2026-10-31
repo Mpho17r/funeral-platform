@@ -80,6 +80,8 @@ class BusinessResponse(BaseModel):
 
     payment_instructions: str | None = None
 
+    business_type: str = "funeral"
+
     # ========================================================
     # MEMBERSHIP COVER POLICY
     # ========================================================

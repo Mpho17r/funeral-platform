@@ -9,6 +9,7 @@ import { getApiErrorMessage } from "@/lib/format";
 import { ErrorNote } from "@/components/Notices";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 import MyServicesPanel from "@/components/MyServicesPanel";
+import NewWorkTaskDialog from "@/components/NewWorkTaskDialog";
 import TaskDrawer, { STATUS_LABEL, type TaskStatus, whenDue } from "@/components/TaskDrawer";
 
 type Row = {
@@ -61,7 +62,9 @@ function isOverdue(t: Row, now: number) {
 }
 
 export default function TasksWorkspacePage() {
-  const { user } = useCurrentUser();
+  const { user, isGeneral, can } = useCurrentUser();
+  const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState("");
   const [scope, setScope] = useState<Scope>("mine");
   const [state, setState] = useState<"open" | "done" | "all">("open");
   const [board, setBoard] = useState<Board | null>(null);
@@ -131,10 +134,33 @@ export default function TasksWorkspacePage() {
             <p className="text-sm text-slate-500">Grouped by the day they were given, with when each is due.</p>
           </div>
         </div>
-        <button type="button" onClick={() => void load()} className="flex items-center gap-1 rounded-lg border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-          <RefreshCw size={14} /> Refresh
-        </button>
+        <div className="flex gap-2">
+          {isGeneral && can("tasks.manage") && (
+            <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white">
+              New task
+            </button>
+          )}
+          <button type="button" onClick={() => void load()} className="flex items-center gap-1 rounded-lg border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+            <RefreshCw size={14} /> Refresh
+          </button>
+        </div>
       </header>
+
+      {notice && (
+        <p role="status" className="rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+          {notice}
+        </p>
+      )}
+      {creating && (
+        <NewWorkTaskDialog
+          onClose={() => setCreating(false)}
+          onSaved={(message) => {
+            setCreating(false);
+            setNotice(message);
+            void load();
+          }}
+        />
+      )}
 
       <MyServicesPanel />
 
@@ -168,7 +194,7 @@ export default function TasksWorkspacePage() {
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search by task, family or person…"
+        placeholder={isGeneral ? "Search by task or person…" : "Search by task, family or person…"}
         className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-900"
       />
 
@@ -190,9 +216,11 @@ export default function TasksWorkspacePage() {
                 <button type="button" onClick={() => setOpenId(t.id)} className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left hover:bg-slate-50">
                   <div className="min-w-0 flex-1">
                     <p className={`truncate font-medium ${t.status === "completed" ? "text-slate-400 line-through" : "text-slate-900"}`}>{t.title}</p>
-                    <p className="truncate text-xs text-slate-500">
-                      {t.deceased_full_name} · {t.case_number}
-                    </p>
+                    {t.case_number !== "WORK" && (
+                      <p className="truncate text-xs text-slate-500">
+                        {t.deceased_full_name} · {t.case_number}
+                      </p>
+                    )}
                   </div>
                   <span className={`flex items-center gap-1 text-xs ${isOverdue(t, now) ? "font-semibold text-red-600" : "text-slate-600"}`}>
                     <CalendarClock size={13} /> {whenDue(t.due_at, t.due_date)}

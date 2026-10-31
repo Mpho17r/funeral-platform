@@ -61,7 +61,7 @@ function findNav(path: string): HTMLElement | null {
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, access, can } = useCurrentUser();
+  const { user, access, can, isGeneral } = useCurrentUser();
 
   const [tour, setTour] = useState<Tour | null>(null);
   const [index, setIndex] = useState(0);
@@ -104,7 +104,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const start = useCallback(
     (tourId?: string) => {
       const chosen =
-        TOURS.find((t) => t.id === tourId) ?? tourForRole(user?.role);
+        TOURS.find((t) => t.id === tourId) ?? tourForRole(user?.role, isGeneral);
       setOffer(false);
       setIndex(0);
       setTour(chosen);
@@ -113,7 +113,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         .then((r) => setCaseId(r.data[0]?.id ?? null))
         .catch(() => setCaseId(null));
     },
-    [user?.role],
+    [user?.role, isGeneral],
   );
 
   const stop = useCallback(() => {

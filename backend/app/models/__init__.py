@@ -83,3 +83,4 @@ from app.models.compliance import ComplianceItem, RemainsViewing
 from app.models.service_catalogue import ServiceCatalogueItem, ServicePackage, ServicePackageItem
 from app.models.transport import PartnerDriver, PartnerVehicle, TransportJob
 from app.models.kai import KaiAction, KaiAutopilotItem, KaiTurn  # noqa: E402,F401
+from app.models.income import IncomeEntry  # noqa: E402,F401

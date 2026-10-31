@@ -109,8 +109,8 @@ const TOPICS: Topic[] = [
 export default function HelpPage() {
   const router = useRouter();
   const { start } = useTour();
-  const { user } = useCurrentUser();
-  const mine = tourForRole(user?.role);
+  const { user, isGeneral } = useCurrentUser();
+  const mine = tourForRole(user?.role, isGeneral);
 
   return (
     <main className="min-h-screen bg-[var(--fos-page)] text-[var(--fos-text)]">
@@ -130,7 +130,7 @@ export default function HelpPage() {
             completed case. Yours is highlighted.
           </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {TOURS.map((t) => (
+            {TOURS.filter((t) => (isGeneral ? t.id === "business" : t.id !== "business")).map((t) => (
               <button
                 key={t.id}
                 type="button"
@@ -152,7 +152,7 @@ export default function HelpPage() {
         </div>
 
         <div className="mt-6 space-y-3">
-          {TOPICS.map((topic, index) => (
+          {(isGeneral ? [] : TOPICS).map((topic, index) => (
             <details
               key={topic.title}
               open={index === 0}

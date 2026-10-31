@@ -38,6 +38,7 @@ from app.models.resource import Resource, ResourceBooking
 from app.models.transport import TransportJob
 from app.models.user import User
 from app.services import assistant as legacy
+from app.services.business_type import GENERAL, business_type_of
 from app.services.communications import today_in_south_africa
 from app.services.mortuary import release_blockers
 from app.services.permission_service import has_permission
@@ -557,6 +558,71 @@ def _prepare_task(db, user, case, text):
     }
 
 
+def _prepare_work_task(db, user, text):
+    """A business task made in chat: KAI works out who suits it."""
+
+    from app.models.business import Business
+    from app.services import work as work_service
+    from app.services.autopilot import pick_person
+
+    if not _can(db, user, "tasks.manage"):
+        return _denied()
+    business = db.get(Business, user["business_id"])
+    title = None
+    match = re.search(r"(?:task|remind(?:er)?)\s*(?:to|:|-|for|about)?\s+(.+)$", text, re.I)
+    if match:
+        title = match.group(1)
+    if not title:
+        return {"reply": "What should the task say? For example: \"Create a task to chase the supplier invoices\"."}
+
+    people = db.query(User).filter(
+        User.business_id == user["business_id"], User.is_active.is_(True)
+    ).all()
+    named = None
+    tail = re.search(r"\b(?:give(?: it)?|assign(?:ed)?|allocate)?\s*(?:it\s+)?to\s+([A-Za-z][\w'-]+)\s*$", title, re.I)
+    if tail:
+        word = tail.group(1).lower()
+        for person in people:
+            first = (person.full_name or "").split()[0].lower() if person.full_name else ""
+            if first and first == word:
+                named = person
+                title = title[: tail.start()].strip()
+                break
+    title = title.strip().rstrip(".?!")[:200]
+    if not title:
+        return {"reply": "What should the task say?"}
+
+    person, reason = named, None
+    if person is None:
+        person = pick_person(
+            db, business, permission="tasks.view", branch_id=None,
+            area="general", text=title,
+        )
+        if person is not None:
+            reason = work_service.why_chosen(person, title)
+    else:
+        reason = f"You asked for {person.full_name}."
+    summary = f"Create the task \"{title}\"" + (
+        f" and give it to {person.full_name}" if person else " (nobody is free to take it yet)"
+    )
+    action = KaiAction(
+        business_id=user["business_id"],
+        user_id=user["user_id"],
+        kind="create_work_task",
+        params={"title": title, "assignee_id": str(person.id) if person else None},
+        summary=summary,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=ACTION_MINUTES),
+    )
+    db.add(action)
+    db.flush()
+    return {
+        "reply": f"I've prepared this for you to review: {summary}."
+        + (f" {reason}" if reason else "")
+        + " Shall I go ahead?",
+        "action": {"id": str(action.id), "summary": summary},
+    }
+
+
 def _load_action(db, user, action_id) -> KaiAction | None:
     try:
         action_id = UUID(str(action_id))
@@ -606,6 +672,32 @@ def confirm_action(db: Session, user: dict, action_id) -> dict:
         _remember(db, user, "kai", reply, [_item(case)], {"case_id": str(case.id)})
         db.commit()
         return {"ok": True, "reply": reply, "items": [_item(case)]}
+
+    if action.kind == "create_work_task":
+        if not _can(db, user, "tasks.manage"):
+            return {"ok": False, "reply": "Your access no longer lets you add tasks, so I haven't done it."}
+        from app.models.business import Business
+        from app.services import work as work_service
+
+        business = db.get(Business, user["business_id"])
+        assignee = action.params.get("assignee_id")
+        try:
+            made = work_service.create_task(
+                db, business=business, actor_id=user["user_id"],
+                title=action.params["title"],
+                assignee_ids=[UUID(assignee)] if assignee else [],
+            )
+        except Exception as error:
+            db.rollback()
+            detail = getattr(error, "detail", None) or "something went wrong"
+            return {"ok": False, "reply": f"I couldn't add the task: {detail}"}
+        action = _load_action(db, user, action_id)
+        action.status = "done"
+        who = f" and gave it to {', '.join(made['assignees'])}" if made["assignees"] else ""
+        reply = f"Done - I created \"{made['title']}\"{who}."
+        _remember(db, user, "kai", reply, [], {})
+        db.commit()
+        return {"ok": True, "reply": reply}
 
     return {"ok": False, "reply": "I don't know how to do that action."}
 
@@ -729,7 +821,38 @@ def examples(db: Session, user: dict) -> list[str]:
     out = [row["example"] for row in legacy.available(db, user)]
     if _can(db, user, "cases.view"):
         out.append("What needs attention today?")
+    if business_type_of(db, user["business_id"]) == GENERAL:
+        if _can(db, user, "tasks.manage"):
+            out.append("Create a task to chase the supplier invoices")
+        if _can(db, user, "income.view"):
+            out.append("How are we doing this month?")
+        out.append("Who is free to take work?")
     return out[:8]
+
+
+def _money_report(db, user):
+    from datetime import date as _date
+
+    from app.api.money import profit_and_loss
+
+    if not _can(db, user, "income.view"):
+        return _denied()
+    p = profit_and_loss(db, user["business_id"], _date.today(), 2)
+    prev = p["trend"][-2] if len(p["trend"]) > 1 else None
+    word = "profit" if p["profit"] >= 0 else "loss"
+    reply = (
+        f"This month you've recorded R{p['income']:,.2f} coming in and "
+        f"R{p['expenses']:,.2f} going out, which is a {word} of R{abs(p['profit']):,.2f}."
+    )
+    if prev and (prev["income"] or prev["expenses"]):
+        reply += (
+            f" Last month was R{prev['income']:,.2f} in and R{prev['expenses']:,.2f} out"
+            f" ({'profit' if prev['profit'] >= 0 else 'loss'} of R{abs(prev['profit']):,.2f})."
+        )
+    if p["expenses_by_category"]:
+        top = p["expenses_by_category"][0]
+        reply += f" Your biggest cost so far is {top['category'].replace('_', ' ')} (R{top['total']:,.2f})."
+    return {"reply": reply}
 
 
 def _attention(db, user):
@@ -806,11 +929,21 @@ def _answer(db, user, text, focus, ctx):
     if re.search(r"\bservices?\b.*\b(waiting|for me|mine|assigned to me|to update)\b|\bmy services?\b", lowered):
         return _my_services(db, user)
 
+    if re.search(r"\bprofit\b|\bloss\b|how are we doing|money (in|coming)|\bincome\b|\btakings\b", lowered):
+        return _money_report(db, user)
+
     if re.search(r"autopilot|what (have|did) you (do|done|assign|handle)|what.s kai (done|doing)", lowered):
         return _autopilot_report(db, user)
 
     if re.search(r"workload|who (is|has|are).*(busy|busiest|free|most work|available)|who can take", lowered):
         return _workload_report(db, user)
+
+    if (
+        business_type_of(db, user["business_id"]) == GENERAL
+        and re.search(r"\b(task|remind(?:er)?)\b", lowered)
+        and re.search(r"\b(create|add|make|set up|new|give|assign|allocate)\b", lowered)
+    ):
+        return _prepare_work_task(db, user, text)
 
     ref = resolve_case(db, user, text, focus)
 

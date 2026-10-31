@@ -28,6 +28,8 @@ export type CurrentUser = {
 export type Access = {
   role: string;
   work_area: string;
+  /** "funeral" (the full platform) or "general" (any other business). */
+  business_type?: string;
   permissions: string[];
 };
 
@@ -96,6 +98,8 @@ type CurrentUserContextValue = {
    * enforces the real rule either way.
    */
   can: (permission: string) => boolean;
+  /** A general business: no funeral screens, money and tasks instead. */
+  isGeneral: boolean;
 };
 
 const CurrentUserContext = createContext<CurrentUserContextValue>({
@@ -105,6 +109,7 @@ const CurrentUserContext = createContext<CurrentUserContextValue>({
   refresh: async () => {},
   access: null,
   can: () => true,
+  isGeneral: false,
 });
 
 export function CurrentUserProvider({
@@ -192,6 +197,7 @@ export function CurrentUserProvider({
       refresh,
       access,
       can: (permission: string) => (held ? held.has(permission) : true),
+      isGeneral: access?.business_type === "general",
     };
   }, [user, loading, avatarUrl, refresh, access]);
 

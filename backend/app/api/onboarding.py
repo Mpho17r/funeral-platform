@@ -42,6 +42,63 @@ def onboarding_status(
     members = count(Member, Member.archived_at.is_(None))
     cases = count(FuneralCase)
 
+    from app.models.case_task import CaseTask
+    from app.models.income import IncomeEntry
+    from app.services.business_type import GENERAL, business_type_of
+
+    if business_type_of(db, business_id) == GENERAL:
+        income = count(IncomeEntry)
+        work = count(CaseTask)
+        general_steps = [
+            {
+                "key": "contact",
+                "title": "Add your business phone number",
+                "detail": "Shown on documents and messages.",
+                "path": "/settings/business",
+                "done": has_contact,
+                "required": True,
+            },
+            {
+                "key": "logo",
+                "title": "Upload your logo",
+                "detail": "Appears on documents and the sidebar.",
+                "path": "/settings/branding",
+                "done": has_logo,
+                "required": False,
+            },
+            {
+                "key": "team",
+                "title": "Invite your team",
+                "detail": "Give each person a sign-in and a job title, so KAI knows who does what.",
+                "path": "/settings/team",
+                "done": team > 1,
+                "required": True,
+            },
+            {
+                "key": "income",
+                "title": "Record the money you receive",
+                "detail": "Sales and payments in, so you can see profit or loss.",
+                "path": "/money",
+                "done": income > 0,
+                "required": False,
+            },
+            {
+                "key": "task",
+                "title": "Give your first task",
+                "detail": "Or let KAI choose the right person.",
+                "path": "/tasks",
+                "done": work > 0,
+                "required": False,
+            },
+        ]
+        required = [s for s in general_steps if s["required"]]
+        return {
+            "steps": general_steps,
+            "done": sum(1 for s in general_steps if s["done"]),
+            "total": len(general_steps),
+            "required_complete": all(s["done"] for s in required),
+        }
+
     steps = [
         {
             "key": "contact",

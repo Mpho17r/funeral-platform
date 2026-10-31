@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.permission import Permission
 from app.models.role_permission import RolePermission
 from app.models.user_permission import UserPermission
+from app.services import business_type as kinds
 
 
 VALID_EFFECTS = {"allow", "deny"}
@@ -28,6 +29,12 @@ def has_permission(
     4. Role permission grants access.
     5. Otherwise access is denied.
     """
+
+    # Each kind of business has its own screens: a general business has no
+    # funeral parts, and a funeral home has no general-business parts.
+    if kinds.is_funeral_only(permission_key) or kinds.is_general_only(permission_key):
+        if kinds.hidden_for(kinds.business_type_of_user(db, user_id), permission_key):
+            return False
 
     if role == "main_admin":
         return True
@@ -87,6 +94,11 @@ def effective_permissions(
     active = {
         p.id: p.key
         for p in db.query(Permission).filter(Permission.is_active.is_(True))
+    }
+
+    kind = kinds.business_type_of_user(db, user_id)
+    active = {
+        pid: key for pid, key in active.items() if not kinds.hidden_for(kind, key)
     }
 
     if role == "main_admin":

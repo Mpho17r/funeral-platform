@@ -2,8 +2,10 @@
 
 import {
   FormEvent,
+  useEffect,
   useState,
 } from "react";
+import Link from "next/link";
 
 import { useRouter } from "next/navigation";
 
@@ -27,6 +29,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ open: boolean }>("/auth/registration-status")
+      .then((r) => setRegistrationOpen(r.data.open))
+      .catch(() => setRegistrationOpen(false));
+  }, []);
 
   const primary = branding?.primary_color || "#162620";
   const accent = branding?.secondary_color || "#5e8077";
@@ -270,6 +280,15 @@ export default function LoginPage() {
               )}
               {loading ? "Signing in" : "Sign in"}
             </button>
+
+            {registrationOpen && (
+              <p className="text-center text-sm text-slate-600">
+                New here?{" "}
+                <Link href="/register" className="font-medium underline">
+                  Create an account
+                </Link>
+              </p>
+            )}
           </form>
         </div>
       </section>

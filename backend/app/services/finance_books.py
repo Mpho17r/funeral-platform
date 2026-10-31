@@ -26,7 +26,24 @@ EXPENSE_CATEGORIES = (
     "supplies",
     "marketing",
     "other",
+    # For general businesses (the list a business sees depends on its type).
+    "rent",
+    "salaries",
+    "software",
+    "insurance",
+    "taxes",
+    "travel",
+    "equipment",
+    "professional_fees",
 )
+
+FUNERAL_EXPENSE_CATEGORIES = EXPENSE_CATEGORIES[:10]
+GENERAL_EXPENSE_CATEGORIES = (
+    "rent", "salaries", "supplies", "utilities", "marketing", "software",
+    "insurance", "taxes", "travel", "equipment", "maintenance",
+    "professional_fees", "other",
+)
+INCOME_CATEGORIES = ("sales", "services", "deposits", "interest", "grants", "other")
 
 LOOKBACK_DAYS = 14
 

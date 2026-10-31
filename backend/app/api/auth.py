@@ -171,6 +171,7 @@ def create_business_with_owner(
         email=data.business_email,
         address=data.business_address,
         is_active=True,
+        business_type=data.business_type,
         subscription_status="trial",
         tax_enabled=True,  # South Africa: VAT 15%; change in Settings
         trial_ends_at=datetime.now(timezone.utc) + timedelta(days=30),

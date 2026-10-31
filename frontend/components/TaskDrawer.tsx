@@ -173,7 +173,7 @@ export default function TaskDrawer({
         <header className="flex items-start justify-between gap-3 border-b p-5">
           <div>
             <p className="text-xs text-slate-500">
-              {task ? `${task.deceased_full_name} · ${task.case_number}` : "Task"}
+              {task && task.case_number !== "WORK" ? `${task.deceased_full_name} · ${task.case_number}` : "Task"}
             </p>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">{task?.title ?? "…"}</h2>
           </div>
@@ -319,9 +319,11 @@ export default function TaskDrawer({
                 )}
               </section>
 
-              <Link href={`/cases/${task.case_id}`} className="block text-sm text-slate-700 underline">
-                Open the case
-              </Link>
+              {task.case_number !== "WORK" && (
+                <Link href={`/cases/${task.case_id}`} className="block text-sm text-slate-700 underline">
+                  Open the case
+                </Link>
+              )}
             </>
           )}
         </div>

@@ -47,7 +47,7 @@ function initials(name: string) {
 }
 
 export default function WorkstationPage() {
-  const { user } = useCurrentUser();
+  const { user, can, isGeneral } = useCurrentUser();
   const [attendance, setAttendance] = useState<AttendanceMe | null>(null);
   const [people, setPeople] = useState<PresenceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,10 +178,14 @@ export default function WorkstationPage() {
           <section className={`${card} p-4`}>
             <h2 className="mb-3 font-display text-xl font-semibold">Quick actions</h2>
             <div className="grid grid-cols-2 gap-2.5">
-              <Link href="/cases" className={linkAction}><FileText size={18} className="text-[var(--fos-secondary)]" />New case</Link>
-              <Link href="/communications" className={linkAction}><Phone size={18} className="text-[var(--fos-secondary)]" />Log a call</Link>
+              {!isGeneral && can("cases.view") && <Link href="/cases" className={linkAction}><FileText size={18} className="text-[var(--fos-secondary)]" />New case</Link>}
+              {!isGeneral && can("communications.view") && <Link href="/communications" className={linkAction}><Phone size={18} className="text-[var(--fos-secondary)]" />Log a call</Link>}
               <Link href="/staff" className={linkAction}><MessageSquare size={18} className="text-[var(--fos-secondary)]" />Message team</Link>
-              <Link href="/cases" className={linkAction}><Upload size={18} className="text-[var(--fos-secondary)]" />Upload document</Link>
+              {isGeneral ? (
+                <Link href="/tasks" className={linkAction}><FileText size={18} className="text-[var(--fos-secondary)]" />My tasks</Link>
+              ) : (
+                can("cases.view") && <Link href="/cases" className={linkAction}><Upload size={18} className="text-[var(--fos-secondary)]" />Upload document</Link>
+              )}
             </div>
           </section>
         </div>
@@ -192,17 +196,17 @@ export default function WorkstationPage() {
         <section className={`${card} overflow-hidden`}>
           <div className="flex items-center justify-between border-b border-[var(--fos-border)] px-5 py-4">
             <h2 className="font-display text-xl font-semibold">Your day</h2>
-            <Link href="/calendar" className="text-sm text-[var(--fos-text-muted)] hover:text-[var(--fos-text)]">Open calendar ↗</Link>
+            {can("cases.view") && <Link href="/calendar" className="text-sm text-[var(--fos-text-muted)] hover:text-[var(--fos-text)]">Open calendar ↗</Link>}
           </div>
           <div className="p-5">
-            <div className="flex items-start gap-3 rounded-xl bg-[var(--fos-page)] p-4">
+            {can("cases.view") && <div className="flex items-start gap-3 rounded-xl bg-[var(--fos-page)] p-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--fos-surface)] text-[var(--fos-secondary)]"><CalendarDays size={19} /></span>
               <div>
                 <p className="font-medium text-[var(--fos-text)]">Meetings and scheduled activities</p>
                 <p className="mt-1 text-sm leading-5 text-[var(--fos-text-muted)]">Open the calendar and switch it to just your own schedule if you like.</p>
                 <Link href="/calendar" className="mt-3 inline-flex text-sm font-semibold text-[var(--fos-text)] underline underline-offset-4">View calendar</Link>
               </div>
-            </div>
+            </div>}
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Link href="/settings/sound" className="rounded-xl border border-[var(--fos-border)] p-4 transition hover:bg-[var(--fos-page)]">
                 <Phone size={19} className="text-[var(--fos-secondary)]" />

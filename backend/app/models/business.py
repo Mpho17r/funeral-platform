@@ -71,6 +71,15 @@ class Business(Base):
     )
 
     # ========================================================
+    # WHAT KIND OF BUSINESS: "funeral" (the full platform) or "general"
+    # (jobs, tasks, money and staff, without the funeral screens)
+    # ========================================================
+
+    business_type: Mapped[str] = mapped_column(
+        String(20), default="funeral", nullable=False
+    )
+
+    # ========================================================
     # ARCHIVE
     # ========================================================
 

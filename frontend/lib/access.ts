@@ -27,6 +27,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/tasks": "tasks.view",
   "/archive": "tasks.view",
   "/autopilot": "autopilot.view",
+  "/money": "income.view",
   "/groups": "groups.view",
   "/staff": "chat.use",
   "/branches": "branches.view",
