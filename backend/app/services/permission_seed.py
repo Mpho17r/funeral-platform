@@ -312,6 +312,11 @@ DEFAULT_ROLE_PERMISSIONS["operations"] |= {
     "viewings.view", "viewings.manage",
 }
 
+# Leave and timesheets: everyone asks for their own; managers decide.
+for _role in list(DEFAULT_ROLE_PERMISSIONS):
+    DEFAULT_ROLE_PERMISSIONS[_role] |= {"leave.request", "timesheets.view"}
+DEFAULT_ROLE_PERMISSIONS["manager"] |= {"leave.manage", "timesheets.manage"}
+
 
 def sync_permissions(db: Session) -> int:
     """

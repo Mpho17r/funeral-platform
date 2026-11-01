@@ -403,6 +403,12 @@ app.include_router(business_reports_router)
 from app.api.planning import router as planning_router  # noqa: E402
 
 app.include_router(planning_router)
+
+from app.api.leave import router as leave_router  # noqa: E402
+from app.api.timesheets import router as timesheets_router  # noqa: E402
+
+app.include_router(leave_router)
+app.include_router(timesheets_router)
 app.include_router(work_router)
 app.include_router(autopilot_router)
 app.include_router(service_work_router)
