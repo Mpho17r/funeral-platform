@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  FileBarChart,
   Contact,
   HandCoins,
   Landmark,
@@ -371,6 +372,16 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Money",
       icon: <PiggyBank size={18} />,
       path: "/money",
+    },
+    {
+      label: "Reports",
+      icon: <FileBarChart size={18} />,
+      path: "/business-reports",
+    },
+    {
+      label: "Recurring & budgets",
+      icon: <CalendarClock size={18} />,
+      path: "/planning",
     },
     {
       label: "Customers",

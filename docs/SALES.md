@@ -19,3 +19,14 @@ for funeral homes). Manager and finance hold them; staff may view customers.
 
 API: `/customers`, `/sales/documents`, `/sales/documents/{id}/(issue|accept|decline|convert|void|payments)`,
 `/sales/payments/{id}/void`, `/sales/receivables`, `/bills`.
+
+## Reports, recurring items and budgets
+
+- **Reports** (`/business-reports`): profit and loss for any period (cash basis),
+  sales by customer, tax charged on invoices, month by month; print or download as CSV
+  for Excel. API: `/business-reports/overview`, `/business-reports/export`.
+- **Recurring items** (`/planning`): rent, salaries or a retainer entered once; the hourly
+  `recurring` job records them on schedule (catches up missed periods, at most 12 at a time,
+  never twice). Stopping one never changes entries already recorded.
+- **Budgets**: a monthly amount per expense category, warned at 80% and when used up
+  (one notification per state per month).

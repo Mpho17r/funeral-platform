@@ -85,3 +85,4 @@ from app.models.transport import PartnerDriver, PartnerVehicle, TransportJob
 from app.models.kai import KaiAction, KaiAutopilotItem, KaiTurn  # noqa: E402,F401
 from app.models.income import IncomeEntry  # noqa: E402,F401
 from app.models.sales import Customer, SalePayment, SalesDocument, SalesLine, SupplierBill  # noqa: E402,F401
+from app.models.planning import Budget, RecurringItem  # noqa: E402,F401

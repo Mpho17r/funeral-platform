@@ -28,6 +28,8 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/archive": "tasks.view",
   "/autopilot": "autopilot.view",
   "/money": "income.view",
+  "/business-reports": "income.view",
+  "/planning": "income.view",
   "/customers": "customers.view",
   "/sales": "sales.view",
   "/receivables": "sales.view",
