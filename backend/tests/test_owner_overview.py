@@ -77,7 +77,17 @@ def test_previous_period_is_reported_beside_the_current(
     before = MONTH_START - timedelta(days=3)
     make_payment(db, case, "200.00", on=before)
 
-    body = overview(client, auth_headers, test_data["main_admin"]).json()
+    # The whole month, so it is compared with the whole month before
+    # (on the 1st, "month to date" is a single day).
+    month_end = (MONTH_START + timedelta(days=32)).replace(day=1) - timedelta(
+        days=1
+    )
+    body = overview(
+        client,
+        auth_headers,
+        test_data["main_admin"],
+        date_to=month_end.isoformat(),
+    ).json()
     assert body["current"]["collected"] == 0.00
     assert body["previous"]["collected"] == 200.00
     assert body["previous_to"] == (MONTH_START - timedelta(days=1)).isoformat()

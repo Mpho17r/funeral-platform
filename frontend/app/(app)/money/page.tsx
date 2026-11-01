@@ -50,12 +50,12 @@ export default function MoneyPage() {
   useEffect(() => {
     Promise.all([
       api.get<Summary>("/money/summary"),
-      api.get<Entry[]>("/money/income", { params: { include_voided: true } }),
+      api.get<{ total: number; items: Entry[] }>("/money/income", { params: { include_voided: true } }),
       api.get<{ income: string[] }>("/money/categories"),
     ])
       .then(([s, e, c]) => {
         setSummary(s.data);
-        setEntries(e.data);
+        setEntries(e.data.items);
         setCategories(c.data.income);
       })
       .catch((err) => setError(getApiErrorMessage(err, "Could not load your money.")));
