@@ -61,7 +61,9 @@ FUNERAL_ONLY_GROUPS = frozenset(
 
 # Parts that only a general business has (a funeral home records money on
 # its cases instead).
-GENERAL_ONLY_GROUPS = frozenset({"income"})
+GENERAL_ONLY_GROUPS = frozenset(
+    {"income", "customers", "sales", "bills"}
+)
 
 
 # The membership scheme (plans, policies, contributions, claims). A funeral

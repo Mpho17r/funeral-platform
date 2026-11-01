@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  Contact,
+  HandCoins,
+  Landmark,
+  ReceiptText,
   CalendarDays,
   CreditCard,
   FileText,
@@ -367,6 +371,26 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Money",
       icon: <PiggyBank size={18} />,
       path: "/money",
+    },
+    {
+      label: "Customers",
+      icon: <Contact size={18} />,
+      path: "/customers",
+    },
+    {
+      label: "Quotes & invoices",
+      icon: <ReceiptText size={18} />,
+      path: "/sales",
+    },
+    {
+      label: "Who owes you",
+      icon: <HandCoins size={18} />,
+      path: "/receivables",
+    },
+    {
+      label: "Bills you owe",
+      icon: <Landmark size={18} />,
+      path: "/bills",
     },
     {
       label: "KAI Autopilot",

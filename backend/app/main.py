@@ -391,6 +391,10 @@ from app.api.service_work import router as service_work_router  # noqa: E402
 app.include_router(kai_router)
 app.include_router(archive_router)
 app.include_router(money_router)
+
+from app.api.sales import router as sales_router  # noqa: E402
+
+app.include_router(sales_router)
 app.include_router(work_router)
 app.include_router(autopilot_router)
 app.include_router(service_work_router)

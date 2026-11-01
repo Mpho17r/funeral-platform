@@ -84,6 +84,14 @@ PERMISSIONS = {
     "income.view": "See money received and the profit and loss",
     "income.manage": "Record and void money received",
 
+    # Customers, sales and bills (general businesses)
+    "customers.view": "See customers",
+    "customers.manage": "Add and change customers",
+    "sales.view": "See quotes, invoices and who owes the business",
+    "sales.manage": "Make quotes and invoices and record payments",
+    "bills.view": "See bills the business owes",
+    "bills.manage": "Add, pay and cancel bills",
+
     # Case financials
     "financials.view": "View case financial records",
     "financials.manage": "Manage case financial records",
