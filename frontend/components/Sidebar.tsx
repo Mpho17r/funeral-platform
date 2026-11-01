@@ -48,7 +48,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 import api from "@/lib/api";
-import { ROUTE_PERMISSIONS } from "@/lib/access";
+import { ROUTE_PERMISSIONS, holds } from "@/lib/access";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 import { removeToken } from "@/lib/auth";
@@ -214,7 +214,7 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
 
       const needed = ROUTE_PERMISSIONS[item.path];
 
-      return !needed || can(needed);
+      return !needed || holds(needed, can);
     });
   }
 

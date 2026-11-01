@@ -1709,7 +1709,7 @@ function Dialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 md:items-center"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 md:items-center px-3 pb-3 pt-[4.5rem] sm:px-5 sm:pb-5"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();

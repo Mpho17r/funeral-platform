@@ -762,7 +762,7 @@ export default function TasksPage() {
       {/* FORM MODAL */}
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 px-3 pb-3 pt-[4.5rem] sm:px-5 sm:pb-5">
           <div className="m-auto w-full max-w-2xl rounded-2xl bg-[var(--fos-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-5">
               <div>

@@ -102,7 +102,8 @@ def test_calendar_returns_funeral_service_and_task_events(
 
     events = response.json()
 
-    assert len(events) == 3
+    # The day the task was given is shown too (today, so a different day).
+    assert len(events) == 4
 
     event_types = {event["event_type"] for event in events}
 
@@ -110,9 +111,12 @@ def test_calendar_returns_funeral_service_and_task_events(
         "funeral",
         "service",
         "task",
+        "task_given",
     }
 
-    dates = {event["date"] for event in events}
+    dates = {
+        event["date"] for event in events if event["event_type"] != "task_given"
+    }
 
     assert dates == {
         "2026-10-06",
@@ -161,7 +165,87 @@ def test_calendar_excludes_undated_records(
     )
 
     assert response.status_code == 200, response.text
-    assert response.json() == []
+    # No funeral, service or due-date events: only the day the task was given.
+    assert {e["event_type"] for e in response.json()} == {"task_given"}
+
+
+def test_task_with_due_time_shows_given_and_due(
+    db,
+    client,
+    test_data,
+    auth_headers,
+):
+    from datetime import datetime, timedelta, timezone
+
+    business = test_data["business_a"]
+    manager = test_data["manager"]
+    case = create_case(db, business)
+
+    due = datetime.now(timezone.utc) + timedelta(days=3)
+    task = CaseTask(
+        business_id=business.id,
+        case_id=case.id,
+        title="Collect flowers",
+        status="pending",
+        due_date=due.date(),
+        due_at=due,
+        assigned_to=manager.id,
+    )
+    db.add(task)
+    db.commit()
+
+    events = client.get("/calendar", headers=auth_headers(manager)).json()
+    by_type = {e["event_type"]: e for e in events}
+    assert by_type["task"]["due_at"] is not None
+    assert by_type["task"]["date"] == due.date().isoformat()
+    assert by_type["task_given"]["title"] == "Given: Collect flowers"
+
+
+def test_archived_tasks_leave_the_calendar(db, client, test_data, auth_headers):
+    from datetime import datetime, timezone
+
+    business = test_data["business_a"]
+    manager = test_data["manager"]
+    case = create_case(db, business)
+    db.add(
+        CaseTask(
+            business_id=business.id,
+            case_id=case.id,
+            title="Old job",
+            status="completed",
+            due_date=date.today(),
+            archived_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+    assert client.get("/calendar", headers=auth_headers(manager)).json() == []
+
+
+def test_general_business_calendar_shows_tasks(
+    db, client, test_data, auth_headers
+):
+    from tests.test_business_mode import go_general
+    from app.services.business_type import workspace_case
+
+    go_general(db, test_data)
+    business = test_data["business_a"]
+    admin = test_data["main_admin"]
+    case = workspace_case(db, business.id)
+    db.add(
+        CaseTask(
+            business_id=business.id,
+            case_id=case.id,
+            title="Send quote",
+            status="pending",
+            due_date=date.today(),
+        )
+    )
+    db.commit()
+
+    r = client.get("/calendar", headers=auth_headers(admin))
+    assert r.status_code == 200, r.text
+    types = {e["event_type"] for e in r.json()}
+    assert "task" in types and "funeral" not in types
 
 
 def test_calendar_is_tenant_isolated(

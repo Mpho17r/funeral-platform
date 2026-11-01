@@ -933,8 +933,8 @@ export default function ServicesPage() {
       )}
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 p-4">
-          <div className="m-auto max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 px-3 pb-3 pt-[4.5rem] sm:px-5 sm:pb-5">
+          <div className="m-auto max-h-[calc(100dvh-6rem)] w-full max-w-3xl overflow-y-auto rounded-2xl bg-[var(--fos-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-5">
               <div>
                 <h2 className="text-lg font-bold text-[var(--fos-text)]">
