@@ -292,6 +292,15 @@ DEFAULT_ROLE_PERMISSIONS["manager"] |= {"autopilot.view"}
 # Money in and out for general businesses (hidden for funeral homes).
 DEFAULT_ROLE_PERMISSIONS["manager"] |= {"income.view", "income.manage"}
 DEFAULT_ROLE_PERMISSIONS["finance"] |= {"income.view", "income.manage"}
+DEFAULT_ROLE_PERMISSIONS["manager"] |= {
+    "customers.view", "customers.manage", "sales.view", "sales.manage",
+    "bills.view", "bills.manage",
+}
+DEFAULT_ROLE_PERMISSIONS["finance"] |= {
+    "customers.view", "customers.manage", "sales.view", "sales.manage",
+    "bills.view", "bills.manage",
+}
+DEFAULT_ROLE_PERMISSIONS["staff"] |= {"customers.view"}
 DEFAULT_ROLE_PERMISSIONS["manager"] |= {"transport.view", "transport.manage"}
 DEFAULT_ROLE_PERMISSIONS["staff"] |= {"transport.view"}
 DEFAULT_ROLE_PERMISSIONS["staff"] |= {"viewings.view"}

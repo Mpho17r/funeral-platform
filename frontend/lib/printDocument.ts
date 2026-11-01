@@ -24,7 +24,7 @@ export type PrintableDocument = {
   lines: PrintLine[];
 };
 
-function esc(value: unknown): string {
+export function esc(value: unknown): string {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -32,14 +32,14 @@ function esc(value: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
-function money(value: string | number): string {
+export function money(value: string | number): string {
   return `R ${Number(value).toLocaleString("en-ZA", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 }
 
-function day(value: string | null): string {
+export function day(value: string | null): string {
   return value ? new Date(value).toLocaleDateString("en-ZA") : "";
 }
 
@@ -130,6 +130,11 @@ ${
 }
 </body></html>`;
 
+  printHtml(html);
+}
+
+/** Prints a finished HTML page through a hidden frame (no pop-up). */
+export function printHtml(html: string): void {
   const frame = document.createElement("iframe");
   frame.style.cssText =
     "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";

@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session
 from app.models.case_service import CaseService
 from app.models.case_task import CaseTask
 from app.models.notification import Notification
+from app.models.sales import SalesDocument, SupplierBill
+from app.models.user import User
+from app.services import sales as sales_calc
 from app.services.notifications import notify
 
 
@@ -93,5 +96,70 @@ def run(db: Session, now: datetime | None = None) -> int:
             link=f"/cases/{service.case_id}/services?overdue={service.id}",
         )
 
+    sent += _money_alerts(db, now)
+
     db.commit()
+    return sent
+
+
+def _money_people(db: Session, business_id) -> list:
+    return [
+        u.id
+        for u in db.query(User).filter(
+            User.business_id == business_id,
+            User.is_active.is_(True),
+            User.role.in_(("main_admin", "manager", "finance")),
+        )
+    ]
+
+
+def _money_alerts(db: Session, now: datetime) -> int:
+    """Tell the people who handle money when a customer's invoice, or a
+    bill the business owes, has gone past its due date."""
+
+    today = now.date()
+    sent = 0
+
+    invoices = (
+        db.query(SalesDocument)
+        .filter(
+            SalesDocument.document_type == "invoice",
+            SalesDocument.status == "issued",
+            SalesDocument.due_date.is_not(None),
+            SalesDocument.due_date < today,
+        )
+        .all()
+    )
+    for inv in invoices:
+        if sales_calc.paid_amount(db, inv.id) >= inv.total:
+            continue
+        sent += _tell(
+            db,
+            business_id=inv.business_id,
+            people=_money_people(db, inv.business_id),
+            kind="invoice_overdue",
+            title="A customer invoice is overdue",
+            body=f"{inv.number} was due {inv.due_date.isoformat()}",
+            link=f"/sales/{inv.id}",
+        )
+
+    bills = (
+        db.query(SupplierBill)
+        .filter(
+            SupplierBill.status == "unpaid",
+            SupplierBill.due_date.is_not(None),
+            SupplierBill.due_date < today,
+        )
+        .all()
+    )
+    for bill in bills:
+        sent += _tell(
+            db,
+            business_id=bill.business_id,
+            people=_money_people(db, bill.business_id),
+            kind="bill_overdue",
+            title="A bill is overdue",
+            body=f"{bill.supplier_name}: {bill.description}",
+            link=f"/bills?overdue={bill.id}",
+        )
     return sent

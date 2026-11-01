@@ -129,6 +129,17 @@ def _archive() -> str:
     )
 
 
+def _recurring() -> str:
+    from app.database import SessionLocal
+    from app.services.planning import run
+
+    db = SessionLocal()
+    try:
+        return run(db)
+    finally:
+        db.close()
+
+
 def _overdue() -> str:
     from app.database import SessionLocal
     from app.services.overdue_alerts import run
@@ -198,6 +209,7 @@ def build_jobs() -> list[Job]:
         Job("stock", _stock, every_minutes=60),
         Job("archive", _archive, every_minutes=360),
         Job("overdue", _overdue, every_minutes=30),
+        Job("recurring", _recurring, every_minutes=60),
         Job("autopilot", _autopilot, every_minutes=15),
         Job("autopilot_briefing", _briefing, daily_hour=7, window_hours=10),
     ]
