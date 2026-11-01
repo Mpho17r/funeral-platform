@@ -30,6 +30,8 @@ export type Access = {
   work_area: string;
   /** "funeral" (the full platform) or "general" (any other business). */
   business_type?: string;
+  /** False when the business has switched the membership scheme off. */
+  membership_enabled?: boolean;
   permissions: string[];
 };
 
@@ -100,6 +102,8 @@ type CurrentUserContextValue = {
   can: (permission: string) => boolean;
   /** A general business: no funeral screens, money and tasks instead. */
   isGeneral: boolean;
+  /** Does this business run a membership scheme? */
+  membershipEnabled: boolean;
 };
 
 const CurrentUserContext = createContext<CurrentUserContextValue>({
@@ -110,6 +114,7 @@ const CurrentUserContext = createContext<CurrentUserContextValue>({
   access: null,
   can: () => true,
   isGeneral: false,
+  membershipEnabled: true,
 });
 
 export function CurrentUserProvider({
@@ -198,6 +203,7 @@ export function CurrentUserProvider({
       access,
       can: (permission: string) => (held ? held.has(permission) : true),
       isGeneral: access?.business_type === "general",
+      membershipEnabled: access?.membership_enabled !== false,
     };
   }, [user, loading, avatarUrl, refresh, access]);
 

@@ -199,7 +199,7 @@ export default function ServicesPage() {
       )}
 
       <div className="mt-4 overflow-x-auto rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)]">
-        <table className="w-full min-w-[44rem] text-left text-sm">
+        <table className="w-full min-w-[50rem] text-left text-sm">
           <thead className="bg-[var(--fos-surface-muted)] text-xs uppercase text-[var(--fos-text-muted)]">
             <tr>
               <th className="px-4 py-3">When</th>
@@ -207,6 +207,7 @@ export default function ServicesPage() {
               <th className="px-4 py-3">Case</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Total</th>
+              <th className="px-4 py-3 text-right">Bill</th>
             </tr>
           </thead>
 
@@ -252,6 +253,20 @@ export default function ServicesPage() {
 
                 <td className="whitespace-nowrap px-4 py-3 text-right">
                   {formatMoney(row.total_price)}
+                </td>
+
+                <td className="whitespace-nowrap px-4 py-3 text-right">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      router.push(`/cases/${row.case_id}/financial/documents`);
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    className="rounded-lg border border-[var(--fos-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--fos-surface-muted)]"
+                  >
+                    Invoice &amp; pay
+                  </button>
                 </td>
               </tr>
             ))}

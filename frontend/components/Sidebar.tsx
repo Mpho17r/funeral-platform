@@ -183,14 +183,30 @@ function useChatUnread(): number {
   return unread;
 }
 
+const MEMBERSHIP_PATHS = new Set([
+  "/members",
+  "/membership-plans",
+  "/memberships",
+  "/covered-dependents",
+  "/beneficiaries",
+  "/claims",
+  "/membership-contributions",
+  "/membership-payments",
+]);
+
 export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
   const router = useRouter();
   const chatUnread = useChatUnread();
-  const { can } = useCurrentUser();
+  const { can, membershipEnabled } = useCurrentUser();
 
   // Only the screens this person is allowed to open.
   function shown<T extends { path: string }>(items: T[]): T[] {
     return items.filter((item) => {
+      // A business that does not run memberships never sees those screens.
+      if (!membershipEnabled && MEMBERSHIP_PATHS.has(item.path)) {
+        return false;
+      }
+
       const needed = ROUTE_PERMISSIONS[item.path];
 
       return !needed || can(needed);

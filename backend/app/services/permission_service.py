@@ -33,7 +33,11 @@ def has_permission(
     # Each kind of business has its own screens: a general business has no
     # funeral parts, and a funeral home has no general-business parts.
     if kinds.is_funeral_only(permission_key) or kinds.is_general_only(permission_key):
-        if kinds.hidden_for(kinds.business_type_of_user(db, user_id), permission_key):
+        if kinds.hidden_for(
+            kinds.business_type_of_user(db, user_id),
+            permission_key,
+            kinds.membership_enabled_of_user(db, user_id),
+        ):
             return False
 
     if role == "main_admin":
@@ -97,8 +101,11 @@ def effective_permissions(
     }
 
     kind = kinds.business_type_of_user(db, user_id)
+    membership = kinds.membership_enabled_of_user(db, user_id)
     active = {
-        pid: key for pid, key in active.items() if not kinds.hidden_for(kind, key)
+        pid: key
+        for pid, key in active.items()
+        if not kinds.hidden_for(kind, key, membership)
     }
 
     if role == "main_admin":

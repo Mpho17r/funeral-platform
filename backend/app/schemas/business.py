@@ -82,6 +82,8 @@ class BusinessResponse(BaseModel):
 
     business_type: str = "funeral"
 
+    membership_enabled: bool = True
+
     # ========================================================
     # MEMBERSHIP COVER POLICY
     # ========================================================
@@ -118,6 +120,12 @@ class BusinessResponse(BaseModel):
     # ========================================================
 
     is_active: bool
+
+
+class BusinessMembershipUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    membership_enabled: bool
 
 
 class BusinessTaxUpdate(BaseModel):

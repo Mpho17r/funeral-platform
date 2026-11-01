@@ -79,6 +79,12 @@ class Business(Base):
         String(20), default="funeral", nullable=False
     )
 
+    # Does this funeral home run a membership scheme? Off hides the
+    # plans, memberships, contributions and claims screens.
+    membership_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+
     # ========================================================
     # ARCHIVE
     # ========================================================

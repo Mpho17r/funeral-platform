@@ -8,13 +8,18 @@ import {
   FileSpreadsheet,
   KeyRound,
   Palette,
+  BadgeDollarSign,
   Percent,
+  ShieldCheck as MembershipIcon,
   ScrollText,
   ShieldCheck,
   Users,
   Volume2,
 } from "lucide-react";
 import { useState } from "react";
+
+import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
 import { useCurrentUser } from "@/components/CurrentUserProvider";
@@ -22,9 +27,33 @@ import { ChangePasswordDialog } from "@/components/PasswordDialogs";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { can } = useCurrentUser();
+  const { can, user, membershipEnabled, isGeneral, refresh } =
+    useCurrentUser();
+  const [savingMembership, setSavingMembership] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [notice, setNotice] = useState("");
+
+  async function toggleMembership() {
+    if (!user?.business_id) return;
+
+    try {
+      setSavingMembership(true);
+      setNotice("");
+      await api.patch(`/businesses/${user.business_id}/membership`, {
+        membership_enabled: !membershipEnabled,
+      });
+      await refresh();
+      setNotice(
+        membershipEnabled
+          ? "Membership is hidden. Nothing was deleted - turn it back on any time."
+          : "Membership is back on."
+      );
+    } catch (err) {
+      setNotice(getApiErrorMessage(err, "Could not change membership."));
+    } finally {
+      setSavingMembership(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[var(--fos-surface-muted)] text-[var(--fos-text)] dark:bg-slate-950 dark:text-slate-100">
@@ -192,6 +221,69 @@ export default function SettingsPage() {
                   invoices automatically.
                 </p>
               </button>
+
+              {/* SERVICES AND PRICES */}
+              {!isGeneral && can("services.view") && (
+                <button
+                  type="button"
+                  onClick={() => router.push("/catalogue")}
+                  className="group rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]">
+                      <BadgeDollarSign size={22} />
+                    </div>
+                    <span className="text-sm text-[var(--fos-text-muted)]">
+                      Manage →
+                    </span>
+                  </div>
+                  <h3 className="mt-5 text-lg font-semibold text-[var(--fos-text)]">
+                    Services and prices
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
+                    Add the services and packages you sell, with their
+                    prices. They go straight onto quotes and invoices.
+                  </p>
+                </button>
+              )}
+
+              {/* MEMBERSHIP ON / OFF (main admin, funeral businesses) */}
+              {!isGeneral && user?.role === "main_admin" && (
+                <div className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 shadow-sm">
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]">
+                      <MembershipIcon size={22} />
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={membershipEnabled}
+                      aria-label="Use memberships"
+                      disabled={savingMembership}
+                      onClick={toggleMembership}
+                      className={`relative h-6 w-11 rounded-full transition disabled:opacity-60 ${
+                        membershipEnabled
+                          ? "bg-emerald-600"
+                          : "bg-slate-300"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                          membershipEnabled ? "left-5" : "left-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <h3 className="mt-5 text-lg font-semibold text-[var(--fos-text)]">
+                    Memberships
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
+                    {membershipEnabled
+                      ? "On. Turn this off if you do not run a membership scheme - the plans, policies, contributions and claims screens are hidden for everyone."
+                      : "Off. Membership screens are hidden. Your data is kept and comes back when you turn this on."}
+                  </p>
+                </div>
+              )}
 
               {/* SOUNDS AND CALLS (per person) */}
               <button
