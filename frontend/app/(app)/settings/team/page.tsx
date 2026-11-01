@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { ResetPasswordDialog } from "@/components/PasswordDialogs";
 import { useBranches } from "@/lib/branches";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
 import {
   BranchBadge,
   BranchSelect,
@@ -104,6 +105,7 @@ const emptyForm: UserForm = {
 
 export default function TeamPage() {
   const router = useRouter();
+  const { isGeneral } = useCurrentUser();
 
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -472,7 +474,7 @@ export default function TeamPage() {
                 Team & Users
               </h1>
               <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
-                Manage staff accounts, roles and access to your funeral business.
+                Add workers and manage their roles and access to your business.
               </p>
             </div>
 
@@ -919,10 +921,14 @@ export default function TeamPage() {
                   }
                   className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-[var(--fos-surface-muted)] disabled:text-[var(--fos-text-muted)]"
                 >
-                  {STAFF_LEVEL.map((role) =>
+                  {STAFF_LEVEL.filter(
+                    (role) => !(isGeneral && role === "mortuary")
+                  ).map((role) =>
                     canCreateRole(role) || editingUser ? (
                       <option key={role} value={role}>
-                        {ROLE_OPTION_LABELS[role]}
+                        {isGeneral && role === "operations"
+                          ? "Operations"
+                          : ROLE_OPTION_LABELS[role]}
                       </option>
                     ) : null
                   )}

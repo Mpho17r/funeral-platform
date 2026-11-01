@@ -21,6 +21,7 @@ from app.models.business import Business
 from app.schemas.business import (
     BusinessCreate,
     BusinessResponse,
+    BusinessMembershipUpdate,
     BusinessTaxUpdate,
 )
 from app.services.audit_service import (
@@ -314,6 +315,42 @@ def update_business_contact(
     db.commit()
     db.refresh(business)
 
+    return business
+
+
+@router.patch(
+    "/{business_id}/membership",
+    response_model=BusinessResponse,
+)
+def update_business_membership(
+    business_id: UUID,
+    data: BusinessMembershipUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_main_admin),
+):
+    """Turn the membership scheme on or off. Off only hides the screens;
+    nothing is deleted, and turning it on brings everything back."""
+
+    verify_business_access(business_id, current_user)
+    business = get_business_or_404(business_id, db)
+
+    previous = business.membership_enabled
+    business.membership_enabled = data.membership_enabled
+    db.flush()
+
+    create_audit_log(
+        db,
+        business_id=business_id,
+        user_id=current_user["user_id"],
+        action="business.membership_toggled",
+        entity_type="business",
+        entity_id=business.id,
+        details={"previous": previous, "new": business.membership_enabled},
+        notes="Membership was turned "
+        + ("on." if business.membership_enabled else "off."),
+    )
+    db.commit()
+    db.refresh(business)
     return business
 
 

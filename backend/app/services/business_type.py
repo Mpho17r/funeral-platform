@@ -64,6 +64,20 @@ FUNERAL_ONLY_GROUPS = frozenset(
 GENERAL_ONLY_GROUPS = frozenset({"income"})
 
 
+# The membership scheme (plans, policies, contributions, claims). A funeral
+# home that does not run one can switch it off in Settings.
+MEMBERSHIP_GROUPS = frozenset(
+    {
+        "members",
+        "membership_plans",
+        "memberships",
+        "contributions",
+        "beneficiaries",
+        "claims",
+    }
+)
+
+
 def is_funeral_only(permission_key: str) -> bool:
     return permission_key.split(".", 1)[0] in FUNERAL_ONLY_GROUPS
 
@@ -72,8 +86,13 @@ def is_general_only(permission_key: str) -> bool:
     return permission_key.split(".", 1)[0] in GENERAL_ONLY_GROUPS
 
 
-def hidden_for(kind: str, permission_key: str) -> bool:
+def hidden_for(
+    kind: str, permission_key: str, membership: bool = True
+) -> bool:
     """Is this permission switched off for this kind of business?"""
+
+    if not membership and permission_key.split(".", 1)[0] in MEMBERSHIP_GROUPS:
+        return True
 
     if kind == GENERAL:
         return is_funeral_only(permission_key)
@@ -88,6 +107,16 @@ def business_type_of_user(db: Session, user_id: UUID) -> str:
         .scalar()
     )
     return kind or FUNERAL
+
+
+def membership_enabled_of_user(db: Session, user_id: UUID) -> bool:
+    value = (
+        db.query(Business.membership_enabled)
+        .join(User, User.business_id == Business.id)
+        .filter(User.id == user_id)
+        .scalar()
+    )
+    return True if value is None else bool(value)
 
 
 def business_type_of(db: Session, business_id: UUID) -> str:

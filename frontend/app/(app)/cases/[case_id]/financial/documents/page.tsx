@@ -10,8 +10,10 @@ import {
   Ban,
   CheckCircle2,
   ChevronDown,
+  CreditCard,
   FileText,
   Loader2,
+  Printer,
   Lock,
   Pencil,
   Plus,
@@ -25,6 +27,8 @@ import { useParams, useRouter } from "next/navigation";
 
 import api from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
+import { printFinancialDocument } from "@/lib/printDocument";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 /* ============================================================
    TYPES
@@ -811,6 +815,21 @@ function DocumentCard({
   const isDraft = document.status === "draft";
   const isQuote = document.document_type === "quote";
 
+  const router = useRouter();
+  const { user } = useCurrentUser();
+  const [printing, setPrinting] = useState(false);
+
+  async function handlePrint() {
+    if (!user?.business_id) return;
+
+    try {
+      setPrinting(true);
+      await printFinancialDocument(document, user.business_id);
+    } finally {
+      setPrinting(false);
+    }
+  }
+
   const canVoid =
     (isQuote &&
       ["issued", "accepted"].includes(document.status)) ||
@@ -1099,6 +1118,27 @@ function DocumentCard({
                 icon={<FileText size={16} />}
               >
                 Convert to invoice
+              </ActionButton>
+            )}
+
+            <ActionButton
+              onClick={handlePrint}
+              disabled={printing}
+              busy={printing}
+              icon={<Printer size={16} />}
+            >
+              Print
+            </ActionButton>
+
+            {!isQuote && document.status === "issued" && (
+              <ActionButton
+                primary
+                onClick={() =>
+                  router.push(`/cases/${document.case_id}/financial`)
+                }
+                icon={<CreditCard size={16} />}
+              >
+                Record payment
               </ActionButton>
             )}
 
