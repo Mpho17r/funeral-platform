@@ -1244,10 +1244,10 @@ def test_membership_payment_list_can_filter_by_contribution(
     second_contribution = MembershipContribution(
         business_id=test_data["business_a"].id,
         membership_id=membership.id,
-        contribution_period=date(2026, 11, 1),
+        contribution_period=date(2031, 1, 1),
         amount_due=Decimal("500.00"),
         amount_paid=Decimal("0.00"),
-        due_date=date(2026, 11, 1),
+        due_date=date(2031, 1, 1),
         status="due",
     )
     db.add(second_contribution)
