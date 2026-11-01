@@ -80,6 +80,20 @@ MEMBERSHIP_GROUPS = frozenset(
 )
 
 
+# The membership scheme (plans, policies, contributions, claims). A funeral
+# home that does not run one can switch it off in Settings.
+MEMBERSHIP_GROUPS = frozenset(
+    {
+        "members",
+        "membership_plans",
+        "memberships",
+        "contributions",
+        "beneficiaries",
+        "claims",
+    }
+)
+
+
 def is_funeral_only(permission_key: str) -> bool:
     return permission_key.split(".", 1)[0] in FUNERAL_ONLY_GROUPS
 
