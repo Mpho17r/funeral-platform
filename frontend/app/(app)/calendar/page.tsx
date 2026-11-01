@@ -125,6 +125,8 @@ function formatEventType(value: string) {
       return "Task due";
     case "task_given":
       return "Task given";
+    case "leave":
+      return "On leave";
     default:
       return value
         .replaceAll("_", " ")
@@ -142,6 +144,8 @@ function getEventTypeClass(value: string) {
       return "bg-amber-100 text-amber-700 border-amber-200";
     case "task_given":
       return "bg-sky-50 text-sky-700 border-sky-200";
+    case "leave":
+      return "bg-rose-50 text-rose-700 border-rose-200";
     default:
       return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)] border-[var(--fos-border)]";
   }
@@ -157,6 +161,8 @@ function getEventTypeDotClass(value: string) {
       return "bg-amber-500";
     case "task_given":
       return "bg-sky-400";
+    case "leave":
+      return "bg-rose-400";
     default:
       return "bg-slate-400";
   }
@@ -420,6 +426,11 @@ export default function CalendarWorkspacePage() {
   }
 
   function openEvent(event: CalendarEvent) {
+    if (event.event_type === "leave") {
+      router.push("/leave?tab=team");
+      return;
+    }
+
     // Tasks of a business without cases live on a hidden container case.
     if (event.case_number === "WORK" || event.event_type.startsWith("task")) {
       router.push(
@@ -777,7 +788,7 @@ export default function CalendarWorkspacePage() {
                           {event.title}
                         </div>
 
-                        {event.case_number !== "WORK" && (
+                        {event.case_number !== "WORK" && event.case_number !== "LEAVE" && (
                           <div className="mt-1 text-xs text-[var(--fos-text-muted)]">
                             {event.case_number} ·{" "}
                             {event.deceased_full_name}

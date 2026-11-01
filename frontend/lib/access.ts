@@ -36,6 +36,8 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/bills": "bills.view",
   "/groups": "groups.view",
   "/staff": "chat.use",
+  "/leave": "leave.request",
+  "/timesheets": "timesheets.view",
   "/branches": "branches.view",
   // "a|b": either permission opens it (a general business has tasks, not cases).
   "/calendar": "cases.view|tasks.view",

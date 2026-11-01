@@ -43,6 +43,7 @@ from app.models.resource import Resource, ResourceBooking
 from app.models.staff_attendance_session import StaffAttendanceSession
 from app.models.transport import TransportJob
 from app.models.user import User
+from app.services import leave as leave_service
 from app.services.audit_service import create_audit_log
 from app.services.business_type import GENERAL, business_type_of
 from app.services.notifications import notify
@@ -148,7 +149,10 @@ def pick_person(
 
     loads = loads if loads is not None else workload(db, business.id)
     present = present if present is not None else present_today(db, business.id)
-    exclude = exclude or set()
+    # Nobody is given work on a day they are on approved leave.
+    exclude = (exclude or set()) | leave_service.on_leave(
+        db, business.id, date.today()
+    )
     cap = business.autopilot_max_open or 8
     # First detect what the work needs, then who does that job.
     wanted = category_for_text(text) if text else "general"

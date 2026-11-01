@@ -85,6 +85,11 @@ class Business(Base):
         Boolean, default=True, nullable=False
     )
 
+    # Paid annual leave each worker gets per calendar year (working days).
+    leave_days_per_year: Mapped[int] = mapped_column(
+        Integer, default=15, nullable=False
+    )
+
     # ========================================================
     # ARCHIVE
     # ========================================================

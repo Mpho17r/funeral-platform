@@ -84,6 +84,12 @@ PERMISSIONS = {
     "income.view": "See money received and the profit and loss",
     "income.manage": "Record and void money received",
 
+    # Leave and timesheets
+    "leave.request": "Ask for leave and see your own leave",
+    "leave.manage": "See everyone's leave, approve or reject it, set the yearly allowance",
+    "timesheets.view": "See your own hours worked",
+    "timesheets.manage": "See and export everyone's hours worked",
+
     # Customers, sales and bills (general businesses)
     "customers.view": "See customers",
     "customers.manage": "Add and change customers",

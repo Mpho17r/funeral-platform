@@ -11,6 +11,7 @@ from app.dependencies.roles import get_current_user
 from app.models.case_service import CaseService
 from app.models.case_task import CaseTask, CaseTaskAssignee
 from app.models.funeral_case import FuneralCase
+from app.models.leave import LeaveRequest
 from app.models.user import User
 from app.schemas.calendar import CalendarEventResponse
 from app.services.permission_service import has_permission
@@ -24,6 +25,42 @@ router = APIRouter(
 
 def get_business_id(current_user: dict):
     return current_user["business_id"]
+
+
+def _leave_events(db, business_id, user_id, sees_everyone, mine):
+    """Approved leave: everyone's for managers, otherwise only your own."""
+
+    from datetime import timedelta
+
+    q = (
+        db.query(LeaveRequest, User.full_name)
+        .join(User, User.id == LeaveRequest.user_id)
+        .filter(LeaveRequest.business_id == business_id, LeaveRequest.status == "approved")
+    )
+    if mine or not sees_everyone:
+        q = q.filter(LeaveRequest.user_id == user_id)
+    out = []
+    for req, name in q.all():
+        day = req.start_date
+        while day <= req.end_date and (day - req.start_date).days < 60:
+            if day.weekday() < 5:
+                out.append(
+                    CalendarEventResponse(
+                        id=f"leave-{req.id}-{day.isoformat()}",
+                        event_type="leave",
+                        title=f"{name} on leave",
+                        date=day,
+                        case_id=req.id,
+                        case_number="LEAVE",
+                        deceased_full_name="",
+                        description=req.leave_type,
+                        assigned_to=req.user_id,
+                        assigned_to_name=name,
+                        status="approved",
+                    )
+                )
+            day += timedelta(days=1)
+    return out
 
 
 @router.get(
@@ -194,6 +231,8 @@ def list_calendar_events(
                 events.append(
                     make("task_given", given_on, f"Given: {task.title}")
                 )
+
+    events.extend(_leave_events(db, business_id, user_id, allowed("leave.manage"), mine))
 
     events.sort(key=lambda event: event.date)
 

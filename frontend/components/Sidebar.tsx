@@ -24,6 +24,8 @@ import {
   ClipboardCheck,
   Truck,
   CalendarClock,
+  CalendarOff,
+  Timer,
   Building,
   Boxes,
   BadgeCheck,
@@ -430,6 +432,16 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Staff Workspace",
       icon: <Users size={18} />,
       path: "/staff",
+    },
+    {
+      label: "Leave",
+      icon: <CalendarOff size={18} />,
+      path: "/leave",
+    },
+    {
+      label: "Timesheets",
+      icon: <Timer size={18} />,
+      path: "/timesheets",
     },
     {
       label: "Branches",
