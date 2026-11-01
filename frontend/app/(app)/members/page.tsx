@@ -866,8 +866,8 @@ export default function MembersPage() {
 
       {/* Create / Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
-          <div className="m-auto max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-3 pb-3 pt-[4.5rem] sm:px-5 sm:pb-5">
+          <div className="m-auto max-h-[calc(100dvh-6rem)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 px-6 py-5">
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">
@@ -896,15 +896,15 @@ export default function MembersPage() {
               className="p-6"
             >
               {error && (
-                <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {error}
                 </div>
               )}
 
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {/* Member Number */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Member Number *
                   </label>
 
@@ -920,13 +920,13 @@ export default function MembersPage() {
                     }
                     placeholder="MEM-0001"
                     required
-                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Status */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Status
                   </label>
 
@@ -938,7 +938,7 @@ export default function MembersPage() {
                         status: event.target.value,
                       })
                     }
-                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   >
                     <option value="active">
                       Active
@@ -960,7 +960,7 @@ export default function MembersPage() {
 
                 {/* First Name */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     First Name *
                   </label>
 
@@ -975,13 +975,13 @@ export default function MembersPage() {
                       })
                     }
                     required
-                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Last Name */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Last Name *
                   </label>
 
@@ -996,13 +996,13 @@ export default function MembersPage() {
                       })
                     }
                     required
-                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* ID Number */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     ID Number
                   </label>
 
@@ -1016,13 +1016,13 @@ export default function MembersPage() {
                           event.target.value,
                       })
                     }
-                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Date of Birth */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Date of Birth
                   </label>
 
@@ -1036,13 +1036,13 @@ export default function MembersPage() {
                           event.target.value,
                       })
                     }
-                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Phone */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Phone
                   </label>
 
@@ -1056,13 +1056,13 @@ export default function MembersPage() {
                       })
                     }
                     placeholder="082 123 4567"
-                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Email
                   </label>
 
@@ -1076,13 +1076,13 @@ export default function MembersPage() {
                       })
                     }
                     placeholder="member@example.com"
-                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Join Date */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Join Date
                   </label>
 
@@ -1096,13 +1096,13 @@ export default function MembersPage() {
                           event.target.value,
                       })
                     }
-                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 {/* Address */}
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Address
                   </label>
 
@@ -1115,13 +1115,13 @@ export default function MembersPage() {
                           event.target.value,
                       })
                     }
-                    rows={3}
-                    className="w-full resize-none rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    rows={2}
+                    className="w-full resize-none rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
                     Region
                   </label>
 
@@ -1133,7 +1133,7 @@ export default function MembersPage() {
                     }
                     placeholder="e.g. Soweto, Polokwane, Ward 12"
                     maxLength={100}
-                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-3 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-700 px-4 py-2.5 text-sm outline-none focus:border-gray-500 dark:focus:border-emerald-400"
                   />
                   <datalist id="member-regions">
                     {regions.map((region) => (
@@ -1155,7 +1155,7 @@ export default function MembersPage() {
                 )}
               </div>
 
-              <div className="mt-7 flex justify-end gap-3 border-t border-gray-200 dark:border-slate-700 pt-5">
+              <div className="sticky bottom-0 -mx-6 -mb-6 mt-5 flex justify-end gap-3 border-t border-gray-200 bg-white px-6 py-4 dark:border-slate-700 dark:bg-slate-900">
                 <button
                   type="button"
                   onClick={closeModal}

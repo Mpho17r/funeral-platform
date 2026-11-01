@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState, useMemo } from "react";
 
 import {
   ArrowLeft,
@@ -105,10 +105,16 @@ const emptyForm: UserForm = {
 
 export default function TeamPage() {
   const router = useRouter();
-  const { isGeneral } = useCurrentUser();
+  const { isGeneral, user: me } = useCurrentUser();
 
   const [users, setUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Who is signed in comes from the app's own session, not from a stored
+  // token, so the buttons work for every kind of business.
+  const currentUser = useMemo<User | null>(
+    () => users.find((user) => user.id === me?.user_id) ?? null,
+    [users, me?.user_id],
+  );
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -134,23 +140,6 @@ export default function TeamPage() {
 
       const response = await api.get<User[]>("/users");
       setUsers(response.data);
-
-      const token = localStorage.getItem("access_token");
-      if (token) {
-        try {
-          const payload: { sub?: string } = JSON.parse(
-            atob(token.split(".")[1]),
-          );
-          const loggedInUser = response.data.find(
-            (user) => user.id === payload.sub,
-          );
-          setCurrentUser(loggedInUser ?? null);
-        } catch {
-          setCurrentUser(null);
-        }
-      } else {
-        setCurrentUser(null);
-      }
     } catch (err: unknown) {
       console.error("Failed to load users:", err);
       const { status, detail } = getApiErrorDetails(err);
@@ -760,7 +749,7 @@ export default function TeamPage() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-3 pb-3 pt-[4.5rem] sm:px-5 sm:pb-5">
           <div className="m-auto w-full max-w-lg rounded-2xl bg-[var(--fos-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b border-[var(--fos-border)] px-6 py-5">
               <div>

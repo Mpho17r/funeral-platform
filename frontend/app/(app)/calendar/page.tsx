@@ -33,6 +33,8 @@ type CalendarEvent = {
   assigned_to: string | null;
   assigned_to_name: string | null;
   status: string | null;
+  /** Tasks: the exact due time, when one was set. */
+  due_at?: string | null;
 };
 
 type CalendarDay = {
@@ -120,7 +122,9 @@ function formatEventType(value: string) {
     case "service":
       return "Service";
     case "task":
-      return "Task";
+      return "Task due";
+    case "task_given":
+      return "Task given";
     default:
       return value
         .replaceAll("_", " ")
@@ -136,6 +140,8 @@ function getEventTypeClass(value: string) {
       return "bg-blue-100 text-blue-700 border-blue-200";
     case "task":
       return "bg-amber-100 text-amber-700 border-amber-200";
+    case "task_given":
+      return "bg-sky-50 text-sky-700 border-sky-200";
     default:
       return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)] border-[var(--fos-border)]";
   }
@@ -149,6 +155,8 @@ function getEventTypeDotClass(value: string) {
       return "bg-blue-500";
     case "task":
       return "bg-amber-500";
+    case "task_given":
+      return "bg-sky-400";
     default:
       return "bg-slate-400";
   }
@@ -161,10 +169,23 @@ function getEventIcon(value: string) {
     case "service":
       return Scissors;
     case "task":
+    case "task_given":
       return ClipboardList;
     default:
       return Clock3;
   }
+}
+
+/** "14:30" for a task with a due time, otherwise nothing. */
+function dueTime(event: CalendarEvent) {
+  if (event.event_type !== "task" || !event.due_at) {
+    return "";
+  }
+
+  return new Date(event.due_at).toLocaleTimeString("en-ZA", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function buildCalendarDays(month: Date): CalendarDay[] {
@@ -398,8 +419,18 @@ export default function CalendarWorkspacePage() {
     setCurrentMonth(new Date());
   }
 
-  function openCase(caseId: string) {
-    router.push(`/cases/${caseId}`);
+  function openEvent(event: CalendarEvent) {
+    // Tasks of a business without cases live on a hidden container case.
+    if (event.case_number === "WORK" || event.event_type.startsWith("task")) {
+      router.push(
+        event.case_number === "WORK"
+          ? "/tasks"
+          : `/cases/${event.case_id}`
+      );
+      return;
+    }
+
+    router.push(`/cases/${event.case_id}`);
   }
 
   return (
@@ -612,13 +643,17 @@ export default function CalendarWorkspacePage() {
                           <button
                             key={event.id}
                             type="button"
-                            onClick={() =>
-                              openCase(event.case_id)
-                            }
+                            onClick={() => openEvent(event)}
                             className={`group flex w-full items-start gap-1.5 rounded-md border px-2 py-1 text-left text-xs transition hover:shadow-sm ${getEventTypeClass(
                               event.event_type
                             )}`}
-                            title={`${event.title} — ${event.case_number}`}
+                            title={`${event.title}${
+                              dueTime(event) ? ` — due ${dueTime(event)}` : ""
+                            }${
+                              event.case_number === "WORK"
+                                ? ""
+                                : ` — ${event.case_number}`
+                            }`}
                           >
                             <span
                               className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${getEventTypeDotClass(
@@ -627,6 +662,11 @@ export default function CalendarWorkspacePage() {
                             />
 
                             <span className="min-w-0 truncate font-medium">
+                              {dueTime(event) && (
+                                <span className="mr-1 font-semibold">
+                                  {dueTime(event)}
+                                </span>
+                              )}
                               {event.title}
                             </span>
                           </button>
@@ -704,9 +744,7 @@ export default function CalendarWorkspacePage() {
                     <button
                       key={event.id}
                       type="button"
-                      onClick={() =>
-                        openCase(event.case_id)
-                      }
+                      onClick={() => openEvent(event)}
                       className="flex w-full gap-3 px-5 py-4 text-left transition hover:bg-[var(--fos-page)]"
                     >
                       <div
@@ -731,6 +769,7 @@ export default function CalendarWorkspacePage() {
 
                           <span className="text-xs text-[var(--fos-text-muted)]">
                             {formatEventDate(event.date)}
+                            {dueTime(event) ? ` · ${dueTime(event)}` : ""}
                           </span>
                         </div>
 
@@ -738,10 +777,12 @@ export default function CalendarWorkspacePage() {
                           {event.title}
                         </div>
 
-                        <div className="mt-1 text-xs text-[var(--fos-text-muted)]">
-                          {event.case_number} ·{" "}
-                          {event.deceased_full_name}
-                        </div>
+                        {event.case_number !== "WORK" && (
+                          <div className="mt-1 text-xs text-[var(--fos-text-muted)]">
+                            {event.case_number} ·{" "}
+                            {event.deceased_full_name}
+                          </div>
+                        )}
 
                         {event.venue && (
                           <div className="mt-1 truncate text-xs text-[var(--fos-text-muted)]">

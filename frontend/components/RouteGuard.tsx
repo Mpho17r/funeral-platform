@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Lock } from "lucide-react";
 
-import { permissionForPath } from "@/lib/access";
+import { holds, permissionForPath } from "@/lib/access";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 /**
@@ -18,7 +18,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
 
   const needed = permissionForPath(pathname);
 
-  if (needed && !can(needed)) {
+  if (needed && !holds(needed, can)) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-6 py-24 text-center">
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-muted)]">

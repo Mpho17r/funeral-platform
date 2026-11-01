@@ -37,13 +37,19 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/groups": "groups.view",
   "/staff": "chat.use",
   "/branches": "branches.view",
-  "/calendar": "cases.view",
+  // "a|b": either permission opens it (a general business has tasks, not cases).
+  "/calendar": "cases.view|tasks.view",
   "/reports": "reports.view",
   "/import": "imports.run",
   "/audit": "audit.view",
   "/settings": "settings.view",
   "/settings/data": "data.export",
 };
+
+/** Does the person hold the permission (or any of "a|b")? */
+export function holds(needed: string, can: (permission: string) => boolean) {
+  return needed.split("|").some((permission) => can(permission));
+}
 
 export type WorkArea = "general" | "mortuary" | "finance" | "operations";
 
