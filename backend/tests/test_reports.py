@@ -505,9 +505,10 @@ def test_membership_report(client, db, test_data, auth_headers):
     ms1 = make_membership(db, business, m1, plan)
     ms2 = make_membership(db, business, m2, plan, status="lapsed")
 
-    make_membership_payment(db, ms1, "100.00", date(2026, 10, 1))
-    make_membership_payment(db, ms2, "50.00", date(2026, 10, 2))
-    make_membership_payment(db, ms2, "70.00", date(2026, 7, 2))
+    today = date.today()
+    make_membership_payment(db, ms1, "100.00", today - timedelta(days=10))
+    make_membership_payment(db, ms2, "50.00", today - timedelta(days=5))
+    make_membership_payment(db, ms2, "70.00", today - timedelta(days=200))
 
     case_one = make_case(db, business, main, membership=ms1)
     case_two = make_case(db, business, other, membership=ms2)
@@ -522,8 +523,8 @@ def test_membership_report(client, db, test_data, auth_headers):
         auth_headers,
         test_data["manager"],
         "membership",
-        date_from="2026-10-01",
-        date_to="2026-10-31",
+        date_from=(today - timedelta(days=30)).isoformat(),
+        date_to=today.isoformat(),
     ).json()
 
     assert data["total_members"] == 3
