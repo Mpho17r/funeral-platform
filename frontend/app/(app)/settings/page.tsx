@@ -88,7 +88,7 @@ export default function SettingsPage() {
 
               <p className="mt-1 text-sm text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                 Configure how your funeral business operates and appears
-                inside FuneralOS.
+                inside LINDA.
               </p>
             </div>
 
@@ -149,7 +149,7 @@ export default function SettingsPage() {
 
                 <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)] dark:text-[var(--fos-text-muted)]">
                   Manage your business logo, colours, watermark and
-                  appearance across FuneralOS.
+                  appearance across LINDA.
                 </p>
               </button>
 

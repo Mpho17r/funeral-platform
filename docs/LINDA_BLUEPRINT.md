@@ -1,4 +1,4 @@
-# FuneralOS Product Blueprint and System Structure
+# LINDA Product Blueprint and System Structure
 
 **Last reviewed:** 2026-10-19  
 **Repository:** [Mpho17r/funeral-platform](https://github.com/Mpho17r/funeral-platform)  
@@ -9,7 +9,7 @@
 
 ## 1. Product direction
 
-FuneralOS is a multi-tenant operating system for funeral businesses. It should connect the work from first case registration through custody, preparation, funeral arrangements, service delivery, finance, membership/cover, and final closure around one canonical case record.
+LINDA is a multi-tenant operating system for funeral businesses. It should connect the work from first case registration through custody, preparation, funeral arrangements, service delivery, finance, membership/cover, and final closure around one canonical case record.
 
 The system must support small funeral homes that combine several departments and larger businesses that have multiple branches, dedicated teams, and shared facilities.
 
@@ -71,7 +71,7 @@ The intended ownership and access hierarchy is:
 
 ```text
 Saccharum Technologies (platform owner / platform administration)
-└── FuneralOS platform control plane
+└── LINDA platform control plane
     ├── business subscriptions and platform usage (future platform module)
     └── Funeral business tenant
         ├── Main Admin / business owner

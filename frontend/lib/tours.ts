@@ -26,7 +26,7 @@ export type Tour = {
 const welcome = (who: string): TourStep => ({
   id: "welcome",
   path: "/dashboard",
-  title: "Welcome to FuneralOS",
+  title: "Welcome to LINDA",
   body: `This short tour is for ${who}. Click Next to move on, Back to go back, or Skip at any time. You can restart it from the Guide page.`,
 });
 
@@ -355,7 +355,7 @@ const done: TourStep = {
 };
 
 const businessSteps: TourStep[] = [
-  welcome("running your business on FuneralOS"),
+  welcome("running your business on LINDA"),
   {
     id: "b-dashboard",
     path: "/dashboard",
@@ -437,7 +437,7 @@ export const TOURS: Tour[] = [
   {
     id: "owner",
     title: "The whole system",
-    summary: "Every part of FuneralOS, from the first call to a completed case, plus members, money and administration.",
+    summary: "Every part of LINDA, from the first call to a completed case, plus members, money and administration.",
     steps: [
       welcome("managers and main administrators"),
       dashboard,

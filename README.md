@@ -1,10 +1,10 @@
-# FuneralOS
+# LINDA
 
-FuneralOS is a multi-tenant operating system for funeral businesses. The GitHub repository is the implementation source of truth; the project blueprint and tracker capture agreed architecture, current evidence, and the next work.
+LINDA is a multi-tenant operating system for funeral businesses. The GitHub repository is the implementation source of truth; the project blueprint and tracker capture agreed architecture, current evidence, and the next work.
 
 ## Project documentation
 
-- [Product blueprint and system structure](docs/FUNERALOS_BLUEPRINT.md) — product principles, business/branch structure, case journey, department workspaces, security invariants, and roadmap.
+- [Product blueprint and system structure](docs/LINDA_BLUEPRINT.md) — product principles, business/branch structure, case journey, department workspaces, security invariants, and roadmap.
 - [Production readiness](docs/PRODUCTION_READINESS.md) — hosting options, safe settings, setup recipe, launch checklist and POPIA notes.
 - [Backups and recovery](docs/BACKUPS_AND_RECOVERY.md) — nightly backups, restore drill and the owner's data export.
 - [Project tracker](docs/PROJECT_TRACKER.md) — what is present in the repository, what needs review, and the next priorities.

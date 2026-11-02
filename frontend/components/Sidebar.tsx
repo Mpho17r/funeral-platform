@@ -56,6 +56,7 @@ import { useCurrentUser } from "@/components/CurrentUserProvider";
 import { removeToken } from "@/lib/auth";
 import { useBranding } from "@/components/BrandingProvider";
 import { useTheme } from "@/components/ThemeProvider";
+import { usePlatformLabel } from "@/components/PlatformLabel";
 
 type SidebarProps = {
   onLogout?: () => void;
@@ -488,7 +489,9 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
     },
   ];
 
-  const businessName = branding?.name || "FuneralOS";
+  const platformLabel = usePlatformLabel() || "One Platform. Every Business.";
+
+  const businessName = branding?.name || "LINDA";
 
   const primary = branding?.primary_color || "#0f172a";
 
@@ -561,7 +564,7 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
                 color: secondary,
               }}
             >
-              Funeral Management
+              {platformLabel}
             </p>
           </div>
         </button>

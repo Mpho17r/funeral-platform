@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Briefcase, HeartHandshake, Loader2 } from "lucide-react";
 
+import LindaLogo from "@/components/LindaLogo";
 import api from "@/lib/api";
 import { saveToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/format";
@@ -15,7 +16,7 @@ const KINDS: { value: Kind; title: string; body: string; icon: typeof Briefcase 
   {
     value: "funeral",
     title: "A funeral business",
-    body: "Cases, mortuary, memberships, families, transport, quotes and invoices — the whole funeral platform.",
+    body: "Cases, mortuary, memberships, families, transport, quotes and invoices — the Funeral Platform.",
     icon: HeartHandshake,
   },
   {
@@ -77,7 +78,8 @@ export default function RegisterPage() {
   return (
     <main className="mx-auto max-w-xl space-y-6 p-4 py-10 sm:p-8">
       <header>
-        <h1 className="text-3xl font-bold text-slate-900">Create your account</h1>
+        <LindaLogo size={36} className="mb-6" />
+        <h1 className="text-3xl font-bold text-slate-900">Register your business</h1>
         <p className="mt-1 text-sm text-slate-600">
           Already registered?{" "}
           <Link href="/login" className="font-medium text-slate-900 underline">
@@ -151,6 +153,7 @@ export default function RegisterPage() {
             {busy ? "Creating your account" : "Create account"}
           </button>
           <p className="text-xs text-slate-500">You will be the main administrator and can invite your team afterwards.</p>
+          <p className="text-center text-xs text-slate-400">LINDA | One Platform. Every Business. Powered by Saccharum Technologies.</p>
         </form>
       )}
     </main>

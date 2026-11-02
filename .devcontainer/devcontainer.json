@@ -1,5 +1,5 @@
 {
-  "name": "FuneralOS",
+  "name": "LINDA",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspaces/funeral-platform",
@@ -13,7 +13,7 @@
   },
   "forwardPorts": [3000],
   "portsAttributes": {
-    "3000": { "label": "FuneralOS app", "onAutoForward": "openBrowser" }
+    "3000": { "label": "LINDA app", "onAutoForward": "openBrowser" }
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "postStartCommand": "bash .devcontainer/start.sh"

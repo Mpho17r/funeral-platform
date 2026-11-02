@@ -117,7 +117,7 @@ export default function HelpPage() {
       <section className="mx-auto max-w-3xl p-6 md:p-8">
         <h1 className="text-2xl font-bold">Guide</h1>
         <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
-          How a funeral home runs on FuneralOS, in the order you will meet
+          How a funeral home runs on LINDA, in the order you will meet
           things. Open any topic.
         </p>
 

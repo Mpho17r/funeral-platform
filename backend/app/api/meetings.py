@@ -80,7 +80,7 @@ def _clean_url(url: str | None) -> str | None:
 
 def _new_call_link(voice_only: bool = False) -> str:
     base = settings.call_base_url.rstrip("/")
-    link = f"{base}/FuneralOS-{secrets.token_urlsafe(12)}"
+    link = f"{base}/LINDA-{secrets.token_urlsafe(12)}"
     if voice_only:
         link += (
             "#config.startWithVideoMuted=true"

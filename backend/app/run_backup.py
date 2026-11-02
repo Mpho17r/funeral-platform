@@ -1,5 +1,5 @@
 """
-Back up FuneralOS: the whole database plus every uploaded file.
+Back up LINDA: the whole database plus every uploaded file.
 
 Run it by hand or from a scheduler (see docs/BACKUPS_AND_RECOVERY.md):
 

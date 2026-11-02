@@ -1,4 +1,4 @@
-"""Ask FuneralOS: answers come from real data, within the person's access."""
+"""Ask LINDA: answers come from real data, within the person's access."""
 
 from datetime import datetime, time, timedelta, timezone
 

@@ -9,7 +9,10 @@ import {
   type ReactNode,
 } from "react";
 
+import { usePathname } from "next/navigation";
+
 import api from "@/lib/api";
+import { getToken } from "@/lib/auth";
 
 type BrandingData = {
   name?: string;
@@ -57,9 +60,7 @@ export function BrandingProvider({
 
   const refreshBranding = useCallback(async () => {
     const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("access_token")
-        : null;
+      typeof window !== "undefined" ? getToken() : null;
 
     /*
      * No authenticated user means there is no
@@ -88,14 +89,6 @@ export function BrandingProvider({
       const currentUser =
         meResponse.data;
 
-      console.log(
-        "[Branding] CURRENT USER:",
-        JSON.stringify(
-          currentUser,
-          null,
-          2,
-        ),
-      );
 
       const businessId =
         currentUser?.business_id;
@@ -123,24 +116,8 @@ export function BrandingProvider({
       const data =
         businessResponse.data;
 
-      console.log(
-        "[Branding] FULL BUSINESS RESPONSE:",
-        JSON.stringify(
-          data,
-          null,
-          2,
-        ),
-      );
 
-      console.log(
-        "[Branding] LOGO URL:",
-        data.logo_url,
-      );
 
-      console.log(
-        "[Branding] WATERMARK URL:",
-        data.watermark_url,
-      );
 
       const brandingData: BrandingData = {
         name: data.name,
@@ -327,6 +304,23 @@ export function BrandingProvider({
     logoObjectUrl,
     watermarkObjectUrl,
   ]);
+
+  // The provider lives in the root layout, so signing in or out is a client
+  // navigation that does not remount it. Reload (or clear) on each route change.
+  const pathname = usePathname();
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    queueMicrotask(() => {
+      if (getToken()) {
+        if (!branding) void refreshBranding();
+      } else if (branding) {
+        setBranding(null);
+        setLogoObjectUrl(null);
+        setWatermarkObjectUrl(null);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   return (
     <BrandingContext.Provider

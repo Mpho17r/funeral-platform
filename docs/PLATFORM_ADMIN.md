@@ -14,5 +14,5 @@ The platform owner (Saccharum Technologies) manages subscriptions separately fro
 
 A business can see its own plan and usage at `GET /subscription`.
 
-# Ask FuneralOS
+# Ask LINDA
 `/assistant` answers fixed operational questions (arrears, upcoming funerals, funerals with nothing booked, overdue tasks, outstanding paperwork, money collected and owed, who is in the mortuary) from live data. It matches by wording, not by AI, and each question needs the same permission as the normal screen; branch limits apply.

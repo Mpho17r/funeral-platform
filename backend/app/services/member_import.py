@@ -1,4 +1,4 @@
-"""Bring an existing member list (from a spreadsheet) into FuneralOS.
+"""Bring an existing member list (from a spreadsheet) into LINDA.
 
 The flow is deliberately two-step: a *check* reads the file and reports,
 row by row, what would happen without saving anything; the *import*

@@ -607,7 +607,7 @@ export default function BrandingPage() {
               <span className="font-medium text-[var(--fos-text)]">
                 {business.name}
               </span>{" "}
-              appears throughout FuneralOS.
+              appears throughout LINDA.
             </p>
           </div>
 
@@ -658,7 +658,7 @@ export default function BrandingPage() {
                   </h3>
 
                   <p className="mt-1 text-sm leading-5 text-[var(--fos-text-secondary)]">
-                    Your business logo will appear throughout the FuneralOS interface.
+                    Your business logo will appear throughout the LINDA interface.
                   </p>
                 </div>
               </div>
@@ -731,7 +731,7 @@ export default function BrandingPage() {
                   </h3>
 
                   <p className="mt-1 text-sm leading-5 text-[var(--fos-text-secondary)]">
-                    A subtle business identity displayed behind your FuneralOS content.
+                    A subtle business identity displayed behind your LINDA content.
                   </p>
                 </div>
               </div>
@@ -982,7 +982,7 @@ export default function BrandingPage() {
             </h2>
 
             <p className="mt-1 text-sm text-[var(--fos-text-secondary)]">
-              Preview how your business branding will appear inside FuneralOS.
+              Preview how your business branding will appear inside LINDA.
             </p>
           </div>
 
@@ -1019,7 +1019,7 @@ export default function BrandingPage() {
               </h3>
 
               <p className="mt-1 text-sm opacity-80">
-                Funeral Management Platform
+                Business Management Platform
               </p>
 
               <div
