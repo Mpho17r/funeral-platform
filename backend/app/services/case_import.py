@@ -1,5 +1,5 @@
 """Bring in funerals already in progress (or recently done) from the old
-system, so staff can carry on in FuneralOS without re-typing them.
+system, so staff can carry on in LINDA without re-typing them.
 
 Same two-step shape as the other imports: check first, save nothing; then
 import the rows that passed. Cases are saved as records: no tasks,

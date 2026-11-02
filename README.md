@@ -1,6 +1,6 @@
-# FuneralOS
+# LINDA
 
-FuneralOS is a multi-tenant operating system for funeral businesses. The GitHub repository is the implementation source of truth; the project blueprint and tracker capture agreed architecture, current evidence, and the next work.
+LINDA (Linked Intelligence for Networked Development & Administration) is a multi-tenant, multi-industry business management platform, owned by Saccharum Technologies. It began with funeral businesses and now also serves general businesses. The GitHub repository is the implementation source of truth; the project blueprint and tracker capture agreed architecture, current evidence, and the next work.
 
 ## Project documentation
 

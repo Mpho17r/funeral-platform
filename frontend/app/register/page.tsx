@@ -8,6 +8,8 @@ import { Briefcase, HeartHandshake, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 import { saveToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/format";
+import { LindaMark } from "@/components/LindaLogo";
+import { PLATFORM_OWNER, PLATFORM_SLOGAN } from "@/lib/platform";
 
 type Kind = "funeral" | "general";
 
@@ -15,13 +17,13 @@ const KINDS: { value: Kind; title: string; body: string; icon: typeof Briefcase 
   {
     value: "funeral",
     title: "A funeral business",
-    body: "Cases, mortuary, memberships, families, transport, quotes and invoices — the whole funeral platform.",
+    body: "Cases, mortuary, memberships, families, transport, quotes and invoices. Your workspace is the Funeral Platform.",
     icon: HeartHandshake,
   },
   {
     value: "general",
     title: "Another kind of business",
-    body: "Manage your team and tasks, record money in and out and see profit or loss. KAI gives work to the right person.",
+    body: "Manage your team and tasks, customers, sales, money in and out and profit or loss. Your workspace is the Business Management Platform.",
     icon: Briefcase,
   },
 ];
@@ -77,7 +79,11 @@ export default function RegisterPage() {
   return (
     <main className="mx-auto max-w-xl space-y-6 p-4 py-10 sm:p-8">
       <header>
-        <h1 className="text-3xl font-bold text-slate-900">Create your account</h1>
+        <div className="mb-6 flex items-center gap-3 text-slate-900">
+          <LindaMark size={40} />
+          <span className="text-lg font-semibold tracking-[0.22em]">LINDA</span>
+        </div>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Create your business account</h1>
         <p className="mt-1 text-sm text-slate-600">
           Already registered?{" "}
           <Link href="/login" className="font-medium text-slate-900 underline">
@@ -153,6 +159,11 @@ export default function RegisterPage() {
           <p className="text-xs text-slate-500">You will be the main administrator and can invite your team afterwards.</p>
         </form>
       )}
+
+      <footer className="pt-4 text-center text-xs text-slate-500">
+        <p className="font-medium text-slate-600">LINDA | {PLATFORM_SLOGAN}</p>
+        <p className="mt-0.5">Powered by {PLATFORM_OWNER}.</p>
+      </footer>
     </main>
   );
 }

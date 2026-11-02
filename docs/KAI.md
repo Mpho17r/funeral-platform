@@ -1,6 +1,6 @@
 # KAI — Knowledge · Assistance · Intelligence
 
-KAI is the assistant inside FuneralOS (sidebar → **KAI**). It replaces "Ask FuneralOS".
+KAI is the assistant inside LINDA (sidebar → **KAI**). It replaces "Ask LINDA".
 
 ## What it does
 - **Greets you** by name, with your branch, and a short briefing of what needs attention (only from real records you may see).

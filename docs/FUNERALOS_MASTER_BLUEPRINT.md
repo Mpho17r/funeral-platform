@@ -1,13 +1,13 @@
-# FuneralOS — Master Product Blueprint
+# LINDA — Master Product Blueprint
 
 **Status:** LOCKED — 7 October 2026  
 **Owner:** Saccharum Technologies  
 **Repository:** Mpho17r/funeral-platform  
-**Product:** FuneralOS
+**Product:** LINDA
 
 ## 1. Product vision
 
-FuneralOS is a South African-first operating system for running a modern funeral business.
+LINDA is a South African-first operating system for running a modern funeral business.
 
 It is not merely a CRM, membership system, accounting package, fleet tracker, or case-management application. It is one connected operating environment in which people, cases, membership, services, documents, tasks, resources, communications, financials and management intelligence work together.
 
@@ -22,7 +22,7 @@ It is not merely a CRM, membership system, accounting package, fleet tracker, or
 5. **South African first:** local funeral workflows, payments, communication, compliance and business realities matter.
 6. **Mobile-capable:** field operations must eventually work beyond the office.
 7. **Integration-friendly:** integrate where another provider is better than rebuilding everything.
-8. **AI with purpose:** future AI must understand real FuneralOS data and workflows; no gimmick chatbot.
+8. **AI with purpose:** future AI must understand real LINDA data and workflows; no gimmick chatbot.
 9. **Slow is acceptable; weak architecture is not.**
 10. **Every major feature must improve an actual business workflow.**
 
@@ -127,7 +127,7 @@ The goal is that a manager can open one case and understand its operational stat
 - document sharing
 - WhatsApp/SMS/email integrations
 - multilingual experiences
-- future FuneralOS Assistant
+- future LINDA Assistant
 
 ## 5. Workflow architecture
 
@@ -270,7 +270,7 @@ Future staff/mobile experience:
 
 ## 11. Intelligence and AI
 
-FuneralOS intelligence should first focus on deterministic operational signals:
+LINDA intelligence should first focus on deterministic operational signals:
 
 - overdue work
 - missing information
@@ -281,7 +281,7 @@ FuneralOS intelligence should first focus on deterministic operational signals:
 - incomplete cases
 - unusual activity
 
-Future AI should answer operational questions from authorised FuneralOS data, for example:
+Future AI should answer operational questions from authorised LINDA data, for example:
 
 - What is still outstanding on this funeral?
 - Which funerals tomorrow have no vehicle?
@@ -335,7 +335,7 @@ Never confuse the two roles.
 
 ## 14. Commercial strategy
 
-FuneralOS will be sold as SaaS.
+LINDA will be sold as SaaS.
 
 Primary initial customer:
 
@@ -395,9 +395,9 @@ Future onboarding should include:
 
 Migration from spreadsheets and legacy records can become a major sales advantage.
 
-## 17. What FuneralOS will not become
+## 17. What LINDA will not become
 
-FuneralOS will not intentionally become:
+LINDA will not intentionally become:
 
 - a generic ERP
 - a generic social network
@@ -464,14 +464,14 @@ Before calling it complete, ask:
 - Is the workflow genuinely better?
 - Is failure handling sensible?
 - Is it auditable?
-- Does it integrate with the rest of FuneralOS?
+- Does it integrate with the rest of LINDA?
 - Can the design evolve?
 - Is it suitable for future scale?
 - Can it eventually support mobile/integrations/automation where relevant?
 
 ## 21. Product differentiation
 
-FuneralOS aims to differentiate through the combination of:
+LINDA aims to differentiate through the combination of:
 
 - South African funeral-business understanding
 - case-centred architecture
@@ -493,7 +493,7 @@ The objective is to build a more coherent operating system.
 
 ## 22. Locked strategic statement
 
-**FuneralOS is a South African-first operating system for the entire lifecycle of a funeral business — from member and family management, through case creation and funeral operations, to financial closure, communication, reporting and long-term business management.**
+**LINDA is a South African-first operating system for the entire lifecycle of a funeral business — from member and family management, through case creation and funeral operations, to financial closure, communication, reporting and long-term business management.**
 
 The platform should make it difficult for important work to fall through the cracks while giving management a clear view of what is happening, what needs attention, what is at risk and what should happen next.
 

@@ -54,8 +54,7 @@ import { ROUTE_PERMISSIONS, holds } from "@/lib/access";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 import { removeToken } from "@/lib/auth";
-import { useBranding } from "@/components/BrandingProvider";
-import { useTheme } from "@/components/ThemeProvider";
+import { LindaMark } from "@/components/LindaLogo";
 
 type SidebarProps = {
   onLogout?: () => void;
@@ -85,9 +84,6 @@ function NavItem({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { branding } = useBranding();
-  const { resolvedTheme } = useTheme();
-
   const active = isSidebarPathActive(pathname, path);
 
   return (
@@ -99,36 +95,26 @@ function NavItem({
         onNavigate?.();
       }}
       className={`
-        group flex w-full items-center gap-3 rounded-xl
-        px-3 py-3 text-sm font-medium
-        transition-all duration-150
+        group relative flex w-full items-center gap-3 rounded-xl
+        px-3 py-2.5 text-sm font-medium
+        transition-colors duration-150
         ${
           active
-            ? "text-white shadow-sm"
-            : resolvedTheme === "dark"
-              ? "text-slate-300 hover:bg-white/10 hover:text-white"
-              : "text-slate-600 hover:bg-black/5 hover:text-slate-950"
+            ? "bg-white/10 text-white"
+            : "text-slate-300 hover:bg-white/5 hover:text-white"
         }
       `}
-      style={
-        active
-          ? {
-              backgroundColor: branding?.primary_color || "#0f172a",
-            }
-          : undefined
-      }
     >
+      {active && (
+        <span
+          aria-hidden="true"
+          className="absolute -left-3 top-2 bottom-2 w-1 rounded-r-full"
+          style={{ backgroundColor: "var(--linda-gold)" }}
+        />
+      )}
       <span
         className="shrink-0"
-        style={
-          active
-            ? {
-                color: "#ffffff",
-              }
-            : {
-                color: branding?.secondary_color || "currentColor",
-              }
-        }
+        style={{ color: active ? "var(--linda-gold)" : "currentColor" }}
       >
         {icon}
       </span>
@@ -146,15 +132,12 @@ function NavItem({
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  const { resolvedTheme } = useTheme();
-
   return (
     <p
-      className={`
+      className="
         px-3 pb-2 pt-5 text-[10px]
-        font-semibold uppercase tracking-[0.14em]
-        ${resolvedTheme === "dark" ? "text-slate-500" : "text-slate-400"}
-      `}
+        font-semibold uppercase tracking-[0.14em] text-slate-500
+      "
     >
       {children}
     </p>
@@ -219,10 +202,6 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       return !needed || holds(needed, can);
     });
   }
-
-  const { branding, logoObjectUrl } = useBranding();
-
-  const { resolvedTheme } = useTheme();
 
   function navigate(path: string) {
     router.push(path);
@@ -488,80 +467,43 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
     },
   ];
 
-  const businessName = branding?.name || "FuneralOS";
-
-  const primary = branding?.primary_color || "#0f172a";
-
-  const secondary = branding?.secondary_color || "#64748b";
+  const line = "rgba(255,255,255,0.08)";
 
   return (
     <aside
       className="
         flex h-screen w-64 shrink-0 flex-col
-        border-r
-        transition-colors duration-200
+        border-r text-slate-300
       "
       style={{
-        backgroundColor: resolvedTheme === "dark" ? "#0f172a" : "#ffffff",
-
-        borderColor:
-          resolvedTheme === "dark"
-            ? "rgba(255,255,255,0.08)"
-            : "rgba(15,23,42,0.08)",
+        backgroundColor: "var(--linda-navy)",
+        borderColor: line,
       }}
     >
       {/* BRAND HEADER */}
       <div
         className="flex h-20 items-center border-b px-5"
-        style={{
-          borderColor:
-            resolvedTheme === "dark"
-              ? "rgba(255,255,255,0.08)"
-              : "rgba(15,23,42,0.08)",
-        }}
+        style={{ borderColor: line }}
       >
         <button
           type="button"
           data-tour="/dashboard"
           onClick={() => navigate("/dashboard")}
           className="flex min-w-0 items-center gap-3"
+          aria-label="LINDA dashboard"
         >
-          <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm"
-            style={{
-              backgroundColor: primary,
-            }}
-          >
-            {logoObjectUrl ? (
-              <img
-                src={logoObjectUrl}
-                alt={`${businessName} logo`}
-                className="h-full w-full object-contain bg-white p-1"
-              />
-            ) : (
-              <span className="text-lg font-bold text-white">
-                {businessName.charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
+          <LindaMark size={38} className="shrink-0 rounded-[10px] ring-1 ring-white/15" />
 
           <div className="min-w-0 text-left">
-            <h1
-              className={`
-                truncate font-bold
-                ${resolvedTheme === "dark" ? "text-white" : "text-slate-950"}
-              `}
-            >
-              {businessName}
+            <h1 className="text-lg font-semibold leading-none tracking-[0.22em] text-white">
+              LINDA
             </h1>
 
             <p
-              className="truncate text-xs"
-              style={{
-                color: secondary,
-              }}
+              className="mt-1.5 text-[9px] font-medium uppercase tracking-[0.06em] whitespace-nowrap"
+              style={{ color: "var(--linda-gold)" }}
             >
-              Funeral Management
+              One Platform. Every Business.
             </p>
           </div>
         </button>
@@ -651,39 +593,25 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       {/* BRAND ACCENT */}
       <div className="px-4 pb-3">
         <div
-          className="h-1 rounded-full"
+          className="h-px"
           style={{
-            background: `linear-gradient(
-              90deg,
-              ${primary},
-              ${secondary}
-            )`,
+            background:
+              "linear-gradient(90deg, var(--linda-gold), transparent)",
+            opacity: 0.6,
           }}
         />
       </div>
 
       {/* LOGOUT */}
-      <div
-        className="border-t p-4"
-        style={{
-          borderColor:
-            resolvedTheme === "dark"
-              ? "rgba(255,255,255,0.08)"
-              : "rgba(15,23,42,0.08)",
-        }}
-      >
+      <div className="border-t p-4" style={{ borderColor: line }}>
         <button
           type="button"
           onClick={handleLogout}
-          className={`
+          className="
             flex w-full items-center gap-3 rounded-xl
-            px-3 py-3 text-sm font-medium transition
-            ${
-              resolvedTheme === "dark"
-                ? "text-slate-300 hover:bg-white/10 hover:text-white"
-                : "text-slate-600 hover:bg-black/5 hover:text-slate-950"
-            }
-          `}
+            px-3 py-2.5 text-sm font-medium text-slate-300
+            transition hover:bg-white/5 hover:text-white
+          "
         >
           <LogOut size={18} />
           Logout

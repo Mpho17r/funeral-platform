@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "FuneralOS"
+    app_name: str = "LINDA"
 
     # "development" (default) or "production". Production refuses to start
     # with weak secrets or without a real web address (see validate_production).

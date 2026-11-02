@@ -66,7 +66,7 @@ def download_export(
         media_type="application/zip",
         headers={
             "Content-Disposition": (
-                f'attachment; filename="funeralos-export-{stamp}.zip"'
+                f'attachment; filename="linda-export-{stamp}.zip"'
             ),
             "Cache-Control": "no-store",
         },

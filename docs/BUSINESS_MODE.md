@@ -1,4 +1,4 @@
-# Business mode — FuneralOS for any business
+# Business mode — LINDA for any business
 
 A business is either **funeral** (the whole platform, unchanged) or **general** (any other business that wants to manage people, tasks and money). It is chosen on the **Create your account** page (`/register`) and stored as `business_type`.
 

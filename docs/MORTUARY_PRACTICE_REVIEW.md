@@ -1,11 +1,11 @@
-# Mortuary practice compared with FuneralOS
+# Mortuary practice compared with LINDA
 
 Sources: South African Regulation R363 (management of human remains, 2013),
 municipal health inspection guidance for undertakers' premises, and general
 mortuary standard operating procedure (receiving, identification, tagging,
 storage, temperature monitoring, release).
 
-| What good practice requires | FuneralOS |
+| What good practice requires | LINDA |
 | --- | --- |
 | Log arrival time, who brought the body, condition, personal property | Intake records source, collector, condition notes and a belongings register |
 | A unique tag on the body, shown on all paperwork | Unique tag number per business, on every screen |

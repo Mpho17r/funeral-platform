@@ -68,7 +68,7 @@ def main() -> None:
     db = SessionLocal()
     try:
         changed = run(db)
-        print(f"FuneralOS automatic case lifecycle: {changed} status transition(s).")
+        print(f"LINDA automatic case lifecycle: {changed} status transition(s).")
     finally:
         db.close()
 

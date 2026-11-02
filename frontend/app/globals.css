@@ -3,14 +3,16 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================
-   FuneralOS design system
+   LINDA design system
 
-   Direction: calm, dignified, easy to read through a long day.
-   - Neutrals are a green-tinted "mist" scale instead of cold blue-grey.
-   - Figtree for everything you read or tap; Newsreader only for
-     page titles and dates, where a little gravity helps.
+   Direction: modern enterprise technology. Calm, clear, dependable.
+   - Deep Navy #101D2B is the dominant brand colour.
+   - Warm Gold #D6A85F is an accent only: highlights, selection, icons.
+   - Neutrals are a cool slate scale around Slate #718096 and
+     Light Grey #F5F6F8.
+   - Inter for everything.
    - Tenant branding (--brand-primary / --brand-secondary) is layered
-     on top of this base and never replaced by it.
+     on top of this base and never replaces it.
 
    Every page in the app uses Tailwind's slate/gray utilities, so the
    scales below retune the whole product in one place.
@@ -19,37 +21,38 @@
 @theme {
   /* Type */
   --font-sans:
-    "Figtree Variable", ui-sans-serif, system-ui, -apple-system,
+    "Inter Variable", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
   --font-serif:
-    "Newsreader Variable", ui-serif, Georgia, "Times New Roman", serif;
+    "Inter Variable", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
 
-  /* Mist neutrals: slate and gray share one scale */
-  --color-slate-50: #f5f7f6;
-  --color-slate-100: #edf1ef;
-  --color-slate-200: #dce3e0;
-  --color-slate-300: #c3cec9;
-  --color-slate-400: #8e9d97;
-  --color-slate-500: #667772;
-  --color-slate-600: #4d5e59;
-  --color-slate-700: #384742;
-  --color-slate-800: #25322e;
-  --color-slate-900: #162620;
-  --color-slate-950: #0c1512;
+  /* Cool slate neutrals: slate and gray share one scale */
+  --color-slate-50: #f8f9fb;
+  --color-slate-100: #f1f3f6;
+  --color-slate-200: #e2e6ec;
+  --color-slate-300: #cbd2dc;
+  --color-slate-400: #a0aab9;
+  --color-slate-500: #718096;
+  --color-slate-600: #566377;
+  --color-slate-700: #3d4a5c;
+  --color-slate-800: #243142;
+  --color-slate-900: #101d2b;
+  --color-slate-950: #0a131d;
 
-  --color-gray-50: #f5f7f6;
-  --color-gray-100: #edf1ef;
-  --color-gray-200: #dce3e0;
-  --color-gray-300: #c3cec9;
-  --color-gray-400: #8e9d97;
-  --color-gray-500: #667772;
-  --color-gray-600: #4d5e59;
-  --color-gray-700: #384742;
-  --color-gray-800: #25322e;
-  --color-gray-900: #162620;
-  --color-gray-950: #0c1512;
+  --color-gray-50: #f8f9fb;
+  --color-gray-100: #f1f3f6;
+  --color-gray-200: #e2e6ec;
+  --color-gray-300: #cbd2dc;
+  --color-gray-400: #a0aab9;
+  --color-gray-500: #718096;
+  --color-gray-600: #566377;
+  --color-gray-700: #3d4a5c;
+  --color-gray-800: #243142;
+  --color-gray-900: #101d2b;
+  --color-gray-950: #0a131d;
 
-  --color-zinc-50: #f5f7f6;
+  --color-zinc-50: #f8f9fb;
 
   /* Slightly tighter, more refined corners */
   --radius-md: 0.4rem;
@@ -59,14 +62,14 @@
   --radius-3xl: 1.25rem;
 
   /* Soft, green-tinted shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(12 30 24 / 0.05);
+  --shadow-sm: 0 1px 2px 0 rgb(16 29 43 / 0.05);
   --shadow-md:
-    0 4px 10px -2px rgb(12 30 24 / 0.08), 0 2px 4px -2px rgb(12 30 24 / 0.05);
+    0 4px 10px -2px rgb(16 29 43 / 0.08), 0 2px 4px -2px rgb(16 29 43 / 0.05);
   --shadow-lg:
-    0 12px 24px -6px rgb(12 30 24 / 0.12), 0 4px 8px -4px rgb(12 30 24 / 0.06);
+    0 12px 24px -6px rgb(16 29 43 / 0.12), 0 4px 8px -4px rgb(16 29 43 / 0.06);
   --shadow-xl:
-    0 20px 40px -12px rgb(12 30 24 / 0.18), 0 8px 16px -8px rgb(12 30 24 / 0.08);
-  --shadow-2xl: 0 28px 60px -16px rgb(12 30 24 / 0.28);
+    0 20px 40px -12px rgb(16 29 43 / 0.18), 0 8px 16px -8px rgb(16 29 43 / 0.08);
+  --shadow-2xl: 0 28px 60px -16px rgb(16 29 43 / 0.28);
 }
 
 * {
@@ -87,20 +90,27 @@
 :root {
   color-scheme: light;
 
-  --fos-page: #f2f5f3;
+  --fos-page: #f5f6f8;
   --fos-surface: #ffffff;
-  --fos-surface-muted: #edf1ef;
-  --fos-border: #dce3e0;
+  --fos-surface-muted: #f1f3f6;
+  --fos-border: #e2e6ec;
 
-  --fos-text: #162620;
-  --fos-text-secondary: #4d5e59;
-  --fos-text-muted: #667772;
+  --fos-text: #101d2b;
+  --fos-text-secondary: #4a586b;
+  --fos-text-muted: #66758a;
 
-  --fos-primary: #162620;
+  --fos-primary: #101d2b;
   --fos-on-primary: #ffffff;
-  --fos-primary-hover: #25322e;
+  --fos-primary-hover: #243142;
 
-  --fos-focus: #2f8a73;
+  --fos-focus: #b8832f;
+
+  /* LINDA brand */
+  --linda-navy: #101d2b;
+  --linda-gold: #d6a85f;
+  --linda-gold-text: #8a5f17;
+  --linda-slate: #718096;
+  --linda-grey: #f5f6f8;
 
   --fos-success-bg: #ecf8f1;
   --fos-success-text: #17714a;
@@ -115,28 +125,29 @@
   --fos-info-text: #1d5a96;
 
   /* Tenant branding defaults, overridden at runtime */
-  --brand-primary: #162620;
-  --brand-secondary: #5e8077;
+  --brand-primary: #101d2b;
+  --brand-secondary: #d6a85f;
   --brand-watermark-opacity: 0.05;
 }
 
 html.dark {
   color-scheme: dark;
 
-  --fos-page: #0c1512;
-  --fos-surface: #162620;
-  --fos-surface-muted: #1d3029;
-  --fos-border: #2a3d36;
+  --fos-page: #0a131d;
+  --fos-surface: #101d2b;
+  --fos-surface-muted: #182838;
+  --fos-border: #25364a;
 
-  --fos-text: #f2f6f4;
-  --fos-text-secondary: #c3cec9;
-  --fos-text-muted: #8e9d97;
+  --fos-text: #f1f3f6;
+  --fos-text-secondary: #cbd2dc;
+  --fos-text-muted: #a0aab9;
 
-  --fos-primary: #f2f6f4;
-  --fos-on-primary: #0d1512;
-  --fos-primary-hover: #dce3e0;
+  --fos-primary: #f1f3f6;
+  --fos-on-primary: #0a131d;
+  --fos-primary-hover: #e2e6ec;
 
-  --fos-focus: #5fc4a8;
+  --fos-focus: #d6a85f;
+  --linda-gold-text: #d6a85f;
 
   --fos-success-bg: #0b2a1c;
   --fos-success-text: #86e0b0;
@@ -645,5 +656,22 @@ html.dark
 @media (prefers-reduced-motion: reduce) {
   .fos-anim {
     animation: none !important;
+  }
+}
+
+@keyframes linda-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[linda-fade_700ms_ease-out\] {
+    animation: none;
   }
 }

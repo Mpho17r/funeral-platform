@@ -68,7 +68,7 @@ export default function DataPage() {
       const url = URL.createObjectURL(response.data as Blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `funeralos-export-${new Date()
+      link.download = `linda-export-${new Date()
         .toISOString()
         .slice(0, 10)}.zip`;
       document.body.appendChild(link);

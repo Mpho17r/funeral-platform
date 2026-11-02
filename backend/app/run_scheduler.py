@@ -1,5 +1,5 @@
 """
-The one process that runs FuneralOS's recurring work.
+The one process that runs LINDA's recurring work.
 
     python -m app.run_scheduler          # keep running (use this in production)
     python -m app.run_scheduler --once   # check what is due, run it, exit

@@ -28,7 +28,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
           This is outside your work
         </h1>
         <p className="text-sm text-[var(--fos-text-muted)]">
-          Your account does not include this part of FuneralOS. If you
+          Your account does not include this part of LINDA. If you
           need it for your job, ask your manager to update your access.
         </p>
         <Link

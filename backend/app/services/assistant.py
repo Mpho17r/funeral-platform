@@ -1,5 +1,5 @@
 """
-"Ask FuneralOS": plain-language questions answered from real data.
+"Ask LINDA": plain-language questions answered from real data.
 
 This is deliberately not a chatbot. A question is matched to one of a fixed
 set of operational questions by its wording, the answer is computed with
