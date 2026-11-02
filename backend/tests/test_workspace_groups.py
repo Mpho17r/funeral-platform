@@ -241,10 +241,10 @@ def test_the_automatic_intro_message_is_from_funeralos(
     staff = test_data["staff"]
     org = groups(client, auth_headers, staff)["Whole organization"]
 
-    assert org["last_message"]["sender_name"] == "FuneralOS"
+    assert org["last_message"]["sender_name"] == "LINDA"
 
     thread = client.get(
         f"/chat/conversations/{org['id']}/messages",
         headers=auth_headers(staff),
     ).json()
-    assert thread["messages"][0]["sender_name"] == "FuneralOS"
+    assert thread["messages"][0]["sender_name"] == "LINDA"

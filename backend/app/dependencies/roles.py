@@ -58,7 +58,7 @@ def require_staff_or_above(
 def require_permission(permission_key: str):
     """
     Create a FastAPI dependency that requires a specific
-    FuneralOS permission.
+    LINDA permission.
 
     Authentication and tenant identity are established by
     get_current_user(). Permission evaluation is then handled

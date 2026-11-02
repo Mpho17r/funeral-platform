@@ -146,7 +146,7 @@ def _message_out(
         "conversation_id": str(m.conversation_id),
         "sender_id": str(m.sender_id) if m.sender_id else None,
         "sender_name": (
-            "FuneralOS"
+            "LINDA"
             if m.sender_id is None
             else names.get(m.sender_id, "Former colleague")
         ),
@@ -314,7 +314,7 @@ def _conversation_out(db, user, conv, seat) -> dict:
             {
                 "body": (last.body or "📎 Attachment")[:140],
                 "sender_name": (
-                    "FuneralOS"
+                    "LINDA"
                     if last.sender_id is None
                     else names.get(last.sender_id)
                     or _names(db, user["business_id"], [last.sender_id]).get(
@@ -794,7 +794,7 @@ def remove_participant(
         raise HTTPException(409, "You cannot leave a direct message.")
     if conv.system_key:
         raise HTTPException(
-            409, "You cannot leave a group that FuneralOS keeps for your team."
+            409, "You cannot leave a group that LINDA keeps for your team."
         )
 
     if user_id != user["user_id"] and not _can_manage(db, user):

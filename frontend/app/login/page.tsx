@@ -17,12 +17,33 @@ import {
 
 import api from "@/lib/api";
 import { saveToken } from "@/lib/auth";
-import { useBranding } from "@/components/BrandingProvider";
+import LindaLogo from "@/components/LindaLogo";
+
+const HIGHLIGHTS = [
+  "Business Management",
+  "People and Customers",
+  "Finance and Performance",
+  "Operations and Workflows",
+  "Intelligent Assistance",
+];
+
+const MESSAGES = [
+  "One business. One connected workspace.",
+  "Clarity in every operation.",
+  "Better decisions start with better visibility.",
+  "Your business operations, working in harmony.",
+  "Spend less time managing. More time growing.",
+];
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const { branding, logoObjectUrl } = useBranding();
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setMessageIndex((i) => (i + 1) % MESSAGES.length), 5000);
+    return () => clearInterval(id);
+  }, []);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,9 +59,7 @@ export default function LoginPage() {
       .catch(() => setRegistrationOpen(false));
   }, []);
 
-  const primary = branding?.primary_color || "#162620";
-  const accent = branding?.secondary_color || "#5e8077";
-  const businessName = branding?.name || "FuneralOS";
+  const primary = "#101D2B";
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -79,11 +98,7 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-screen bg-white dark:bg-slate-950 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
       {/* BRAND PANEL */}
-      <aside
-        className="relative hidden overflow-hidden text-white lg:flex lg:flex-col lg:justify-between lg:p-14"
-        style={{ backgroundColor: primary }}
-      >
-        {/* Quiet ripples: a single decorative motif, nothing else competes */}
+      <aside className="relative hidden overflow-hidden bg-[#101D2B] text-white lg:flex lg:flex-col lg:justify-between lg:p-14">
         <svg
           aria-hidden="true"
           viewBox="0 0 600 600"
@@ -92,88 +107,57 @@ export default function LoginPage() {
           stroke="currentColor"
         >
           {[60, 110, 160, 210, 260, 310].map((radius, index) => (
-            <circle
-              key={radius}
-              cx="300"
-              cy="300"
-              r={radius}
-              strokeWidth="1"
-              opacity={0.22 - index * 0.03}
-            />
+            <circle key={radius} cx="300" cy="300" r={radius} strokeWidth="1" opacity={0.18 - index * 0.025} />
           ))}
         </svg>
 
-        <div className="relative flex items-center gap-3">
-          {logoObjectUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={logoObjectUrl}
-              alt=""
-              className="h-11 w-11 rounded-xl bg-white object-contain p-1"
-            />
-          ) : (
-            <span
-              className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 font-display text-2xl ring-1 ring-white/25"
-            >
-              {businessName.charAt(0).toUpperCase()}
-            </span>
-          )}
-
-          <span className="text-lg font-semibold">
-            {businessName}
-          </span>
+        <div className="relative">
+          <LindaLogo size={44} tone="light" />
         </div>
 
-        <div className="relative max-w-md">
+        <div className="relative max-w-lg">
           <h1 className="font-display text-5xl leading-[1.08]">
-            Every arrangement, handled with care.
+            Run your business. Don&apos;t let your business run you.
           </h1>
+          <p className="mt-6 max-w-md text-base leading-relaxed text-white/75">
+            From daily operations to long-term growth, LINDA brings your entire business together in one intelligent workspace.
+          </p>
 
-          <p className="mt-6 max-w-sm text-base leading-relaxed text-white/75">
-            Cases, families, memberships and payments in one place, so
-            your team can give each family their full attention.
+          <ul className="mt-8 grid max-w-md gap-3 text-sm text-white/85">
+            {HIGHLIGHTS.map((item) => (
+              <li key={item} className="flex items-center gap-3">
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#D6A85F]" />
+                {item}
+              </li>
+            ))}
+          </ul>
+
+          <p aria-live="polite" className="mt-10 h-5 text-sm font-medium text-[#D6A85F]">
+            {MESSAGES[messageIndex]}
           </p>
         </div>
 
-        <div
-          aria-hidden="true"
-          className="relative h-1 w-24 rounded-full"
-          style={{ backgroundColor: accent }}
-        />
+        <p className="relative text-xs text-white/60">
+          LINDA | One Platform. Every Business. Powered by Saccharum Technologies.
+        </p>
       </aside>
 
       {/* FORM */}
-      <section className="flex items-center justify-center px-6 py-12 sm:px-10">
+      <section className="flex flex-col items-center justify-center px-6 py-12 sm:px-10">
         <div className="w-full max-w-sm">
-          {/* Brand, shown when the side panel is hidden */}
-          <div className="mb-10 flex items-center gap-3 lg:hidden">
-            <span
-              className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl font-display text-2xl text-white"
-              style={{ backgroundColor: primary }}
-            >
-              {logoObjectUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={logoObjectUrl}
-                  alt=""
-                  className="h-full w-full bg-white object-contain p-1"
-                />
-              ) : (
-                businessName.charAt(0).toUpperCase()
-              )}
-            </span>
-
-            <span className="text-lg font-semibold text-slate-900 dark:text-white">
-              {businessName}
-            </span>
+          <div className="mb-10 lg:hidden">
+            <LindaLogo size={40} />
           </div>
 
-          <h2 className="font-display text-4xl text-slate-900 dark:text-white">
-            Sign in
+          <p className="hidden text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 lg:block">
+            LINDA
+          </p>
+          <h2 className="mt-1 font-display text-4xl text-slate-900 dark:text-white">
+            Welcome back
           </h2>
 
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Use the email and password your administrator gave you.
+            Sign in to your business workspace.
           </p>
 
           <form
@@ -283,13 +267,17 @@ export default function LoginPage() {
 
             {registrationOpen && (
               <p className="text-center text-sm text-slate-600">
-                New here?{" "}
+                New business?{" "}
                 <Link href="/register" className="font-medium underline">
-                  Create an account
+                  Register a business account
                 </Link>
               </p>
             )}
           </form>
+
+          <p className="mt-8 text-center text-xs text-slate-500">
+            Your connection is encrypted and each business&apos;s data is kept separate.
+          </p>
         </div>
       </section>
     </main>

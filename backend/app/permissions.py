@@ -1,4 +1,4 @@
-"""FuneralOS permission catalogue.
+"""LINDA permission catalogue.
 
 Roles remain:
 

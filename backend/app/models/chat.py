@@ -49,7 +49,7 @@ class ChatConversation(Base):
         ForeignKey("groups.id", ondelete="SET NULL"),
         nullable=True,
     )
-    # Set for the groups FuneralOS keeps itself: "organization" (everyone)
+    # Set for the groups LINDA keeps itself: "organization" (everyone)
     # and "branch:<branch id>" (that branch's team). Their members follow
     # the staff list and cannot be edited by hand.
     system_key: Mapped[str | None] = mapped_column(

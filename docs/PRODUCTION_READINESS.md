@@ -1,6 +1,6 @@
 # Production readiness
 
-What it takes to run FuneralOS for a real funeral business with real
+What it takes to run LINDA for a real funeral business with real
 families' information. Written from what the code does today, so every
 "done" below is something you can check, and every "open" is a real gap.
 
@@ -122,7 +122,7 @@ api.yourfuneralhome.co.za { reverse_proxy 127.0.0.1:8000 }
 
 ## 5. Privacy and legal (South Africa)
 
-FuneralOS holds personal information about deceased persons, families,
+LINDA holds personal information about deceased persons, families,
 members and staff, including ID numbers, cause of death and payment details.
 That falls under POPIA. This is not legal advice; confirm with a lawyer.
 

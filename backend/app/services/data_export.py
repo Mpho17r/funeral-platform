@@ -34,7 +34,7 @@ SKIPPED_TABLES = {"permissions", "role_permissions", "alembic_version"}
 FILE_FOLDERS = ("documents", "chat", "branding", "avatars", "task_files")
 STORAGE_ROOT = Path("storage")
 
-README = """FuneralOS data export
+README = """LINDA data export
 =====================
 
 Exported: {when}
