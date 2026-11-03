@@ -21,7 +21,7 @@ export function WorkspaceBadge({ compact = false }: { compact?: boolean }) {
       className="flex min-w-0 items-center gap-2.5"
       data-testid="workspace-badge"
     >
-      {logoObjectUrl && !compact && (
+      {logoObjectUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={logoObjectUrl}

@@ -217,10 +217,19 @@ def update_business_branding(
 
     before = snapshot_fields(business, BRANDING_FIELDS)
 
-    business.logo_url = branding_data.logo_url
+    # Only change the logo and watermark when the request names them. The
+    # branding page sends colours alone, and that must never wipe the
+    # uploaded images.
+    sent = branding_data.model_fields_set
+
+    if "logo_url" in sent:
+        business.logo_url = branding_data.logo_url
+
+    if "watermark_url" in sent:
+        business.watermark_url = branding_data.watermark_url
+
     business.primary_color = branding_data.primary_color
     business.secondary_color = branding_data.secondary_color
-    business.watermark_url = branding_data.watermark_url
     business.watermark_opacity = branding_data.watermark_opacity
     business.theme_preference = branding_data.theme_preference
 
