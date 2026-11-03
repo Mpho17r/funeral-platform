@@ -1,5 +1,5 @@
 """
-The groups FuneralOS keeps by itself in the staff workspace.
+The groups LINDA keeps by itself in the staff workspace.
 
 - One group for the whole organization: every active person is in it.
 - One group per active branch: that branch's staff, plus the people who

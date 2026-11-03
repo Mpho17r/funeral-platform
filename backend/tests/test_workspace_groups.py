@@ -235,16 +235,16 @@ def test_nobody_starts_with_an_unread_message(
         ).json() == {"unread": 0, "mentions": 0}
 
 
-def test_the_automatic_intro_message_is_from_funeralos(
+def test_the_automatic_intro_message_is_from_linda(
     client, db, test_data, auth_headers
 ):
     staff = test_data["staff"]
     org = groups(client, auth_headers, staff)["Whole organization"]
 
-    assert org["last_message"]["sender_name"] == "FuneralOS"
+    assert org["last_message"]["sender_name"] == "LINDA"
 
     thread = client.get(
         f"/chat/conversations/{org['id']}/messages",
         headers=auth_headers(staff),
     ).json()
-    assert thread["messages"][0]["sender_name"] == "FuneralOS"
+    assert thread["messages"][0]["sender_name"] == "LINDA"

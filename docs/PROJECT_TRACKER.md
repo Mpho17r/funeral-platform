@@ -1,4 +1,4 @@
-# FuneralOS Project Tracker
+# LINDA Project Tracker
 
 **Last updated:** 2026-10-25
 **Source of truth for code:** GitHub `main`, its tests and migrations
@@ -25,7 +25,7 @@ Status is conservative: "built and tested" means merged to `main` with CI green.
 | Production readiness: settings checks, scheduler, honest health check, closed sign-up | See [PRODUCTION_READINESS.md](./PRODUCTION_READINESS.md) |
 | **Message delivery** (#32) | Email sent automatically over SMTP; WhatsApp/SMS remain one-tap manual | [MESSAGE_DELIVERY.md](./MESSAGE_DELIVERY.md) |
 | **Family and member portals** (#33) | Private, expiring, revocable links; no accounts |
-| **Platform admin, plan limits, Ask FuneralOS** (#34) | Separate operator login; limits enforced on save | [PLATFORM_ADMIN.md](./PLATFORM_ADMIN.md) |
+| **Platform admin, plan limits, Ask LINDA** (#34) | Separate operator login; limits enforced on save | [PLATFORM_ADMIN.md](./PLATFORM_ADMIN.md) |
 | **KAI assistant** | Greeting, branch/role context, conversation memory, case gaps, confirmed actions | [KAI.md](./KAI.md) |
 | **Archive and voice notes** | Finished cases/tasks archived automatically or by hand; main admin sets retention and can delete; chat voice notes | [ARCHIVE.md](./ARCHIVE.md) |
 | **KAI Autopilot** | KAI as platform manager: suggests or auto-creates and assigns tasks, undo, audit | [KAI_AUTOPILOT.md](./KAI_AUTOPILOT.md) |
@@ -44,7 +44,7 @@ Status is conservative: "built and tested" means merged to `main` with CI green.
 | Product | Portals are read-only: no signatures, approvals, document downloads or family messaging. Member portal does not take payments. |
 | Product | Expired trials are not locked automatically (operator moves them by hand). No billing or invoicing of subscriptions. |
 | Mortuary | Post-mortem/forensic status tracking, fingerprinting of unidentified remains and preparation-room temperature limit are not built. |
-| Product | "Ask FuneralOS" answers a fixed set of questions; it is not a free-form AI. |
+| Product | "Ask LINDA" answers a fixed set of questions; it is not a free-form AI. |
 | Quality | Browser checks were done by hand on key screens; there is no automated end-to-end browser suite in CI. |
 
 ## After each merge on your own computer

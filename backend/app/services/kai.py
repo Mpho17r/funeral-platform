@@ -1,6 +1,6 @@
 """KAI - Knowledge, Assistance, Intelligence.
 
-The colleague inside FuneralOS. KAI greets people by name, knows their
+The colleague inside LINDA. KAI greets people by name, knows their
 role and branch, follows a conversation ("the second one", "that case"),
 works out what is missing on a case, and prepares actions for the person
 to confirm.

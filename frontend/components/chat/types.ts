@@ -21,7 +21,7 @@ export type Conversation = {
   last_message_at: string;
   unread: number;
   mentioned: boolean;
-  /** Kept by FuneralOS from the staff list; nobody edits its members. */
+  /** Kept by LINDA from the staff list; nobody edits its members. */
   automatic: boolean;
   scope: "organization" | "branch" | null;
 };

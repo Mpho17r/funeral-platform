@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Search, X } from "lucide-react";
 
 import api from "@/lib/api";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 type Item = { id: string; title: string; subtitle: string; href: string };
 type Group = { key: string; label: string; items: Item[] };
@@ -15,6 +16,7 @@ type Group = { key: string; label: string; items: Item[] };
  * Opens from the top bar or with Ctrl/Cmd+K; arrows and Enter work.
  */
 export function GlobalSearch({ compact = false }: { compact?: boolean }) {
+  const { isGeneral } = useCurrentUser();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -138,7 +140,9 @@ export function GlobalSearch({ compact = false }: { compact?: boolean }) {
         >
           <Search size={16} />
           <span className="flex-1 text-left">
-            Search funerals, members, families…
+            {isGeneral
+              ? "Search your business…"
+              : "Search funerals, members, families…"}
           </span>
           <kbd className="rounded border border-[var(--fos-border)] px-1.5 text-xs">
             Ctrl K

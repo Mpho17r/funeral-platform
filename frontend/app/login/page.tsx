@@ -10,19 +10,72 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
+  BarChart3,
+  Briefcase,
   Eye,
   EyeOff,
   Loader2,
+  Lock,
+  Sparkles,
+  Users,
+  Workflow,
 } from "lucide-react";
 
 import api from "@/lib/api";
 import { saveToken } from "@/lib/auth";
-import { useBranding } from "@/components/BrandingProvider";
+import { LindaLockup, LindaMark } from "@/components/LindaLogo";
+import {
+  PLATFORM_OWNER,
+  PLATFORM_SLOGAN,
+} from "@/lib/platform";
+
+const HIGHLIGHTS = [
+  { icon: Briefcase, label: "Business Management" },
+  { icon: Users, label: "People and Customers" },
+  { icon: BarChart3, label: "Finance and Performance" },
+  { icon: Workflow, label: "Operations and Workflows" },
+  { icon: Sparkles, label: "Intelligent Assistance" },
+];
+
+const ROTATING_MESSAGES = [
+  "One business. One connected workspace.",
+  "Clarity in every operation.",
+  "Better decisions start with better visibility.",
+  "Your business operations, working in harmony.",
+  "Spend less time managing. More time growing.",
+];
+
+/** A quiet line that changes every few seconds. Still when motion is reduced. */
+function RotatingMessage() {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    if (reduce) return;
+
+    const timer = window.setInterval(
+      () => setIndex((i) => (i + 1) % ROTATING_MESSAGES.length),
+      5000,
+    );
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <p
+      key={index}
+      aria-live="off"
+      className="animate-[linda-fade_700ms_ease-out] text-sm font-medium"
+      style={{ color: "var(--linda-gold)" }}
+    >
+      {ROTATING_MESSAGES[index]}
+    </p>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
-
-  const { branding, logoObjectUrl } = useBranding();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,10 +90,6 @@ export default function LoginPage() {
       .then((r) => setRegistrationOpen(r.data.open))
       .catch(() => setRegistrationOpen(false));
   }, []);
-
-  const primary = branding?.primary_color || "#162620";
-  const accent = branding?.secondary_color || "#5e8077";
-  const businessName = branding?.name || "FuneralOS";
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -77,104 +126,109 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen bg-white dark:bg-slate-950 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+    <main className="grid min-h-screen bg-[var(--linda-grey)] dark:bg-slate-950 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
       {/* BRAND PANEL */}
       <aside
         className="relative hidden overflow-hidden text-white lg:flex lg:flex-col lg:justify-between lg:p-14"
-        style={{ backgroundColor: primary }}
+        style={{ backgroundColor: "var(--linda-navy)" }}
       >
-        {/* Quiet ripples: a single decorative motif, nothing else competes */}
+        {/* Connected nodes: one quiet motif, nothing else competes */}
         <svg
           aria-hidden="true"
           viewBox="0 0 600 600"
-          className="pointer-events-none absolute -bottom-40 -right-40 h-[640px] w-[640px] text-white"
+          className="pointer-events-none absolute -bottom-32 -right-32 h-[620px] w-[620px]"
           fill="none"
-          stroke="currentColor"
+          stroke="#D6A85F"
         >
-          {[60, 110, 160, 210, 260, 310].map((radius, index) => (
+          <path
+            d="M120 80 V420 H430"
+            strokeWidth="34"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.07"
+          />
+          {[
+            [120, 80],
+            [120, 250],
+            [120, 420],
+            [275, 420],
+            [430, 420],
+          ].map(([x, y]) => (
             <circle
-              key={radius}
-              cx="300"
-              cy="300"
-              r={radius}
-              strokeWidth="1"
-              opacity={0.22 - index * 0.03}
+              key={`${x}-${y}`}
+              cx={x}
+              cy={y}
+              r="9"
+              fill="#D6A85F"
+              strokeWidth="0"
+              opacity="0.22"
             />
           ))}
         </svg>
 
-        <div className="relative flex items-center gap-3">
-          {logoObjectUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={logoObjectUrl}
-              alt=""
-              className="h-11 w-11 rounded-xl bg-white object-contain p-1"
-            />
-          ) : (
-            <span
-              className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 font-display text-2xl ring-1 ring-white/25"
-            >
-              {businessName.charAt(0).toUpperCase()}
-            </span>
-          )}
+        <LindaLockup markSize={44} size="md" className="relative text-white" />
 
-          <span className="text-lg font-semibold">
-            {businessName}
-          </span>
-        </div>
-
-        <div className="relative max-w-md">
-          <h1 className="font-display text-5xl leading-[1.08]">
-            Every arrangement, handled with care.
+        <div className="relative max-w-lg">
+          <h1 className="text-5xl font-semibold leading-[1.08] tracking-tight">
+            Run your business. Don&apos;t let your business run you.
           </h1>
 
-          <p className="mt-6 max-w-sm text-base leading-relaxed text-white/75">
-            Cases, families, memberships and payments in one place, so
-            your team can give each family their full attention.
+          <p className="mt-6 max-w-md text-base leading-relaxed text-white/70">
+            From daily operations to long-term growth, LINDA brings your
+            entire business together in one intelligent workspace.
           </p>
+
+          <ul className="mt-10 grid max-w-md gap-3">
+            {HIGHLIGHTS.map(({ icon: Icon, label }) => (
+              <li
+                key={label}
+                className="flex items-center gap-3 text-sm text-white/85"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.07] ring-1 ring-white/10">
+                  <Icon size={16} style={{ color: "var(--linda-gold)" }} />
+                </span>
+                {label}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <div
-          aria-hidden="true"
-          className="relative h-1 w-24 rounded-full"
-          style={{ backgroundColor: accent }}
-        />
+        <div className="relative space-y-4">
+          <div
+            aria-hidden="true"
+            className="h-px w-24"
+            style={{ backgroundColor: "var(--linda-gold)" }}
+          />
+          <RotatingMessage />
+        </div>
       </aside>
 
       {/* FORM */}
-      <section className="flex items-center justify-center px-6 py-12 sm:px-10">
-        <div className="w-full max-w-sm">
-          {/* Brand, shown when the side panel is hidden */}
-          <div className="mb-10 flex items-center gap-3 lg:hidden">
-            <span
-              className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl font-display text-2xl text-white"
-              style={{ backgroundColor: primary }}
+      <section className="flex flex-col px-6 py-10 sm:px-10">
+        <div className="flex flex-1 items-center justify-center">
+          <div className="w-full max-w-sm">
+            {/* Brand, shown when the side panel is hidden */}
+            <div className="mb-10 flex items-center gap-3 text-[var(--linda-navy)] dark:text-white lg:hidden">
+              <LindaMark size={40} />
+              <span className="text-lg font-semibold tracking-[0.22em]">
+                LINDA
+              </span>
+            </div>
+
+            <p
+              className="hidden text-xs font-semibold uppercase tracking-[0.14em] lg:block"
+              style={{ color: "var(--linda-gold-text)" }}
             >
-              {logoObjectUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={logoObjectUrl}
-                  alt=""
-                  className="h-full w-full bg-white object-contain p-1"
-                />
-              ) : (
-                businessName.charAt(0).toUpperCase()
-              )}
-            </span>
+              LINDA
+            </p>
 
-            <span className="text-lg font-semibold text-slate-900 dark:text-white">
-              {businessName}
-            </span>
-          </div>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              Welcome back
+            </h2>
 
-          <h2 className="font-display text-4xl text-slate-900 dark:text-white">
-            Sign in
-          </h2>
-
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Use the email and password your administrator gave you.
-          </p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              Sign in to your business workspace.
+            </p>
 
           <form
             onSubmit={handleSubmit}
@@ -273,7 +327,7 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-lg text-base font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ backgroundColor: primary }}
+              style={{ backgroundColor: "var(--linda-navy)" }}
             >
               {loading && (
                 <Loader2 size={18} className="animate-spin" />
@@ -282,15 +336,31 @@ export default function LoginPage() {
             </button>
 
             {registrationOpen && (
-              <p className="text-center text-sm text-slate-600">
-                New here?{" "}
-                <Link href="/register" className="font-medium underline">
-                  Create an account
+              <p className="text-center text-sm text-slate-600 dark:text-slate-400">
+                New to LINDA?{" "}
+                <Link
+                  href="/register"
+                  className="font-semibold text-slate-900 underline underline-offset-4 dark:text-white"
+                >
+                  Create your business account
                 </Link>
               </p>
             )}
+
+            <p className="flex items-center justify-center gap-1.5 pt-2 text-xs text-slate-500 dark:text-slate-400">
+              <Lock size={12} aria-hidden="true" />
+              Your workspace is private to your business.
+            </p>
           </form>
+          </div>
         </div>
+
+        <footer className="mt-10 text-center text-xs text-slate-500 dark:text-slate-400">
+          <p className="font-medium text-slate-600 dark:text-slate-300">
+            LINDA | {PLATFORM_SLOGAN}
+          </p>
+          <p className="mt-0.5">Powered by {PLATFORM_OWNER}.</p>
+        </footer>
       </section>
     </main>
   );

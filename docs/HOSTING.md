@@ -1,4 +1,4 @@
-# Hosting FuneralOS on one server
+# Hosting LINDA on one server
 
 This puts everything on one small Linux server: the database, the API, the scheduler (backups, reminders, alerts), the website, and automatic HTTPS. It is enough for a pilot and for a small number of funeral homes.
 

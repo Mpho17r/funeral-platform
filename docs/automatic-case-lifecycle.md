@@ -1,6 +1,6 @@
 # Automatic funeral case lifecycle
 
-FuneralOS uses the linked funeral arrangement to keep case status progressing
+LINDA uses the linked funeral arrangement to keep case status progressing
 through the audited chain:
 
 - `open → confirmed` when a funeral arrangement is confirmed.

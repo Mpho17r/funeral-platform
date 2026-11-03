@@ -304,7 +304,7 @@ def test_staff_role_can_view_and_manage_belongings_by_default(
     )
     assert listed.status_code == 200, listed.text
 
-    # The existing FuneralOS staff role includes remains.manage.
+    # The existing LINDA staff role includes remains.manage.
     staff_created = create_item(
         client,
         auth_headers,

@@ -1,6 +1,6 @@
 # Backups, exports and recovery
 
-FuneralOS keeps two kinds of data: the **database** (PostgreSQL) and
+LINDA keeps two kinds of data: the **database** (PostgreSQL) and
 **uploaded files** (the `backend/storage` folder: documents, photos, logos).
 A backup must copy both.
 

@@ -30,7 +30,7 @@ import {
 } from "@/components/BranchControls";
 
 // Everyone below manager level. Each work-area role sees only its own
-// part of FuneralOS.
+// part of LINDA.
 const STAFF_LEVEL = ["staff", "mortuary", "finance", "operations"];
 
 const ROLE_OPTION_LABELS: Record<string, string> = {

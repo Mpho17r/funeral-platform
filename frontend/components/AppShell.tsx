@@ -11,6 +11,7 @@ import TaskAlert from "@/components/TaskAlert";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import { WorkspaceBadge } from "@/components/WorkspaceBadge";
 import { RouteGuard } from "@/components/RouteGuard";
 
 type AppShellProps = {
@@ -18,11 +19,9 @@ type AppShellProps = {
 };
 
 export default function AppShell({ children }: AppShellProps) {
-  const { branding, logoObjectUrl, watermarkObjectUrl } = useBranding();
+  const { branding, watermarkObjectUrl } = useBranding();
 
   const [menuOpen, setMenuOpen] = useState(false);
-
-  const businessName = branding?.name || "FuneralOS";
 
   // Escape closes the mobile menu, and the page behind it stops scrolling.
   useEffect(() => {
@@ -94,9 +93,16 @@ export default function AppShell({ children }: AppShellProps) {
           {/* Desktop top bar: who is signed in */}
           <div className="sticky top-0 z-[100] hidden h-16 items-center justify-between gap-4 border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-6 backdrop-blur lg:flex">
             <GlobalSearch />
-            <div className="flex shrink-0 items-center gap-2">
-              <NotificationBell />
-              <ProfileMenu />
+            <div className="flex min-w-0 shrink-0 items-center gap-4">
+              <WorkspaceBadge />
+              <span
+                aria-hidden="true"
+                className="h-8 w-px bg-[var(--fos-border)]"
+              />
+              <div className="flex shrink-0 items-center gap-2">
+                <NotificationBell />
+                <ProfileMenu />
+              </div>
             </div>
           </div>
 
@@ -111,21 +117,11 @@ export default function AppShell({ children }: AppShellProps) {
               <Menu size={22} />
             </button>
 
-            <div className="flex min-w-0 items-center gap-2">
-              {logoObjectUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={logoObjectUrl}
-                  alt=""
-                  className="h-7 w-7 rounded-md bg-[var(--fos-surface)] object-contain"
-                />
-              )}
-              <span className="truncate text-sm font-semibold">
-                {businessName}
-              </span>
+            <div className="min-w-0 flex-1">
+              <WorkspaceBadge compact />
             </div>
 
-            <div className="ml-auto flex items-center gap-1">
+            <div className="flex items-center gap-1">
               <GlobalSearch compact />
               <NotificationBell />
               <ProfileMenu />

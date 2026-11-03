@@ -70,7 +70,7 @@ export function SetupChecklist() {
           <h2 className="font-serif text-xl">Getting set up</h2>
           <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
             {status.done} of {status.total} done. Work through these and
-            FuneralOS is ready for your team.
+            LINDA is ready for your team.
           </p>
         </div>
 

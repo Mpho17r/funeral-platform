@@ -41,7 +41,7 @@ def test_export_contains_this_business_only(
     response = export(client, auth_headers, test_data["main_admin"])
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/zip"
-    assert "funeralos-export-" in response.headers["content-disposition"]
+    assert "linda-export-" in response.headers["content-disposition"]
 
     archive = open_zip(response)
     names = archive.namelist()

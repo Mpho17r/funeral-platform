@@ -1,4 +1,12 @@
 import os
+import time
+
+# The product runs on South African time. Tests that ask for "today" must
+# see the same calendar day as the app does, whatever the machine's clock
+# says (CI runs in UTC, which is a different day for two hours each night).
+os.environ["TZ"] = "Africa/Johannesburg"
+if hasattr(time, "tzset"):
+    time.tzset()
 
 from uuid import uuid4
 
