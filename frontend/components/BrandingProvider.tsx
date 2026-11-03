@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import api from "@/lib/api";
+import { getToken } from "@/lib/auth";
 
 type BrandingData = {
   name?: string;
@@ -56,10 +57,7 @@ export function BrandingProvider({
     useState<string | null>(null);
 
   const refreshBranding = useCallback(async () => {
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("access_token")
-        : null;
+    const token = typeof window !== "undefined" ? getToken() : null;
 
     /*
      * No authenticated user means there is no
@@ -88,14 +86,7 @@ export function BrandingProvider({
       const currentUser =
         meResponse.data;
 
-      console.log(
-        "[Branding] CURRENT USER:",
-        JSON.stringify(
-          currentUser,
-          null,
-          2,
-        ),
-      );
+      
 
       const businessId =
         currentUser?.business_id;
@@ -123,24 +114,11 @@ export function BrandingProvider({
       const data =
         businessResponse.data;
 
-      console.log(
-        "[Branding] FULL BUSINESS RESPONSE:",
-        JSON.stringify(
-          data,
-          null,
-          2,
-        ),
-      );
+      
 
-      console.log(
-        "[Branding] LOGO URL:",
-        data.logo_url,
-      );
+      
 
-      console.log(
-        "[Branding] WATERMARK URL:",
-        data.watermark_url,
-      );
+      
 
       const brandingData: BrandingData = {
         name: data.name,
@@ -222,9 +200,7 @@ export function BrandingProvider({
             },
           );
 
-          console.log(
-            "[Branding] LOGO LOADED SUCCESSFULLY",
-          );
+          
         } catch (error) {
           console.error(
             "[Branding] Failed to load logo:",
@@ -267,9 +243,7 @@ export function BrandingProvider({
             },
           );
 
-          console.log(
-            "[Branding] WATERMARK LOADED SUCCESSFULLY",
-          );
+          
         } catch (error) {
           console.error(
             "[Branding] Failed to load watermark:",
@@ -298,6 +272,14 @@ export function BrandingProvider({
   /*
    * Load branding when the provider mounts.
    */
+  useEffect(() => {
+    const onSignedIn = () => void refreshBranding();
+
+    window.addEventListener("linda-signed-in", onSignedIn);
+
+    return () => window.removeEventListener("linda-signed-in", onSignedIn);
+  }, [refreshBranding]);
+
   useEffect(() => {
     // Intentionally start the asynchronous initial branding load.
     // The refresh function manages API requests and loading state.

@@ -21,6 +21,20 @@ export function getApiErrorMessage(
   fallback: string
 ): string {
   const detail = (err as ApiErrorShape)?.response?.data?.detail;
+  const status = statusOf(err);
+
+  // The server itself is broken or unreachable: say so, instead of a vague
+  // "could not do X". The usual cause after an update is a database that
+  // has not been brought up to date.
+  if (typeof detail !== "string" || !detail) {
+    if (status === undefined) {
+      return "We can't reach the server. Check that the backend is running, then try again.";
+    }
+
+    if (status >= 500) {
+      return "The server hit a problem. If you have just updated LINDA, run the database update (python3 -m alembic upgrade head) and restart the backend.";
+    }
+  }
 
   // A bare permission failure reads better in plain words. A 403 that
   // explains a rule (such as needing the override permission) keeps

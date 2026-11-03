@@ -30,7 +30,7 @@ export function WorkspaceBadge({ compact = false }: { compact?: boolean }) {
         />
       )}
 
-      <div className="min-w-0 text-right leading-tight">
+      <div className="min-w-0 text-left leading-tight">
         <p className="truncate text-sm font-semibold text-[var(--fos-text)]">
           {name}
         </p>

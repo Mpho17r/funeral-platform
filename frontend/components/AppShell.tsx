@@ -13,6 +13,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { WorkspaceBadge } from "@/components/WorkspaceBadge";
 import { RouteGuard } from "@/components/RouteGuard";
+import { AccessWarning } from "@/components/AccessWarning";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -94,11 +95,6 @@ export default function AppShell({ children }: AppShellProps) {
           <div className="sticky top-0 z-[100] hidden h-16 items-center justify-between gap-4 border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-6 backdrop-blur lg:flex">
             <GlobalSearch />
             <div className="flex min-w-0 shrink-0 items-center gap-4">
-              <WorkspaceBadge />
-              <span
-                aria-hidden="true"
-                className="h-8 w-px bg-[var(--fos-border)]"
-              />
               <div className="flex shrink-0 items-center gap-2">
                 <NotificationBell />
                 <ProfileMenu />
@@ -132,6 +128,7 @@ export default function AppShell({ children }: AppShellProps) {
             id="main"
             className="relative z-10 min-h-screen lg:min-h-screen"
           >
+            <AccessWarning />
             <RouteGuard>{children}</RouteGuard>
           </main>
 

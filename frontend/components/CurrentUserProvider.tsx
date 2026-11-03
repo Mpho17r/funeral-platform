@@ -102,6 +102,8 @@ type CurrentUserContextValue = {
   can: (permission: string) => boolean;
   /** A general business: no funeral screens, money and tasks instead. */
   isGeneral: boolean;
+  /** True when the account's access details could not be loaded. */
+  accessFailed: boolean;
   /** Does this business run a membership scheme? */
   membershipEnabled: boolean;
 };
@@ -114,6 +116,7 @@ const CurrentUserContext = createContext<CurrentUserContextValue>({
   access: null,
   can: () => true,
   isGeneral: false,
+  accessFailed: false,
   membershipEnabled: true,
 });
 
@@ -126,6 +129,7 @@ export function CurrentUserProvider({
   const [loading, setLoading] = useState(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [access, setAccess] = useState<Access | null>(null);
+  const [accessFailed, setAccessFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -137,8 +141,10 @@ export function CurrentUserProvider({
         const mine = await api.get<Access>("/users/me/access");
 
         setAccess(mine.data);
+        setAccessFailed(false);
       } catch {
         setAccess(null);
+        setAccessFailed(true);
       }
     } catch {
       // The page's own requests handle a lapsed sign-in; the shell just
@@ -201,11 +207,16 @@ export function CurrentUserProvider({
       avatarUrl,
       refresh,
       access,
-      can: (permission: string) => (held ? held.has(permission) : true),
+      // While loading, say yes so a slow request never hides the app. If the
+      // details could not be loaded at all, say no: showing every screen
+      // (funeral ones included) to a business that may not have them is worse.
+      can: (permission: string) =>
+        held ? held.has(permission) : !accessFailed,
+      accessFailed,
       isGeneral: access?.business_type === "general",
       membershipEnabled: access?.membership_enabled !== false,
     };
-  }, [user, loading, avatarUrl, refresh, access]);
+  }, [user, loading, avatarUrl, refresh, access, accessFailed]);
 
   return (
     <CurrentUserContext.Provider value={value}>
