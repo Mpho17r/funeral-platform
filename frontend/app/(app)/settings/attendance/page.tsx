@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import { getToken } from "@/lib/auth";
 
 type BreakExpiryBehavior =
   | "auto_return"
@@ -157,7 +158,7 @@ export default function AttendanceSettingsPage() {
         );
       }
 
-      const token = localStorage.getItem("access_token");
+      const token = getToken();
       let loggedInUser: User | null = null;
 
       if (token) {

@@ -55,6 +55,8 @@ import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 import { removeToken } from "@/lib/auth";
 import { LindaMark } from "@/components/LindaLogo";
+import { useBranding } from "@/components/BrandingProvider";
+import { PLATFORM_SLOGAN, platformLabel } from "@/lib/platform";
 
 type SidebarProps = {
   onLogout?: () => void;
@@ -187,7 +189,12 @@ const MEMBERSHIP_PATHS = new Set([
 export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
   const router = useRouter();
   const chatUnread = useChatUnread();
-  const { can, membershipEnabled } = useCurrentUser();
+  const { can, membershipEnabled, access, isGeneral } = useCurrentUser();
+  const { branding } = useBranding();
+  const businessName = branding?.name?.trim() || "LINDA";
+  const platformText = access
+    ? platformLabel(isGeneral)
+    : PLATFORM_SLOGAN;
 
   // Only the screens this person is allowed to open.
   function shown<T extends { path: string }>(items: T[]): T[] {
@@ -495,15 +502,19 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
           <LindaMark size={38} className="shrink-0 rounded-[10px] ring-1 ring-white/15" />
 
           <div className="min-w-0 text-left">
-            <h1 className="text-lg font-semibold leading-none tracking-[0.22em] text-white">
-              LINDA
+            <h1
+              className="truncate text-[15px] font-semibold leading-tight text-white"
+              title={businessName}
+            >
+              {businessName}
             </h1>
 
             <p
-              className="mt-1.5 text-[9px] font-medium uppercase tracking-[0.06em] whitespace-nowrap"
+              className="mt-1 text-[8.5px] font-semibold uppercase leading-tight tracking-[0.06em]"
               style={{ color: "var(--linda-gold)" }}
+              data-testid="workspace-badge"
             >
-              One Platform. Every Business.
+              {platformText}
             </p>
           </div>
         </button>
@@ -533,7 +544,7 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
         ))}
 
         {shown(membership).length > 0 && (
-          <SectionTitle>Membership</SectionTitle>
+          <SectionTitle>{isGeneral || !membershipEnabled ? "Finance" : "Membership"}</SectionTitle>
         )}
 
         {shown(membership).map((item) => (

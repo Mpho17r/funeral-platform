@@ -25,6 +25,7 @@ import FinanceDashboard from "@/components/dashboards/FinanceDashboard";
 import OperationsDashboard from "@/components/dashboards/OperationsDashboard";
 import BusinessDashboard from "@/components/dashboards/BusinessDashboard";
 import { removeToken } from "@/lib/auth";
+import { getApiErrorMessage } from "@/lib/format";
 
 type RecentCase = {
   id: string;
@@ -224,7 +225,10 @@ function OverallDashboard() {
         typeof response?.data?.detail === "string" &&
           response.data.detail
           ? response.data.detail
-          : "We couldn't load the dashboard. Try refreshing.",
+          : getApiErrorMessage(
+              err,
+              "We couldn't load the dashboard. Try refreshing.",
+            ),
       );
     } finally {
       setLoading(false);
@@ -265,7 +269,10 @@ function OverallDashboard() {
           typeof response?.data?.detail === "string" &&
             response.data.detail
             ? response.data.detail
-            : "We couldn't load the dashboard. Try refreshing.",
+            : getApiErrorMessage(
+              err,
+              "We couldn't load the dashboard. Try refreshing.",
+            ),
         );
       } finally {
         if (!cancelled) {

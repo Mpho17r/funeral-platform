@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.services import scheduler_state
+from app.services import schema_check
 from app.database import engine
 
 from app.api.businesses import router as businesses_router
@@ -444,6 +445,14 @@ def root():
 # HEALTH CHECK
 # ============================================================
 
+@app.on_event("startup")
+def _check_schema_on_startup():
+    try:
+        schema_check.warn_if_out_of_date(engine)
+    except Exception:
+        pass
+
+
 @app.get("/health")
 def health_check(response: Response):
     """For hosting health checks and uptime monitors.
@@ -463,4 +472,10 @@ def health_check(response: Response):
         "status": "healthy" if database_status == "connected" else "unhealthy",
         "database": database_status,
         "scheduler": scheduler_state.read()["state"],
+        # "out_of_date" means the database update was skipped after an upgrade.
+        "schema": (
+            schema_check.schema_state(engine)
+            if database_status == "connected"
+            else "unknown"
+        ),
     }
