@@ -190,7 +190,7 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
   const router = useRouter();
   const chatUnread = useChatUnread();
   const { can, membershipEnabled, access, isGeneral } = useCurrentUser();
-  const { branding } = useBranding();
+  const { branding, logoObjectUrl } = useBranding();
   const businessName = branding?.name?.trim() || "LINDA";
   const platformText = access
     ? platformLabel(isGeneral)
@@ -499,7 +499,17 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
           className="flex min-w-0 items-center gap-3"
           aria-label="LINDA dashboard"
         >
-          <LindaMark size={38} className="shrink-0 rounded-[10px] ring-1 ring-white/15" />
+          {logoObjectUrl ? (
+            // The business's own logo takes the place of the LINDA mark.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoObjectUrl}
+              alt={`${businessName} logo`}
+              className="h-[38px] w-[38px] shrink-0 rounded-[10px] bg-white object-contain p-0.5 ring-1 ring-white/15"
+            />
+          ) : (
+            <LindaMark size={38} className="shrink-0 rounded-[10px] ring-1 ring-white/15" />
+          )}
 
           <div className="min-w-0 text-left">
             <h1

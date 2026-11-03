@@ -453,3 +453,68 @@ def test_membership_cover_policy_does_not_create_audit_log_for_rejected_request(
     )
 
     assert after_count == before_count
+
+
+def test_saving_colours_alone_keeps_the_logo_and_watermark(
+    client,
+    test_data,
+    auth_headers,
+):
+    headers = auth_headers(test_data["main_admin"])
+    business = test_data["business_a"]
+
+    client.patch(
+        f"/businesses/{business.id}/branding",
+        headers=headers,
+        json={
+            "logo_url": f"/businesses/{business.id}/branding/logo",
+            "watermark_url": f"/businesses/{business.id}/branding/watermark",
+            "primary_color": "#123456",
+            "secondary_color": "#abcdef",
+            "watermark_opacity": 0.05,
+            "theme_preference": "system",
+        },
+    )
+
+    # The branding page sends colours, opacity and theme only.
+    response = client.patch(
+        f"/businesses/{business.id}/branding",
+        headers=headers,
+        json={
+            "primary_color": "#222222",
+            "secondary_color": "#d6a85f",
+            "watermark_opacity": 0.1,
+            "theme_preference": "light",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["primary_color"] == "#222222"
+    assert data["logo_url"] == f"/businesses/{business.id}/branding/logo"
+    assert data["watermark_url"] == f"/businesses/{business.id}/branding/watermark"
+
+
+def test_sending_a_null_logo_still_removes_it(
+    client,
+    test_data,
+    auth_headers,
+):
+    headers = auth_headers(test_data["main_admin"])
+    business = test_data["business_a"]
+
+    response = client.patch(
+        f"/businesses/{business.id}/branding",
+        headers=headers,
+        json={
+            "logo_url": None,
+            "primary_color": "#222222",
+            "secondary_color": "#d6a85f",
+            "watermark_opacity": 0.1,
+            "theme_preference": "light",
+        },
+    )
+
+    assert response.json()["logo_url"] is None

@@ -11,6 +11,7 @@ import {
 
 import api from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { applyBrandTheme, clearBrandTheme } from "@/lib/brandTheme";
 
 type BrandingData = {
   name?: string;
@@ -67,6 +68,7 @@ export function BrandingProvider({
       setBranding(null);
       setLogoObjectUrl(null);
       setWatermarkObjectUrl(null);
+      clearBrandTheme();
       setLoading(false);
       return;
     }
@@ -140,6 +142,8 @@ export function BrandingProvider({
       /*
        * Apply business colours globally.
        */
+      applyBrandTheme(data.primary_color, data.secondary_color);
+
       if (data.primary_color) {
         document.documentElement.style.setProperty(
           "--primary-color",

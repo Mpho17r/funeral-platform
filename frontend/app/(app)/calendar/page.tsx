@@ -17,6 +17,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import api from "@/lib/api";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 import { isAuthenticated } from "@/lib/auth";
 
@@ -261,6 +262,7 @@ function buildCalendarDays(month: Date): CalendarDay[] {
 }
 
 export default function CalendarWorkspacePage() {
+  const { isGeneral } = useCurrentUser();
   const router = useRouter();
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -496,7 +498,11 @@ export default function CalendarWorkspacePage() {
                 onChange={(event) =>
                   setSearch(event.target.value)
                 }
-                placeholder="Event, case, deceased, venue or staff..."
+                placeholder={
+                  isGeneral
+                    ? "Event, task, venue or staff..."
+                    : "Event, case, deceased, venue or staff..."
+                }
                 className="w-full rounded-lg border border-[var(--fos-border)] bg-[var(--fos-surface)] py-2 pl-9 pr-3 text-sm outline-none focus:border-slate-500"
               />
             </div>
@@ -695,7 +701,10 @@ export default function CalendarWorkspacePage() {
             </div>
 
             <div className="flex flex-wrap gap-4 border-t border-[var(--fos-border)] px-4 py-3">
-              {["funeral", "service", "task"].map(
+              {(isGeneral
+                ? ["task", "task_given", "leave"]
+                : ["funeral", "service", "task", "task_given", "leave"]
+              ).map(
                 (type) => (
                   <div
                     key={type}

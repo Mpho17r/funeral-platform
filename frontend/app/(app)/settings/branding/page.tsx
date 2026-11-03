@@ -25,6 +25,11 @@ import { useCurrentUser } from "@/components/CurrentUserProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { platformLabel } from "@/lib/platform";
 import api from "@/lib/api";
+import {
+  applyBrandTheme,
+  normaliseHex,
+  primaryIsTooLight,
+} from "@/lib/brandTheme";
 
 type Business = {
   id: string;
@@ -452,8 +457,38 @@ export default function BrandingPage() {
     event.target.value = "";
   }
 
+  // Show the chosen colours as they are picked, and put the saved ones back
+  // if the person leaves without saving.
+  useEffect(() => {
+    applyBrandTheme(primaryColor, secondaryColor);
+  }, [primaryColor, secondaryColor]);
+
+  useEffect(() => {
+    return () => {
+      void refreshBranding();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const primaryTooLight = primaryIsTooLight(primaryColor);
+
   async function saveBranding() {
     if (!business) {
+      return;
+    }
+
+    const primaryHex = normaliseHex(primaryColor);
+    const secondaryHex = normaliseHex(secondaryColor);
+
+    if (!primaryHex || !secondaryHex) {
+      setError("Colours must look like #101D2B.");
+      return;
+    }
+
+    if (primaryTooLight) {
+      setError(
+        "The primary colour is too light for white menu text. Choose a darker one.",
+      );
       return;
     }
 
@@ -467,9 +502,9 @@ export default function BrandingPage() {
           `/businesses/${business.id}/branding`,
           {
             primary_color:
-              primaryColor,
+              primaryHex,
             secondary_color:
-              secondaryColor,
+              secondaryHex,
             watermark_opacity:
               watermarkOpacity,
             theme_preference:
@@ -642,7 +677,7 @@ export default function BrandingPage() {
             </h2>
 
             <p className="mt-1 text-sm text-[var(--fos-text-secondary)]">
-              Upload the visual assets that identify your funeral business.
+              Upload the visual assets that identify your {isGeneral ? "business" : "funeral business"}.
             </p>
           </div>
 
@@ -894,6 +929,35 @@ export default function BrandingPage() {
                   </div>
                 </div>
 
+              </div>
+
+              {primaryTooLight && (
+                <p
+                  role="alert"
+                  className="mt-4 rounded-lg bg-[var(--fos-warning-bg)] px-3 py-2 text-sm text-[var(--fos-warning-text)]"
+                >
+                  This primary colour is too light: the menu uses white text on
+                  it. Choose a darker colour to save.
+                </p>
+              )}
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-[var(--fos-text-muted)]">
+                  Primary colours the menu and buttons. Secondary colours
+                  highlights and the active page marker. You can see the
+                  change straight away; it is kept when you save.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrimaryColor("#101d2b");
+                    setSecondaryColor("#d6a85f");
+                  }}
+                  className="rounded-lg border border-[var(--fos-border)] px-3 py-2 text-xs font-medium text-[var(--fos-text)] hover:bg-[var(--fos-surface-muted)]"
+                >
+                  Use LINDA colours
+                </button>
               </div>
             </section>
 
