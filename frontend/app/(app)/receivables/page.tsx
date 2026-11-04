@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { formatRand, getApiErrorMessage } from "@/lib/format";
 import { ErrorNote } from "@/components/Notices";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
 import { docStatusLabel, docStatusTone, type SalesDoc } from "@/lib/sales";
 
 type Receivables = {
@@ -26,8 +27,19 @@ const BUCKETS: [keyof Receivables["buckets"], string][] = [
 
 export default function ReceivablesPage() {
   const router = useRouter();
+  const { can } = useCurrentUser();
   const [data, setData] = useState<Receivables | null>(null);
   const [error, setError] = useState("");
+
+  async function remind(id: string) {
+    try {
+      setError("");
+      await api.post(`/outbox/invoice/${id}/reminder`, {});
+      router.push("/messages");
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not prepare the reminder."));
+    }
+  }
 
   useEffect(() => {
     api
@@ -107,6 +119,20 @@ export default function ReceivablesPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold">{formatRand(d.balance)}</td>
+                      {can("outbox.manage") && (
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void remind(d.id);
+                            }}
+                            className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-slate-100"
+                          >
+                            Send reminder
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

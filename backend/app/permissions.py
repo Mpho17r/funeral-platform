@@ -90,6 +90,14 @@ PERMISSIONS = {
     "timesheets.view": "See your own hours worked",
     "timesheets.manage": "See and export everyone's hours worked",
 
+    # Appointments, customer messages and the document library
+    "appointments.view": "See appointments and bookings",
+    "appointments.manage": "Book, change, cancel and complete appointments",
+    "outbox.view": "See messages sent to customers",
+    "outbox.manage": "Write, send and cancel messages to customers",
+    "library.view": "See the business's documents",
+    "library.manage": "Upload, change and archive the business's documents",
+
     # Customers, sales and bills (general businesses)
     "customers.view": "See customers",
     "customers.manage": "Add and change customers",

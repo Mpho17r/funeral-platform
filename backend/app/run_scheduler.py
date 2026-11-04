@@ -179,14 +179,33 @@ def _briefing() -> str:
 
 def _delivery() -> str:
     from app.database import SessionLocal
+    from app.services.contact_messages import deliver_queued as deliver_contacts
     from app.services.message_delivery import deliver_queued
 
     db = SessionLocal()
     try:
         result = deliver_queued(db)
+        customers = deliver_contacts(db)
     finally:
         db.close()
-    return f"{result['sent']} sent, {result['failed']} failed"
+    return (
+        f"{result['sent'] + customers['sent']} sent, "
+        f"{result['failed'] + customers['failed']} failed"
+    )
+
+
+def _appointments() -> str:
+    from app.database import SessionLocal
+    from app.services.appointments import plan_reminders
+    from app.services.library import alert_expiring
+
+    db = SessionLocal()
+    try:
+        reminders = plan_reminders(db)
+        expiring = alert_expiring(db)
+    finally:
+        db.close()
+    return f"{reminders} reminder(s) queued, {expiring} document alert(s)"
 
 
 def _backup() -> str:
@@ -206,6 +225,7 @@ def build_jobs() -> list[Job]:
         Job("reminders", _reminders,
             daily_hour=settings.scheduler_reminders_hour, window_hours=8),
         Job("delivery", _delivery, every_minutes=10),
+        Job("appointments", _appointments, every_minutes=30),
         Job("stock", _stock, every_minutes=60),
         Job("archive", _archive, every_minutes=360),
         Job("overdue", _overdue, every_minutes=30),

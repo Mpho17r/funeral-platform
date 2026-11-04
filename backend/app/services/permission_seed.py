@@ -301,6 +301,15 @@ DEFAULT_ROLE_PERMISSIONS["finance"] |= {
     "bills.view", "bills.manage",
 }
 DEFAULT_ROLE_PERMISSIONS["staff"] |= {"customers.view"}
+# Appointments: anyone who takes bookings; messages and documents: the office.
+for _role in ("manager", "staff", "finance", "operations", "mortuary"):
+    DEFAULT_ROLE_PERMISSIONS[_role] |= {"appointments.view"}
+for _role in ("manager", "staff", "finance", "operations"):
+    DEFAULT_ROLE_PERMISSIONS[_role] |= {"appointments.manage"}
+for _role in ("manager", "finance"):
+    DEFAULT_ROLE_PERMISSIONS[_role] |= {
+        "outbox.view", "outbox.manage", "library.view", "library.manage",
+    }
 DEFAULT_ROLE_PERMISSIONS["manager"] |= {"transport.view", "transport.manage"}
 DEFAULT_ROLE_PERMISSIONS["staff"] |= {"transport.view"}
 DEFAULT_ROLE_PERMISSIONS["staff"] |= {"viewings.view"}

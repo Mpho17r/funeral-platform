@@ -1,6 +1,9 @@
 "use client";
 
 import {
+  CalendarCheck,
+  FolderOpen,
+  Mail,
   FileBarChart,
   Contact,
   HandCoins,
@@ -377,6 +380,16 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       path: "/customers",
     },
     {
+      label: "Appointments",
+      icon: <CalendarCheck size={18} />,
+      path: "/appointments",
+    },
+    {
+      label: "Messages",
+      icon: <Mail size={18} />,
+      path: "/messages",
+    },
+    {
       label: "Quotes & invoices",
       icon: <ReceiptText size={18} />,
       path: "/sales",
@@ -390,6 +403,11 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       label: "Bills you owe",
       icon: <Landmark size={18} />,
       path: "/bills",
+    },
+    {
+      label: "Documents",
+      icon: <FolderOpen size={18} />,
+      path: "/documents",
     },
     {
       label: "KAI Autopilot",
