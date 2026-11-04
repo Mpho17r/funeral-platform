@@ -113,6 +113,24 @@ export default function CustomersPage() {
                       New invoice
                     </button>
                   )}
+                  {can("appointments.manage") && (
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/appointments?customer=${c.id}`)}
+                      className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+                    >
+                      Book
+                    </button>
+                  )}
+                  {can("outbox.manage") && (
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/messages?customer=${c.id}&new=1`)}
+                      className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+                    >
+                      Message
+                    </button>
+                  )}
                   {can("customers.manage") && (
                     <button
                       type="button"

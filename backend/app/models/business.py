@@ -90,6 +90,12 @@ class Business(Base):
         Integer, default=15, nullable=False
     )
 
+    # Send customers a reminder the day before an appointment (queued in
+    # Messages; email goes out by itself when email is set up).
+    appointment_reminders: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+
     # ========================================================
     # ARCHIVE
     # ========================================================

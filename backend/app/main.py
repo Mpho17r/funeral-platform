@@ -479,3 +479,11 @@ def health_check(response: Response):
             else "unknown"
         ),
     }
+
+from app.api.appointments import router as appointments_router  # noqa: E402
+from app.api.outbox import router as outbox_router  # noqa: E402
+from app.api.library import router as library_router  # noqa: E402
+
+app.include_router(appointments_router)
+app.include_router(outbox_router)
+app.include_router(library_router)

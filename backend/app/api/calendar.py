@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.config import settings
 from app.dependencies.roles import get_current_user
+from app.models.appointments import Appointment
 from app.models.case_service import CaseService
 from app.models.case_task import CaseTask, CaseTaskAssignee
 from app.models.funeral_case import FuneralCase
@@ -63,6 +64,42 @@ def _leave_events(db, business_id, user_id, sees_everyone, mine):
     return out
 
 
+def _appointment_events(db, business_id, user_id, mine):
+    """Live appointments. They are shared business information, like the
+    Appointments page, so everyone who can see appointments sees all of
+    them; "only my schedule" narrows it to the ones given to you."""
+
+    from app.services.appointments import LIVE, local
+
+    q = db.query(Appointment).filter(
+        Appointment.business_id == business_id, Appointment.status.in_(LIVE)
+    )
+    if mine:
+        q = q.filter(Appointment.assigned_user_id == user_id)
+    names = {
+        u.id: u.full_name
+        for u in db.query(User).filter(User.business_id == business_id)
+    }
+    return [
+        CalendarEventResponse(
+            id=f"appointment-{a.id}",
+            event_type="appointment",
+            title=a.title,
+            date=local(a.start_at).date(),
+            case_id=a.id,
+            case_number="APPT",
+            deceased_full_name="",
+            description=a.notes,
+            venue=a.location,
+            assigned_to=a.assigned_user_id,
+            assigned_to_name=names.get(a.assigned_user_id),
+            status=a.status,
+            due_at=a.start_at,
+        )
+        for a in q.limit(500).all()
+    ]
+
+
 @router.get(
     "",
     response_model=list[CalendarEventResponse],
@@ -85,7 +122,7 @@ def list_calendar_events(
 
     # Funeral homes see funerals and services; every business sees its tasks.
     can_cases = allowed("cases.view")
-    if not (can_cases or allowed("tasks.view")):
+    if not (can_cases or allowed("tasks.view") or allowed("appointments.view")):
         raise HTTPException(403, "You do not have permission to view the calendar")
 
     events: list[CalendarEventResponse] = []
@@ -231,6 +268,11 @@ def list_calendar_events(
                 events.append(
                     make("task_given", given_on, f"Given: {task.title}")
                 )
+
+    if allowed("appointments.view"):
+        events.extend(
+            _appointment_events(db, business_id, user_id, mine)
+        )
 
     events.extend(_leave_events(db, business_id, user_id, allowed("leave.manage"), mine))
 

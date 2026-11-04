@@ -128,6 +128,8 @@ function formatEventType(value: string) {
       return "Task given";
     case "leave":
       return "On leave";
+    case "appointment":
+      return "Appointment";
     default:
       return value
         .replaceAll("_", " ")
@@ -147,6 +149,8 @@ function getEventTypeClass(value: string) {
       return "bg-sky-50 text-sky-700 border-sky-200";
     case "leave":
       return "bg-rose-50 text-rose-700 border-rose-200";
+    case "appointment":
+      return "bg-teal-50 text-teal-700 border-teal-200";
     default:
       return "bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)] border-[var(--fos-border)]";
   }
@@ -164,6 +168,8 @@ function getEventTypeDotClass(value: string) {
       return "bg-sky-400";
     case "leave":
       return "bg-rose-400";
+    case "appointment":
+      return "bg-teal-500";
     default:
       return "bg-slate-400";
   }
@@ -430,6 +436,11 @@ export default function CalendarWorkspacePage() {
   function openEvent(event: CalendarEvent) {
     if (event.event_type === "leave") {
       router.push("/leave?tab=team");
+      return;
+    }
+
+    if (event.event_type === "appointment") {
+      router.push("/appointments");
       return;
     }
 
@@ -702,8 +713,8 @@ export default function CalendarWorkspacePage() {
 
             <div className="flex flex-wrap gap-4 border-t border-[var(--fos-border)] px-4 py-3">
               {(isGeneral
-                ? ["task", "task_given", "leave"]
-                : ["funeral", "service", "task", "task_given", "leave"]
+                ? ["appointment", "task", "task_given", "leave"]
+                : ["funeral", "service", "appointment", "task", "task_given", "leave"]
               ).map(
                 (type) => (
                   <div

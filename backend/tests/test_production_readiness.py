@@ -159,7 +159,7 @@ def test_the_real_job_list_covers_everything_recurring(monkeypatch):
 
     names = [j.name for j in run_scheduler.build_jobs()]
     assert names == [
-        "lifecycle", "mortuary_alerts", "reminders", "delivery", "stock",
+        "lifecycle", "mortuary_alerts", "reminders", "delivery", "appointments", "stock",
         "archive", "overdue", "recurring", "autopilot", "autopilot_briefing", "backup",
     ]
 
