@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = ""
     smtp_starttls: bool = True
+
+    # Where the app is reached by people. Emailed links (reset password,
+    # verify email) point here, so on a live system it must be the real
+    # address, e.g. https://app.yourbusiness.co.za
+    public_app_url: str = "http://localhost:3000"
+    reset_token_minutes: int = 60
+    verify_token_hours: int = 72
     delivery_max_attempts: int = 3
 
     # Built-in scheduler (python -m app.run_scheduler).
@@ -89,6 +96,10 @@ class Settings(BaseSettings):
             raise ValueError(
                 "Unsafe production settings: " + "; ".join(problems)
             )
+        # Emailed links must not point at a developer's own computer. When
+        # PUBLIC_APP_URL was not set, use the web address already allowed.
+        if "localhost" in self.public_app_url or "127.0.0.1" in self.public_app_url:
+            self.public_app_url = origins[0].strip().rstrip("/")
         return self
 
 

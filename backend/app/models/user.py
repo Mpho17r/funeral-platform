@@ -103,6 +103,13 @@ class User(Base):
         nullable=True,
     )
 
+    # When the person proved the address is theirs by following the emailed
+    # link (or by resetting their password through it). None = not yet.
+    email_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
