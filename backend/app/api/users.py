@@ -1,7 +1,15 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -151,6 +159,7 @@ def list_users(
 )
 def create_user(
     data: UserCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_permission("users.create")),
 ):
@@ -222,6 +231,15 @@ def create_user(
 
     db.commit()
     db.refresh(user)
+
+    # Ask the new person to confirm the address the administrator typed.
+    from app.services import account_tokens
+
+    raw = account_tokens.issue(db, user, account_tokens.VERIFY)
+    db.commit()
+    account_tokens.send_later(
+        background_tasks, account_tokens.verify_email(user, raw)
+    )
 
     return user
 

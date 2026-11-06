@@ -1,11 +1,12 @@
 import re
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.services import account_tokens
 from app.services.audit_service import create_audit_log
 from app.services.branch_service import create_main_branch
 from app.services.login_security import (
@@ -94,6 +95,7 @@ def get_unique_business_slug(
 )
 def register(
     data: RegisterRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """Public business-owner registration (closed on a live system)."""
@@ -105,7 +107,7 @@ def register(
                 "your account."
             ),
         )
-    return create_business_with_owner(data, db)
+    return create_business_with_owner(data, db, background_tasks)
 
 
 @router.get("/registration-status")
@@ -128,6 +130,7 @@ def registration_open(db: Session) -> bool:
 def create_business_with_owner(
     data: RegisterRequest,
     db: Session,
+    background_tasks: BackgroundTasks | None = None,
 ):
     """
     Creates a business and its first administrator.
@@ -232,6 +235,14 @@ def create_business_with_owner(
 
     db.refresh(business)
     db.refresh(user)
+
+    # Ask the new owner to confirm their email address.
+    if background_tasks is not None:
+        raw = account_tokens.issue(db, user, account_tokens.VERIFY)
+        db.commit()
+        account_tokens.send_later(
+            background_tasks, account_tokens.verify_email(user, raw)
+        )
 
     # ---------------------------------------------------------
     # CREATE LOGIN TOKEN
@@ -434,6 +445,9 @@ def get_me(
         **current_user,
         "full_name": user.full_name if user else None,
         "email": user.email if user else None,
+        "email_verified": (
+            user.email_verified_at is not None if user else None
+        ),
         "job_title": user.job_title if user else None,
         "branch_id": user.branch_id if user else None,
         "branch_name": branch.name if branch else None,

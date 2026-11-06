@@ -17,6 +17,8 @@ export type CurrentUser = {
   role: string;
   full_name: string | null;
   email: string | null;
+  /** False until the person follows the emailed link; null if unknown. */
+  email_verified: boolean | null;
   job_title: string | null;
   branch_id: string | null;
   branch_name: string | null;

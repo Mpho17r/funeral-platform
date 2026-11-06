@@ -57,6 +57,7 @@ class UserResponse(BaseModel):
     branch_id: UUID | None = None
     locked_until: datetime | None = None
     last_login_at: datetime | None = None
+    email_verified_at: datetime | None = None
 
 
 class PasswordReset(BaseModel):

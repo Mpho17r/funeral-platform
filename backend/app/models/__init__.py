@@ -88,3 +88,5 @@ from app.models.sales import Customer, SalePayment, SalesDocument, SalesLine, Su
 from app.models.planning import Budget, RecurringItem  # noqa: E402,F401
 from app.models.leave import LeaveRequest  # noqa: E402,F401
 from app.models.appointments import Appointment, BusinessDocument, ContactMessage  # noqa: E402,F401
+
+from app.models.auth_token import AuthToken  # noqa: E402,F401

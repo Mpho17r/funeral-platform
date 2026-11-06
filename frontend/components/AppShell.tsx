@@ -14,6 +14,7 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { WorkspaceBadge } from "@/components/WorkspaceBadge";
 import { RouteGuard } from "@/components/RouteGuard";
 import { AccessWarning } from "@/components/AccessWarning";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -129,6 +130,7 @@ export default function AppShell({ children }: AppShellProps) {
             className="relative z-10 min-h-screen lg:min-h-screen"
           >
             <AccessWarning />
+            <EmailVerificationBanner />
             <RouteGuard>{children}</RouteGuard>
           </main>
 
