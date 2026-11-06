@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { ExtraCostNote } from "@/components/ExtraCostNote";
 import { getApiErrorMessage, statusOf } from "@/lib/format";
 import type { Branch, BranchSummary } from "@/lib/branches";
 import {
@@ -636,6 +637,8 @@ function BranchDialog({
             className={inputClass}
           />
         </Field>
+
+        {!editing && <ExtraCostNote kind="branch" />}
 
         {error && <ErrorNote message={error} />}
 

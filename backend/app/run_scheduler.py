@@ -208,6 +208,18 @@ def _appointments() -> str:
     return f"{reminders} reminder(s) queued, {expiring} document alert(s)"
 
 
+def _usage() -> str:
+    from app.database import SessionLocal
+    from app.services.pricing import record_snapshots
+
+    db = SessionLocal()
+    try:
+        saved = record_snapshots(db)
+    finally:
+        db.close()
+    return f"{saved} business(es) recorded"
+
+
 def _backup() -> str:
     from app.run_backup import run_backup
 
@@ -232,6 +244,8 @@ def build_jobs() -> list[Job]:
         Job("recurring", _recurring, every_minutes=60),
         Job("autopilot", _autopilot, every_minutes=15),
         Job("autopilot_briefing", _briefing, daily_hour=7, window_hours=10),
+        # Staff and branch counts for the monthly bill.
+        Job("usage", _usage, every_minutes=360),
     ]
     if settings.scheduler_backups_enabled:
         jobs.append(

@@ -294,7 +294,7 @@ class Business(Base):
     # ========================================================
 
     subscription_tier: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="starter",
+        String(20), nullable=False, default="standard",
         server_default="starter",
     )
     subscription_status: Mapped[str] = mapped_column(
@@ -303,6 +303,11 @@ class Business(Base):
     )
     trial_ends_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # A special base price agreed with this customer, in cents. None = the
+    # standard price. Extra staff and branches are still charged as usual.
+    base_price_override_cents: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
     )
     # None means unlimited.
     max_branches: Mapped[int | None] = mapped_column(Integer, nullable=True)

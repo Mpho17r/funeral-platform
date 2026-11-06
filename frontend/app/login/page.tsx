@@ -347,6 +347,15 @@ export default function LoginPage() {
               </p>
             )}
 
+            <p className="text-center text-sm">
+              <Link
+                href="/pricing"
+                className="text-slate-600 underline underline-offset-4 dark:text-slate-400"
+              >
+                See pricing
+              </Link>
+            </p>
+
             <p className="flex items-center justify-center gap-1.5 pt-2 text-xs text-slate-500 dark:text-slate-400">
               <Lock size={12} aria-hidden="true" />
               Your workspace is private to your business.

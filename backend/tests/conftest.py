@@ -115,6 +115,8 @@ def db():
 
             # Platform administration
             "platform_admins",
+            "platform_pricing",
+            "usage_snapshots",
 
             # Portal links
             "portal_links",

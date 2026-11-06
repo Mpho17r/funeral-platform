@@ -49,6 +49,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/audit": "audit.view",
   "/settings": "settings.view",
   "/settings/data": "data.export",
+  "/settings/subscription": "subscription.view",
 };
 
 /** Does the person hold the permission (or any of "a|b")? */

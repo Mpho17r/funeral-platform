@@ -26,7 +26,9 @@ from app.models.audit_log import AuditLog
 from app.models.business import Business
 from app.models.platform_admin import PlatformAdmin
 from app.security import verify_password
+from app.services.permission_service import has_permission
 from app.services import plan_limits
+from app.services import pricing as pricing_service
 
 router = APIRouter(tags=["Platform"])
 bearer = HTTPBearer()
@@ -117,6 +119,13 @@ def _business_row(db: Session, b: Business) -> dict:
         "trial_ends_at": b.trial_ends_at,
         "limits": plan_limits.limits(b),
         "usage": plan_limits.usage(db, b.id),
+        "base_price_override_cents": b.base_price_override_cents,
+        "monthly_cents": pricing_service.quote(
+            pricing_service.get_pricing(db),
+            staff=plan_limits.usage(db, b.id)[pricing_service.STAFF],
+            branches=plan_limits.usage(db, b.id)[pricing_service.BRANCHES],
+            base_override_cents=b.base_price_override_cents,
+        )["total_cents"],
     }
 
 
@@ -156,6 +165,11 @@ class SubscriptionUpdate(BaseModel):
     max_users: int | None = Field(default=None, ge=1)
     max_members: int | None = Field(default=None, ge=1)
     max_active_cases: int | None = Field(default=None, ge=1)
+    # A special base price for this customer (cents). Send null to go back
+    # to the standard price.
+    base_price_override_cents: int | None = Field(
+        default=None, ge=0, le=10_000_000
+    )
 
 
 @router.patch("/platform/businesses/{business_id}/subscription")
@@ -184,7 +198,7 @@ def update_subscription(
     if "trial_ends_at" in sent:
         b.trial_ends_at = data.trial_ends_at
     for column in ("max_branches", "max_users", "max_members",
-                   "max_active_cases"):
+                   "max_active_cases", "base_price_override_cents"):
         if column in sent:
             setattr(b, column, getattr(data, column))
 
@@ -215,10 +229,35 @@ def my_subscription(
     current_user: dict = Depends(get_current_user),
 ):
     b = db.get(Business, current_user["business_id"])
-    return {
+    used = plan_limits.usage(db, b.id)
+    staff, branches = used[pricing_service.STAFF], used[pricing_service.BRANCHES]
+    p = pricing_service.get_pricing(db)
+
+    out = {
         "tier": b.subscription_tier,
         "status": b.subscription_status,
         "trial_ends_at": b.trial_ends_at,
         "limits": plan_limits.limits(b),
-        "usage": plan_limits.usage(db, b.id),
+        "usage": used,
+        "pricing": pricing_service.pricing_dict(p),
+        # Lets the "add staff" and "add branch" screens say what it will cost.
+        **pricing_service.next_costs(p, staff, branches),
     }
+
+    # The bill itself is for the people who run the business.
+    if has_permission(
+        db,
+        user_id=current_user["user_id"],
+        role=current_user["role"],
+        permission_key="subscription.view",
+    ):
+        now = pricing_service.today()
+        out["bill"] = pricing_service.statement(db, b, now.year, now.month)
+        out["bill"]["now"] = pricing_service.quote(
+            p,
+            staff=staff,
+            branches=branches,
+            base_override_cents=b.base_price_override_cents,
+        )
+
+    return out

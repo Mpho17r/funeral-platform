@@ -89,6 +89,10 @@ export default function RegisterPage() {
           <Link href="/login" className="font-medium text-slate-900 underline">
             Sign in
           </Link>
+          {" · "}
+          <Link href="/pricing" className="font-medium text-slate-900 underline">
+            See pricing
+          </Link>
         </p>
       </header>
 

@@ -12,6 +12,7 @@ from app.database import engine
 from app.api.businesses import router as businesses_router
 from app.api.auth import router as auth_router
 from app.api.account_security import router as account_security_router
+from app.api.pricing import router as pricing_router
 from app.api.users import router as users_router
 from app.api.cases import router as cases_router
 from app.api.tasks import router as tasks_router
@@ -138,6 +139,10 @@ app.include_router(
 
 app.include_router(
     account_security_router
+)
+
+app.include_router(
+    pricing_router
 )
 
 app.include_router(

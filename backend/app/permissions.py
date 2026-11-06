@@ -149,6 +149,7 @@ PERMISSIONS = {
     # Branding
     "branding.view": "View business branding",
     "branding.manage": "Manage business branding",
+    "subscription.view": "See the plan, usage and monthly bill",
 
     # Resources (vehicles, venues, equipment)
     "resources.view": "View vehicles, venues and equipment",

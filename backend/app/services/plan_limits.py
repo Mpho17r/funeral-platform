@@ -16,11 +16,15 @@ from app.models.funeral_case import FuneralCase
 from app.models.member import Member
 from app.models.user import User
 
-TIERS = ("starter", "growth", "professional", "enterprise")
+TIERS = ("standard", "starter", "growth", "professional", "enterprise")
 STATUSES = ("trial", "active", "suspended", "cancelled")
 
 # Starting points only; exact amounts and limits are set per customer.
 TIER_DEFAULTS = {
+    # The standard plan is priced by what is used (see services/pricing.py),
+    # so it has no caps. The tiers below are optional safety ceilings.
+    "standard": dict(max_branches=None, max_users=None, max_members=None,
+                     max_active_cases=None),
     "starter": dict(max_branches=1, max_users=5, max_members=500,
                     max_active_cases=100),
     "growth": dict(max_branches=3, max_users=15, max_members=2000,

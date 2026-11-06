@@ -15,9 +15,22 @@ type Row = {
   trial_ends_at: string | null;
   limits: Record<string, number | null>;
   usage: Record<string, number>;
+  base_price_override_cents: number | null;
+  monthly_cents: number;
 };
 
-const TIERS = ["starter", "growth", "professional", "enterprise"];
+type Pricing = {
+  base_price_cents: number;
+  included_staff: number;
+  included_branches: number;
+  extra_staff_cents: number;
+  extra_branch_cents: number;
+  price_note: string | null;
+};
+
+const rands = (c: number) => `R${(c / 100).toLocaleString("en-ZA")}`;
+
+const TIERS = ["standard", "starter", "growth", "professional", "enterprise"];
 const STATUSES = ["trial", "active", "suspended", "cancelled"];
 const LIMIT_KEYS: [string, string][] = [
   ["max_branches", "branches"],
@@ -39,6 +52,9 @@ export default function PlatformPage() {
   const [busy, setBusy] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [pricing, setPricing] = useState<Pricing | null>(null);
+  const [priceSaved, setPriceSaved] = useState(false);
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
   useEffect(() => {
     try {
@@ -59,6 +75,8 @@ export default function PlatformPage() {
     if (!token) return;
     try {
       const r = await axios.get<Row[]>(`${API}/platform/businesses`, auth());
+      const p = await axios.get<Pricing>(`${API}/pricing`);
+      setPricing(p.data);
       setRows(r.data);
       setError("");
     } catch (e) {
@@ -101,6 +119,51 @@ export default function PlatformPage() {
       setError(detail(err, "Could not save."));
     } finally {
       setBusy("");
+    }
+  }
+
+  async function savePricing(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const cents = (k: string) => Math.round(Number(f.get(k)) * 100);
+    const count = (k: string) => Math.round(Number(f.get(k)));
+    try {
+      setError("");
+      await axios.put(
+        `${API}/platform/pricing`,
+        {
+          base_price_cents: cents("base"),
+          included_staff: count("staff"),
+          included_branches: count("branches"),
+          extra_staff_cents: cents("xstaff"),
+          extra_branch_cents: cents("xbranch"),
+          price_note: String(f.get("note") ?? ""),
+        },
+        auth(),
+      );
+      setPriceSaved(true);
+      await load();
+    } catch (err) {
+      setError(detail(err, "Could not save the prices."));
+    }
+  }
+
+  async function downloadStatements() {
+    try {
+      setError("");
+      const r = await axios.get(`${API}/platform/statements`, {
+        ...auth(),
+        params: { month, format: "csv" },
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(r.data as Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `linda-statements-${month}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(detail(err, "Could not download the statements."));
     }
   }
 
@@ -153,10 +216,81 @@ export default function PlatformPage() {
       </div>
       {error && <p className="text-sm text-red-700">{error}</p>}
 
+      {pricing && (
+        <section className="space-y-3 rounded-2xl border bg-white p-4">
+          <h2 className="font-semibold text-slate-900">Prices (rands per month)</h2>
+          <form
+            key={JSON.stringify(pricing)}
+            onSubmit={savePricing}
+            onChange={() => setPriceSaved(false)}
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+          >
+            {[
+              ["base", "Standard price", pricing.base_price_cents / 100],
+              ["staff", "Staff included", pricing.included_staff],
+              ["branches", "Branches included", pricing.included_branches],
+              ["xstaff", "Each extra staff", pricing.extra_staff_cents / 100],
+              ["xbranch", "Each extra branch", pricing.extra_branch_cents / 100],
+            ].map(([name, label, value]) => (
+              <label key={name as string} className="text-xs text-slate-500">
+                {label}
+                <input
+                  name={name as string}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  defaultValue={value as number}
+                  className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm text-slate-900"
+                />
+              </label>
+            ))}
+            <label className="col-span-2 text-xs text-slate-500 sm:col-span-3">
+              Note shown under prices (for example about VAT)
+              <input
+                name="note"
+                maxLength={200}
+                defaultValue={pricing.price_note ?? ""}
+                className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm text-slate-900"
+              />
+            </label>
+            <div className="col-span-2 flex items-center gap-3 sm:col-span-3">
+              <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+                Save prices
+              </button>
+              {priceSaved && <span className="text-sm text-green-700">Saved</span>}
+            </div>
+          </form>
+
+          <div className="flex flex-wrap items-end gap-3 border-t pt-3">
+            <label className="text-xs text-slate-500">
+              Statements for
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="mt-1 block rounded-lg border px-2 py-1.5 text-sm text-slate-900"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => void downloadStatements()}
+              className="rounded-lg border px-4 py-2 text-sm font-semibold text-slate-900"
+            >
+              Download CSV
+            </button>
+          </div>
+        </section>
+      )}
+
       {rows.map((r) => (
         <section key={r.id} className="space-y-3 rounded-2xl border bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-semibold text-slate-900">{r.name}</p>
+            <p className="font-semibold text-slate-900">
+              {r.name}
+              <span className="ml-2 text-sm font-normal text-slate-500">
+                {rands(r.monthly_cents)} / month now
+              </span>
+            </p>
             <div className="flex gap-2">
               <select
                 aria-label="Plan"
@@ -203,6 +337,27 @@ export default function PlatformPage() {
               </label>
             ))}
           </div>
+          <label className="block text-xs text-slate-500">
+            Special standard price in rands (blank = normal price)
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              defaultValue={
+                r.base_price_override_cents === null
+                  ? ""
+                  : r.base_price_override_cents / 100
+              }
+              placeholder="normal price"
+              onBlur={(e) => {
+                const v =
+                  e.target.value === "" ? null : Math.round(Number(e.target.value) * 100);
+                if (v !== r.base_price_override_cents)
+                  void save(r, { base_price_override_cents: v });
+              }}
+              className="mt-1 w-40 rounded-lg border px-2 py-1.5 text-sm text-slate-900"
+            />
+          </label>
         </section>
       ))}
     </main>

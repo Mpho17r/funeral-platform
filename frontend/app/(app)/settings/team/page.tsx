@@ -19,6 +19,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import api from "@/lib/api";
+import { ExtraCostNote } from "@/components/ExtraCostNote";
 import { ResetPasswordDialog } from "@/components/PasswordDialogs";
 import { useBranches } from "@/lib/branches";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
@@ -780,6 +781,8 @@ export default function TeamPage() {
               onSubmit={handleSubmit}
               className="space-y-5 p-6"
             >
+              {!editingUser && <ExtraCostNote kind="staff" />}
+
               {formError && (
                 <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                   <XCircle size={20} className="mt-0.5 shrink-0" />
