@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -308,6 +308,12 @@ class Business(Base):
     # standard price. Extra staff and branches are still charged as usual.
     base_price_override_cents: Mapped[int | None] = mapped_column(
         Integer, nullable=True
+    )
+    # The plan this business chose. None = the first plan for its type.
+    plan_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pricing_plans.id", ondelete="SET NULL"),
+        nullable=True,
     )
     # None means unlimited.
     max_branches: Mapped[int | None] = mapped_column(Integer, nullable=True)

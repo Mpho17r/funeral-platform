@@ -1,39 +1,37 @@
 # Pricing and plans
 
-One standard monthly price covers the whole platform. A business that grows pays a flat extra amount for each additional staff account and each additional branch. Nothing is ever blocked: the bill grows instead.
+Each kind of business (funeral, other business) has its own plans. A plan has a monthly price **before VAT**, a number of included staff accounts and branches, and a flat price for each extra staff account or branch. VAT (15%) is added automatically and shown on every price. Nothing is ever blocked: past what a plan includes, the bill grows.
 
-## The numbers
+## Starting plans (all prices before VAT)
 
-Set by the platform owner at `/platform` ("Prices"). Starting values (placeholders, change them before you launch):
+| Business | Plan | Price | Staff | Branches | Extra staff | Extra branch |
+| --- | --- | --- | --- | --- | --- | --- |
+| Funeral | Beginner | R800 | 5 | 1 | R60 | R60 (placeholder) |
+| Funeral | Standard | R1 000 | 7 | 2 | R60 | R60 (placeholder) |
+| Funeral | Enterprise | R1 800 (placeholder) | 15 | 5 | R60 | R60 |
+| Other | Startup | R450 | 3 | 1 | R50 (placeholder) | R50 (placeholder) |
+| Other | Standard | R950 | 6 | 2 | R50 (placeholder) | R50 (placeholder) |
+| Other | Enterprise | R1 500 (placeholder) | 12 | 5 | R50 | R50 |
 
-| Item | Starting value |
-| --- | --- |
-| Standard price | R299 / month |
-| Staff accounts included | 5 |
-| Branches included | 1 |
-| Each extra staff account | +R25 |
-| Each extra branch | +R25 |
+The Beginner/Startup/Standard prices, staff counts and funeral extra-staff price are the agreed ones. Branch counts for the other-business plans, extra-branch prices, the other-business extra-staff price and the Enterprise plans are starting guesses. Change any of them (and VAT, and the note under the prices) at `/platform`.
 
-A short note (for example "Prices exclude VAT") can be shown under the prices.
+## Where it shows
+
+- Right after registering, the business picks a plan (`/choose-plan`) with sliders for team size and branches. "Decide later" keeps the first plan.
+- Public `/pricing` has the same picker for both kinds of business.
+- Settings → Plan & billing (owner only, permission `subscription.view`): plan, usage, this month's bill with VAT, and a Change plan button.
+- Adding a staff account or branch beyond the plan shows what it adds, including VAT.
+- `/platform`: edit plans, VAT, give a business a special plan price, and download a monthly statements CSV.
 
 ## How the bill works
 
-- The count used is the busiest day of the month. A usage snapshot is taken every six hours by the scheduler (`usage` job).
-- No proration. Removing staff lowers next month, not this one.
-- Only businesses with status **active** are charged. Trial, suspended and cancelled show R0.
-- A business can have a **special standard price** (platform page, per business). Extras still follow the normal rates.
-- Legacy plan tiers (starter, growth, ...) remain as optional hard caps. The default `standard` tier has none.
-
-## Where to see it
-
-- Public: `/pricing` with a calculator.
-- Business owner: Settings → Plan & billing (permission `subscription.view`, owner only).
-- Adding a staff account or branch shows what it will add.
-- Platform owner: `/platform` → Download CSV for any month.
+- The count used is the busiest day of the month (snapshot every six hours by the scheduler).
+- No proration. Only **active** businesses are charged; trial, suspended and cancelled show R0.
+- A special price replaces the plan price; extras follow the plan rates.
 
 ## Not included
 
-There is no payment collection yet. Statements are produced for you to invoice from.
+No payment collection yet. Statements are produced for you to invoice from.
 
 ## Updating
 

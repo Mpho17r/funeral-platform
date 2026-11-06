@@ -2,57 +2,52 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Minus, Plus } from "lucide-react";
 
 import api from "@/lib/api";
 import { LindaLockup } from "@/components/LindaLogo";
-import {
-  PLATFORM_OWNER,
-  PLATFORM_SLOGAN,
-} from "@/lib/platform";
-import { Pricing, Quote, rands } from "@/lib/pricing";
+import { PlanPicker } from "@/components/PlanPicker";
+import { PLATFORM_OWNER, PLATFORM_SLOGAN } from "@/lib/platform";
+import { PublicPricing } from "@/lib/pricing";
+
+type Kind = "funeral" | "general";
 
 export default function PricingPage() {
-  const [pricing, setPricing] = useState<Pricing | null>(null);
-  const [staff, setStaff] = useState(5);
-  const [branches, setBranches] = useState(1);
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [pricing, setPricing] = useState<PublicPricing | null>(null);
+  const [kind, setKind] = useState<Kind>("funeral");
+  const [selected, setSelected] = useState<Record<Kind, string>>({
+    funeral: "",
+    general: "",
+  });
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     api
-      .get<Pricing>("/pricing")
-      .then((r) => {
-        setPricing(r.data);
-        setStaff(r.data.included_staff);
-        setBranches(Math.max(1, r.data.included_branches));
-      })
+      .get<PublicPricing>("/pricing")
+      .then((r) => setPricing(r.data))
       .catch(() => setFailed(true));
   }, []);
 
-  useEffect(() => {
-    if (!pricing) return;
-    const timer = setTimeout(() => {
-      api
-        .get<Quote>("/pricing/quote", { params: { staff, branches } })
-        .then((r) => setQuote(r.data))
-        .catch(() => setFailed(true));
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [pricing, staff, branches]);
-
-  const clamp = (n: number, max: number) =>
-    Math.max(0, Math.min(max, Number.isFinite(n) ? Math.floor(n) : 0));
+  const tab = (k: Kind, label: string) => (
+    <button
+      type="button"
+      onClick={() => setKind(k)}
+      aria-pressed={kind === k}
+      className={`rounded-full px-4 py-2 text-sm font-medium ${
+        kind === k
+          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+          : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300"
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] px-4 py-10 dark:bg-slate-950">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-4xl">
         <div className="mb-10 flex items-center justify-between text-[var(--linda-navy)] dark:text-white">
           <LindaLockup markSize={36} />
-          <Link
-            href="/login"
-            className="text-sm font-medium underline-offset-4 hover:underline"
-          >
+          <Link href="/login" className="text-sm font-medium underline-offset-4 hover:underline">
             Sign in
           </Link>
         </div>
@@ -61,10 +56,15 @@ export default function PricingPage() {
           Simple, honest pricing
         </h1>
         <p className="mt-2 text-slate-600 dark:text-slate-400">
-          One monthly price for the whole platform. Grow your team or add
-          branches and only pay a little more for each one. Nothing is ever
-          locked or switched off.
+          Pick the plan that fits where you are. Every plan has every feature.
+          Grow past what it includes and you only pay a little more for each
+          extra person or branch. Nothing is ever locked.
         </p>
+
+        <div className="mt-6 flex gap-2">
+          {tab("funeral", "Funeral business")}
+          {tab("general", "Other business")}
+        </div>
 
         {failed && !pricing && (
           <p className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -73,163 +73,26 @@ export default function PricingPage() {
         )}
 
         {pricing && (
-          <>
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-                <p className="text-sm text-slate-500">Standard plan</p>
-                <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-white">
-                  {rands(pricing.base_price_cents)}
-                  <span className="text-base font-normal text-slate-500">
-                    {" "}
-                    / month
-                  </span>
-                </p>
-                <ul className="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                  <li className="flex gap-2">
-                    <Check size={16} className="mt-0.5 shrink-0" />
-                    {pricing.included_staff} staff accounts
-                  </li>
-                  <li className="flex gap-2">
-                    <Check size={16} className="mt-0.5 shrink-0" />
-                    {pricing.included_branches} branch
-                    {pricing.included_branches === 1 ? "" : "es"}
-                  </li>
-                  <li className="flex gap-2">
-                    <Check size={16} className="mt-0.5 shrink-0" />
-                    Every feature included
-                  </li>
-                </ul>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-                <p className="text-sm text-slate-500">Each extra staff account</p>
-                <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-white">
-                  +{rands(pricing.extra_staff_cents)}
-                  <span className="text-base font-normal text-slate-500">
-                    {" "}
-                    / month
-                  </span>
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-                <p className="text-sm text-slate-500">Each extra branch</p>
-                <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-white">
-                  +{rands(pricing.extra_branch_cents)}
-                  <span className="text-base font-normal text-slate-500">
-                    {" "}
-                    / month
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                Work out your price
-              </h2>
-
-              <div className="mt-4 grid gap-5 sm:grid-cols-2">
-                <Stepper
-                  label="Staff accounts"
-                  value={staff}
-                  onChange={(n) => setStaff(clamp(n, 10000))}
-                />
-                <Stepper
-                  label="Branches"
-                  value={branches}
-                  onChange={(n) => setBranches(Math.max(1, clamp(n, 1000)))}
-                />
-              </div>
-
-              {quote && (
-                <div className="mt-6 border-t border-slate-200 pt-4 dark:border-slate-800">
-                  <ul className="space-y-1.5 text-sm text-slate-700 dark:text-slate-300">
-                    {quote.lines.map((line) => (
-                      <li
-                        key={line.label}
-                        className="flex justify-between gap-4"
-                      >
-                        <span>
-                          {line.label}
-                          <span className="text-slate-500">
-                            {" "}
-                            · {line.detail}
-                          </span>
-                        </span>
-                        <span>{rands(line.amount_cents)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-4 flex items-baseline justify-between text-lg font-semibold text-slate-900 dark:text-white">
-                    <span>Per month</span>
-                    <span data-testid="quote-total">
-                      {rands(quote.total_cents)}
-                    </span>
-                  </p>
-                </div>
-              )}
-            </div>
-
+          <div className="mt-6">
+            <PlanPicker
+              plans={pricing.plans[kind]}
+              vatPercent={pricing.vat_percent}
+              selected={selected[kind]}
+              onSelect={(code) => setSelected((s) => ({ ...s, [kind]: code }))}
+            />
             {pricing.price_note && (
-              <p className="mt-4 text-sm text-slate-500">
-                {pricing.price_note}
-              </p>
+              <p className="mt-4 text-sm text-slate-500">{pricing.price_note}</p>
             )}
             <p className="mt-2 text-sm text-slate-500">
-              The bill follows the busiest day of the month, so a short spike
-              in staff is counted but removing people later brings next
-              month&apos;s price back down.
+              VAT is {pricing.vat_percent}%. The bill follows the busiest day of
+              the month. Removing people brings next month&apos;s price back down.
             </p>
-          </>
+          </div>
         )}
 
         <p className="mt-10 text-center text-xs text-slate-500">
           LINDA | {PLATFORM_SLOGAN} Powered by {PLATFORM_OWNER}.
         </p>
-      </div>
-    </div>
-  );
-}
-
-function Stepper({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (n: number) => void;
-}) {
-  const button =
-    "flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800";
-  return (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-        {label}
-      </label>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          aria-label={`Fewer ${label.toLowerCase()}`}
-          className={button}
-          onClick={() => onChange(value - 1)}
-        >
-          <Minus size={16} />
-        </button>
-        <input
-          type="number"
-          min={0}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="h-10 w-24 rounded-lg border border-slate-300 bg-white px-3 text-center text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-        />
-        <button
-          type="button"
-          aria-label={`More ${label.toLowerCase()}`}
-          className={button}
-          onClick={() => onChange(value + 1)}
-        >
-          <Plus size={16} />
-        </button>
       </div>
     </div>
   );

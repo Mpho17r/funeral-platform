@@ -1,11 +1,11 @@
-"""Standard price + R25 per extra staff account + R25 per extra branch."""
+"""Plan price + a price per extra staff account / branch, plus VAT."""
 
 from datetime import date, timedelta
 
 import pytest
 
 from app.models.business import Business
-from app.models.pricing import PlatformPricing, UsageSnapshot
+from app.models.pricing import PricingPlan, UsageSnapshot
 from app.services import pricing as pricing_service
 from tests.test_branches import make_branch
 from tests.test_platform_admin import operator  # noqa: F401  (fixture)
@@ -22,12 +22,16 @@ STANDARD = dict(
 
 @pytest.fixture
 def prices(db):
+    """The funeral plan test businesses start on, set to the known figures."""
     row = pricing_service.get_pricing(db)
-    for key, value in STANDARD.items():
-        setattr(row, key, value)
     row.price_note = None
+    row.vat_percent = 15
+    plan = pricing_service.plans_for(db, "funeral")[0]
+    for key, value in STANDARD.items():
+        setattr(plan, key, value)
+    plan.name = "Standard"
     db.commit()
-    return row
+    return plan
 
 
 def total(prices, staff, branches, override=None):
@@ -64,7 +68,7 @@ def test_only_extras_that_exist_appear_as_lines(prices):
     plain = pricing_service.quote(prices, staff=3, branches=1)
     busy = pricing_service.quote(prices, staff=8, branches=3)
 
-    assert [line["label"] for line in plain["lines"]] == ["Standard plan"]
+    assert [line["label"] for line in plain["lines"]] == ["Standard plan"]  # plan name + " plan"
     assert [line["label"] for line in busy["lines"]] == [
         "Standard plan", "Extra staff", "Extra branches",
     ]
@@ -78,10 +82,12 @@ def test_a_negative_count_is_treated_as_zero(prices):
 
 def test_the_next_one_costs_only_after_the_included_ones(prices):
     assert pricing_service.next_costs(prices, 4, 0) == {
-        "next_staff_cents": 0, "next_branch_cents": 0,
+        "next_staff_cents": 0, "next_staff_incl_vat_cents": 0,
+        "next_branch_cents": 0, "next_branch_incl_vat_cents": 0,
     }
-    assert pricing_service.next_costs(prices, 5, 1) == {
-        "next_staff_cents": 2500, "next_branch_cents": 2500,
+    assert pricing_service.next_costs(prices, 5, 1, 15) == {
+        "next_staff_cents": 2500, "next_staff_incl_vat_cents": 2875,
+        "next_branch_cents": 2500, "next_branch_incl_vat_cents": 2875,
     }
 
 
@@ -89,30 +95,57 @@ def test_the_next_one_costs_only_after_the_included_ones(prices):
 # PRICES PEOPLE CAN SEE AND THE OWNER CAN CHANGE
 # ============================================================
 
-def test_prices_are_public_and_need_no_sign_in(client, db):
+def test_plans_are_public_and_need_no_sign_in(client, db):
     response = client.get("/pricing")
 
     assert response.status_code == 200
     body = response.json()
-    assert body["base_price_cents"] == 29900
-    assert body["extra_staff_cents"] == 2500
-    assert body["extra_branch_cents"] == 2500
+    assert body["vat_percent"] == 15
+    funeral = {p["code"]: p for p in body["plans"]["funeral"]}
+    general = {p["code"]: p for p in body["plans"]["general"]}
+
+    beginner = funeral["funeral-beginner"]
+    assert (beginner["base_price_cents"], beginner["included_staff"],
+            beginner["included_branches"], beginner["extra_staff_cents"]) == (80000, 5, 1, 6000)
+    standard = funeral["funeral-standard"]
+    assert (standard["base_price_cents"], standard["included_staff"],
+            standard["included_branches"]) == (100000, 7, 2)
+    startup = general["general-startup"]
+    assert (startup["base_price_cents"], startup["included_staff"]) == (45000, 3)
+    gstandard = general["general-standard"]
+    assert (gstandard["base_price_cents"], gstandard["included_staff"]) == (95000, 6)
 
 
-def test_the_owner_can_change_prices(client, operator, prices):
-    response = client.put(
-        "/platform/pricing",
-        headers=operator,
-        json={"base_price_cents": 39900, "included_staff": 10,
-              "price_note": "Prices include VAT."},
-    )
+def test_vat_is_added_on_top_of_the_plan_price(client, db):
+    q = client.get("/pricing/quote?plan=funeral-beginner&staff=5&branches=1").json()
 
-    assert response.status_code == 200
+    assert q["total_cents"] == 80000
+    assert q["vat_percent"] == 15
+    assert q["vat_cents"] == 12000
+    assert q["total_incl_vat_cents"] == 92000
+
+
+def test_extra_staff_on_the_beginner_plan_cost_R60_each_plus_vat(client, db):
+    q = client.get("/pricing/quote?plan=funeral-beginner&staff=8&branches=1").json()
+
+    assert q["total_cents"] == 80000 + 3 * 6000
+    assert q["total_incl_vat_cents"] == 98000 * 115 // 100
+
+
+def test_vat_is_rounded_to_the_cent(db):
+    assert pricing_service.vat_split(1, 15) == (0, 1)
+    assert pricing_service.vat_split(10, 15) == (2, 12)   # 1.5 rounds up
+    assert pricing_service.vat_split(0, 15) == (0, 0)
+
+
+def test_the_owner_can_change_the_vat_rate_and_note(client, operator, prices):
+    client.put("/platform/pricing", headers=operator,
+               json={"vat_percent": 20, "price_note": "Excl. VAT"})
     seen = client.get("/pricing").json()
-    assert seen["base_price_cents"] == 39900
-    assert seen["included_staff"] == 10
-    assert seen["extra_staff_cents"] == 2500  # untouched
-    assert seen["price_note"] == "Prices include VAT."
+    assert seen["vat_percent"] == 20 and seen["price_note"] == "Excl. VAT"
+
+    q = client.get("/pricing/quote?plan=funeral-beginner&staff=1").json()
+    assert q["vat_cents"] == q["total_cents"] // 5
 
 
 def test_a_blank_note_removes_it(client, operator, prices):
@@ -124,29 +157,112 @@ def test_a_blank_note_removes_it(client, operator, prices):
 
 @pytest.mark.parametrize(
     "body",
-    [
-        {"base_price_cents": -1},
-        {"extra_staff_cents": -100},
-        {"base_price_cents": 10_000_001},
-        {"included_staff": -1},
-        {"included_branches": 5000},
-        {"price_note": "x" * 201},
-        {"currency": "USD"},
-    ],
+    [{"vat_percent": -1}, {"vat_percent": 101}, {"price_note": "x" * 201},
+     {"currency": "USD"}, {"base_price_cents": 5}],
 )
-def test_nonsense_prices_are_refused(client, operator, prices, body):
+def test_nonsense_settings_are_refused(client, operator, prices, body):
     assert client.put("/platform/pricing", headers=operator, json=body).status_code == 422
 
 
-def test_a_business_cannot_change_prices(client, auth_headers, test_data, prices):
+def test_the_owner_can_edit_a_plan(client, operator, db, prices):
+    plan = pricing_service.plans_for(db, "general")[0]
     response = client.put(
-        "/platform/pricing",
-        headers=auth_headers(test_data["main_admin"]),
-        json={"base_price_cents": 1},
+        f"/platform/plans/{plan.id}", headers=operator,
+        json={"base_price_cents": 50000, "included_staff": 4, "tagline": "  New  "},
     )
 
-    assert response.status_code == 401
+    assert response.status_code == 200
+    seen = {p["code"]: p for p in client.get("/pricing").json()["plans"]["general"]}
+    assert seen[plan.code]["base_price_cents"] == 50000
+    assert seen[plan.code]["included_staff"] == 4
+    assert seen[plan.code]["tagline"] == "New"
+    assert seen[plan.code]["extra_staff_cents"] == 5000   # untouched
+
+
+def test_a_switched_off_plan_is_hidden_from_the_public(client, operator, db, prices):
+    plan = pricing_service.plans_for(db, "general")[-1]
+    client.put(f"/platform/plans/{plan.id}", headers=operator, json={"is_active": False})
+
+    codes = [p["code"] for p in client.get("/pricing").json()["plans"]["general"]]
+    assert plan.code not in codes
+    assert client.get(f"/pricing/quote?plan={plan.code}&staff=1").status_code == 404
+    assert any(p["code"] == plan.code for p in client.get("/platform/plans", headers=operator).json())
+
+
+@pytest.mark.parametrize(
+    "body",
+    [{"base_price_cents": -1}, {"extra_staff_cents": -100},
+     {"base_price_cents": 10_000_001}, {"included_staff": -1},
+     {"included_branches": 5000}, {"name": ""}, {"code": "x"}],
+)
+def test_nonsense_plan_edits_are_refused(client, operator, db, prices, body):
+    plan = pricing_service.plans_for(db, "funeral")[0]
+    assert client.put(f"/platform/plans/{plan.id}", headers=operator, json=body).status_code == 422
+
+
+def test_a_business_cannot_change_prices_or_plans(client, auth_headers, db, test_data, prices):
+    headers = auth_headers(test_data["main_admin"])
+    plan = pricing_service.plans_for(db, "funeral")[0]
+
+    assert client.put("/platform/pricing", headers=headers, json={"vat_percent": 1}).status_code == 401
+    assert client.put(f"/platform/plans/{plan.id}", headers=headers, json={"base_price_cents": 1}).status_code == 401
     assert client.put("/platform/pricing", json={}).status_code in (401, 403)
+
+
+# ============================================================
+# CHOOSING A PLAN
+# ============================================================
+
+def test_a_business_without_a_choice_gets_its_first_plan(db, test_data, prices):
+    plan = pricing_service.plan_for(db, test_data["business_a"])
+    assert plan.business_type == "funeral" and plan.code == "funeral-beginner"
+
+
+def test_the_owner_can_choose_a_plan_for_their_kind_of_business(
+    client, auth_headers, test_data, db, prices
+):
+    headers = auth_headers(test_data["main_admin"])
+    response = client.put("/subscription/plan", headers=headers,
+                          json={"plan_code": "funeral-standard"})
+
+    assert response.status_code == 200
+    body = client.get("/subscription", headers=headers).json()
+    assert body["plan"]["code"] == "funeral-standard"
+    assert body["plan_chosen"] is True
+    assert {p["code"] for p in body["plans"]} >= {"funeral-beginner", "funeral-standard"}
+    assert all(p["business_type"] == "funeral" for p in body["plans"])
+
+
+def test_a_funeral_business_cannot_take_a_general_plan(client, auth_headers, test_data, prices):
+    headers = auth_headers(test_data["main_admin"])
+    assert client.put("/subscription/plan", headers=headers,
+                      json={"plan_code": "general-startup"}).status_code == 404
+    assert client.put("/subscription/plan", headers=headers,
+                      json={"plan_code": "nonsense"}).status_code == 404
+
+
+def test_only_the_people_who_run_the_business_can_choose(client, auth_headers, test_data, prices):
+    for who in ("staff", "manager"):
+        r = client.put("/subscription/plan", headers=auth_headers(test_data[who]),
+                       json={"plan_code": "funeral-standard"})
+        assert r.status_code == 403
+    assert client.put("/subscription/plan", json={"plan_code": "x"}).status_code in (401, 403)
+
+
+def test_the_bill_follows_the_chosen_plan_and_shows_vat(
+    client, auth_headers, test_data, db, prices
+):
+    test_data["business_a"].subscription_status = "active"
+    db.commit()
+    headers = auth_headers(test_data["main_admin"])
+    client.put("/subscription/plan", headers=headers, json={"plan_code": "funeral-enterprise"})
+
+    bill = client.get("/subscription", headers=headers).json()["bill"]
+
+    assert bill["plan"] == "Enterprise"
+    assert bill["amount_due_cents"] == 180000
+    assert bill["vat_cents"] == 27000
+    assert bill["amount_due_incl_vat_cents"] == 207000
 
 
 # ============================================================
@@ -159,7 +275,8 @@ def test_everyone_sees_the_prices_and_what_the_next_one_costs(
     response = client.get("/subscription", headers=auth_headers(test_data["staff"]))
 
     body = response.json()
-    assert body["pricing"]["base_price_cents"] == 29900
+    assert body["plan"]["base_price_cents"] == 29900
+    assert body["vat_percent"] == 15
     assert body["next_staff_cents"] == 0       # 3 of 5 included staff used
     assert body["next_branch_cents"] == 0
 
@@ -190,6 +307,7 @@ def test_the_bill_grows_with_extra_staff_and_branches(
     ).json()
 
     assert body["next_staff_cents"] == 2500
+    assert body["next_staff_incl_vat_cents"] == 2875
     assert body["next_branch_cents"] == 2500
     assert body["bill"]["now"]["staff"] == 6
     assert body["bill"]["now"]["branches"] == 2
@@ -387,8 +505,8 @@ def test_statements_download_as_a_spreadsheet(client, operator, test_data, price
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/csv")
     assert "linda-statements-2026-11.csv" in response.headers["content-disposition"]
-    assert response.text.splitlines()[0].startswith("Business,Status,Peak staff")
-    assert "299.00" in response.text
+    assert response.text.splitlines()[0].startswith("Business,Plan,Status,Peak staff")
+    assert "299.00" in response.text and "343.85" in response.text
 
 
 def test_a_business_name_cannot_run_as_a_spreadsheet_formula(
@@ -421,19 +539,26 @@ def test_statements_are_only_for_the_platform_owner(client, auth_headers, test_d
 # ============================================================
 
 def test_the_calculator_gives_the_same_price_as_the_bill(client, prices):
-    body = client.get("/pricing/quote?staff=8&branches=3").json()
+    body = client.get(f"/pricing/quote?plan={prices.code}&staff=8&branches=3").json()
 
     assert body["total_cents"] == 29900 + 3 * 2500 + 2 * 2500
     assert [line["label"] for line in body["lines"]] == [
         "Standard plan", "Extra staff", "Extra branches",
     ]
+    assert body["total_incl_vat_cents"] == body["total_cents"] * 115 // 100
 
 
 def test_the_calculator_needs_no_sign_in_and_defaults_to_one_branch(client, prices):
-    assert client.get("/pricing/quote?staff=5").json()["total_cents"] == 29900
+    q = client.get(f"/pricing/quote?plan={prices.code}&staff=5").json()
+    assert q["total_cents"] == 29900
 
 
 @pytest.mark.parametrize("query", ["staff=-1", "staff=10001", "staff=2&branches=-1",
-                                   "staff=2&branches=1001", "staff=abc", ""])
+                                   "staff=2&branches=1001", "staff=abc", "", "plan=funeral-beginner"])
 def test_the_calculator_refuses_nonsense(client, prices, query):
-    assert client.get(f"/pricing/quote?{query}").status_code == 422
+    sep = "" if query.startswith("plan=") else "plan=funeral-beginner&"
+    assert client.get(f"/pricing/quote?{sep}{query}").status_code == 422
+
+
+def test_an_unknown_plan_is_not_found(client, prices):
+    assert client.get("/pricing/quote?plan=nope&staff=1").status_code == 404

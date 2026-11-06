@@ -66,7 +66,7 @@ export default function RegisterPage() {
         password,
       });
       saveToken(r.data.access_token);
-      router.push("/dashboard");
+      router.push("/choose-plan");
     } catch (err) {
       setError(getApiErrorMessage(err, "We could not create your account."));
       setBusy(false);

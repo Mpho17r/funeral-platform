@@ -2,9 +2,13 @@
 
 The model is deliberately simple:
 
-    standard price                      covers a set number of staff and branches
-  + R25 for each extra staff account    (per month)
-  + R25 for each extra branch           (per month)
+    plan price (before VAT)             covers a set number of staff and branches
+  + the plan's price per extra staff    (per month)
+  + the plan's price per extra branch   (per month)
+  + VAT on the total                    (15% in South Africa)
+
+Each kind of business (funeral, general) has its own plans, set in the
+platform admin.
 
 Nothing is blocked when a business grows; the bill grows with it. A month is
 charged on its busiest day (taken from a daily snapshot), so people removed
@@ -23,20 +27,44 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.business import Business
-from app.models.pricing import PlatformPricing, UsageSnapshot
+from app.models.pricing import PlatformPricing, PricingPlan, UsageSnapshot
 from app.services import plan_limits
 
 STAFF = "staff accounts"
 BRANCHES = "branches"
 
-DEFAULTS = dict(
-    currency="ZAR",
-    base_price_cents=29900,
-    included_staff=5,
-    included_branches=1,
-    extra_staff_cents=2500,
-    extra_branch_cents=2500,
-)
+DEFAULTS = dict(currency="ZAR", vat_percent=15)
+
+# (kind, code, name, tagline, price, staff, branches, extra staff, extra branch)
+# Cents, before VAT. Funeral Beginner / Standard and general Startup /
+# Standard are the agreed figures; Enterprise and the extra-branch prices are
+# starting points for the platform owner to change.
+DEFAULT_PLANS = [
+    ("funeral", "funeral-beginner", "Beginner", "For a funeral home just starting out", 80000, 5, 1, 6000, 6000),
+    ("funeral", "funeral-standard", "Standard", "For an established funeral home", 100000, 7, 2, 6000, 6000),
+    ("funeral", "funeral-enterprise", "Enterprise", "For a larger funeral business", 180000, 15, 5, 6000, 6000),
+    ("general", "general-startup", "Startup", "For a small business just starting out", 45000, 3, 1, 5000, 5000),
+    ("general", "general-standard", "Standard", "For an established business", 95000, 6, 2, 5000, 5000),
+    ("general", "general-enterprise", "Enterprise", "For a larger business", 150000, 12, 5, 5000, 5000),
+]
+
+
+def seed_default_plans(db: Session) -> None:
+    """Create the starting plans if there are none."""
+    if db.query(PricingPlan.id).first() is not None:
+        return
+    for order, (kind, code, name, tag, base, staff, branches, xs, xb) in enumerate(
+        DEFAULT_PLANS
+    ):
+        db.add(
+            PricingPlan(
+                business_type=kind, code=code, name=name, tagline=tag,
+                base_price_cents=base, included_staff=staff,
+                included_branches=branches, extra_staff_cents=xs,
+                extra_branch_cents=xb, sort_order=order, is_active=True,
+            )
+        )
+    db.flush()
 
 
 def today() -> date:
@@ -44,6 +72,7 @@ def today() -> date:
 
 
 def get_pricing(db: Session) -> PlatformPricing:
+    """Settings shared by every plan: VAT rate and the note under the prices."""
     row = db.get(PlatformPricing, 1)
     if row is None:
         row = PlatformPricing(id=1, **DEFAULTS)
@@ -52,16 +81,57 @@ def get_pricing(db: Session) -> PlatformPricing:
     return row
 
 
-def pricing_dict(p: PlatformPricing) -> dict:
+def settings_dict(p: PlatformPricing) -> dict:
     return {
         "currency": p.currency,
-        "base_price_cents": p.base_price_cents,
-        "included_staff": p.included_staff,
-        "included_branches": p.included_branches,
-        "extra_staff_cents": p.extra_staff_cents,
-        "extra_branch_cents": p.extra_branch_cents,
+        "vat_percent": p.vat_percent,
         "price_note": p.price_note,
     }
+
+
+def plan_dict(plan: PricingPlan) -> dict:
+    return {
+        "id": str(plan.id),
+        "code": plan.code,
+        "business_type": plan.business_type,
+        "name": plan.name,
+        "tagline": plan.tagline,
+        "base_price_cents": plan.base_price_cents,
+        "included_staff": plan.included_staff,
+        "included_branches": plan.included_branches,
+        "extra_staff_cents": plan.extra_staff_cents,
+        "extra_branch_cents": plan.extra_branch_cents,
+        "is_active": plan.is_active,
+    }
+
+
+def plans_for(db: Session, business_type: str, *, only_active: bool = True):
+    seed_default_plans(db)
+    q = db.query(PricingPlan).filter(PricingPlan.business_type == business_type)
+    if only_active:
+        q = q.filter(PricingPlan.is_active.is_(True))
+    return q.order_by(PricingPlan.sort_order, PricingPlan.name).all()
+
+
+def plan_for(db: Session, business: Business) -> PricingPlan:
+    """The business's chosen plan, or the first plan for its kind of business."""
+    if business.plan_id:
+        chosen = db.get(PricingPlan, business.plan_id)
+        if chosen is not None:
+            return chosen
+    options = plans_for(db, business.business_type) or plans_for(
+        db, business.business_type, only_active=False
+    )
+    if not options:
+        # Nothing set up for this kind of business: use any plan at all.
+        options = db.query(PricingPlan).order_by(PricingPlan.sort_order).all()
+    return options[0]
+
+
+def vat_split(ex_vat_cents: int, vat_percent: int) -> tuple[int, int]:
+    """(vat, total including vat), rounded to the cent."""
+    vat = (ex_vat_cents * vat_percent + 50) // 100
+    return vat, ex_vat_cents + vat
 
 
 def quote(
@@ -70,8 +140,12 @@ def quote(
     staff: int,
     branches: int,
     base_override_cents: int | None = None,
+    vat_percent: int = 0,
 ) -> dict:
-    """The monthly price for this many staff and branches."""
+    """The monthly price on this plan for this many staff and branches.
+
+    `total_cents` is before VAT; `total_incl_vat_cents` adds `vat_percent`.
+    """
     staff = max(0, staff)
     branches = max(0, branches)
     extra_staff = max(0, staff - p.included_staff)
@@ -81,7 +155,7 @@ def quote(
     lines = [
         {
             "label": "Agreed plan price" if base_override_cents is not None
-            else "Standard plan",
+            else f"{p.name} plan",
             "detail": f"Includes {p.included_staff} staff and "
             f"{p.included_branches} branch{'' if p.included_branches == 1 else 'es'}",
             "quantity": 1,
@@ -110,13 +184,18 @@ def quote(
             }
         )
 
+    total = sum(line["amount_cents"] for line in lines)
+    vat, incl = vat_split(total, vat_percent)
     return {
         "staff": staff,
         "branches": branches,
         "extra_staff": extra_staff,
         "extra_branches": extra_branches,
         "lines": lines,
-        "total_cents": sum(line["amount_cents"] for line in lines),
+        "total_cents": total,
+        "vat_percent": vat_percent,
+        "vat_cents": vat,
+        "total_incl_vat_cents": incl,
     }
 
 
@@ -125,13 +204,15 @@ def counts_now(db: Session, business_id) -> tuple[int, int]:
     return used[STAFF], used[BRANCHES]
 
 
-def next_costs(p: PlatformPricing, staff: int, branches: int) -> dict:
+def next_costs(plan, staff: int, branches: int, vat_percent: int = 0) -> dict:
     """What adding one more staff account or branch would add per month."""
+    staff_cents = plan.extra_staff_cents if staff >= plan.included_staff else 0
+    branch_cents = plan.extra_branch_cents if branches >= plan.included_branches else 0
     return {
-        "next_staff_cents": p.extra_staff_cents if staff >= p.included_staff else 0,
-        "next_branch_cents": (
-            p.extra_branch_cents if branches >= p.included_branches else 0
-        ),
+        "next_staff_cents": staff_cents,
+        "next_staff_incl_vat_cents": vat_split(staff_cents, vat_percent)[1],
+        "next_branch_cents": branch_cents,
+        "next_branch_incl_vat_cents": vat_split(branch_cents, vat_percent)[1],
     }
 
 
@@ -206,13 +287,15 @@ def peaks(db: Session, business: Business, year: int, month: int) -> tuple[int, 
 
 
 def statement(db: Session, business: Business, year: int, month: int) -> dict:
-    p = get_pricing(db)
+    plan = plan_for(db, business)
+    vat_percent = get_pricing(db).vat_percent
     staff, branches = peaks(db, business, year, month)
     q = quote(
-        p,
+        plan,
         staff=staff,
         branches=branches,
         base_override_cents=business.base_price_override_cents,
+        vat_percent=vat_percent,
     )
     status = business.subscription_status
     billable = status == "active"
@@ -229,7 +312,12 @@ def statement(db: Session, business: Business, year: int, month: int) -> dict:
         "peak_staff": staff,
         "peak_branches": branches,
         **{k: q[k] for k in ("extra_staff", "extra_branches", "lines")},
+        "plan": plan.name,
+        "vat_percent": vat_percent,
         "list_total_cents": q["total_cents"],
+        "list_total_incl_vat_cents": q["total_incl_vat_cents"],
         "amount_due_cents": q["total_cents"] if billable else 0,
+        "vat_cents": q["vat_cents"] if billable else 0,
+        "amount_due_incl_vat_cents": q["total_incl_vat_cents"] if billable else 0,
         "note": reason,
     }

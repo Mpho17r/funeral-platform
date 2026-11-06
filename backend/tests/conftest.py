@@ -116,6 +116,7 @@ def db():
             # Platform administration
             "platform_admins",
             "platform_pricing",
+            "pricing_plans",
             "usage_snapshots",
 
             # Portal links
@@ -189,6 +190,13 @@ def db():
                 )
             )
 
+        session.commit()
+
+        # The starting pricing plans (the migration creates them on a real
+        # database; the tables were just emptied).
+        from app.services.pricing import seed_default_plans
+
+        seed_default_plans(session)
         session.commit()
 
         # Rebuild the application permission catalogue and

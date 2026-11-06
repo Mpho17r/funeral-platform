@@ -17,16 +17,24 @@ type Row = {
   usage: Record<string, number>;
   base_price_override_cents: number | null;
   monthly_cents: number;
+  plan: string;
 };
 
-type Pricing = {
+type Plan = {
+  id: string;
+  code: string;
+  business_type: string;
+  name: string;
+  tagline: string | null;
   base_price_cents: number;
   included_staff: number;
   included_branches: number;
   extra_staff_cents: number;
   extra_branch_cents: number;
-  price_note: string | null;
+  is_active: boolean;
 };
+
+type Pricing = { vat_percent: number; price_note: string | null };
 
 const rands = (c: number) => `R${(c / 100).toLocaleString("en-ZA")}`;
 
@@ -53,6 +61,7 @@ export default function PlatformPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pricing, setPricing] = useState<Pricing | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [priceSaved, setPriceSaved] = useState(false);
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
@@ -76,7 +85,9 @@ export default function PlatformPage() {
     try {
       const r = await axios.get<Row[]>(`${API}/platform/businesses`, auth());
       const p = await axios.get<Pricing>(`${API}/pricing`);
+      const pl = await axios.get<Plan[]>(`${API}/platform/plans`, auth());
       setPricing(p.data);
+      setPlans(pl.data);
       setRows(r.data);
       setError("");
     } catch (e) {
@@ -125,18 +136,12 @@ export default function PlatformPage() {
   async function savePricing(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const cents = (k: string) => Math.round(Number(f.get(k)) * 100);
-    const count = (k: string) => Math.round(Number(f.get(k)));
     try {
       setError("");
       await axios.put(
         `${API}/platform/pricing`,
         {
-          base_price_cents: cents("base"),
-          included_staff: count("staff"),
-          included_branches: count("branches"),
-          extra_staff_cents: cents("xstaff"),
-          extra_branch_cents: cents("xbranch"),
+          vat_percent: Math.round(Number(f.get("vat"))),
           price_note: String(f.get("note") ?? ""),
         },
         auth(),
@@ -145,6 +150,33 @@ export default function PlatformPage() {
       await load();
     } catch (err) {
       setError(detail(err, "Could not save the prices."));
+    }
+  }
+
+  async function savePlan(e: FormEvent<HTMLFormElement>, plan: Plan) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const cents = (k: string) => Math.round(Number(f.get(k)) * 100);
+    const count = (k: string) => Math.round(Number(f.get(k)));
+    try {
+      setError("");
+      await axios.put(
+        `${API}/platform/plans/${plan.id}`,
+        {
+          name: String(f.get("name") ?? ""),
+          base_price_cents: cents("base"),
+          included_staff: count("staff"),
+          included_branches: count("branches"),
+          extra_staff_cents: cents("xstaff"),
+          extra_branch_cents: cents("xbranch"),
+          is_active: f.get("active") === "on",
+        },
+        auth(),
+      );
+      setPriceSaved(true);
+      await load();
+    } catch (err) {
+      setError(detail(err, "Could not save the plan."));
     }
   }
 
@@ -217,35 +249,69 @@ export default function PlatformPage() {
       {error && <p className="text-sm text-red-700">{error}</p>}
 
       {pricing && (
-        <section className="space-y-3 rounded-2xl border bg-white p-4">
-          <h2 className="font-semibold text-slate-900">Prices (rands per month)</h2>
+        <section className="space-y-4 rounded-2xl border bg-white p-4">
+          <h2 className="font-semibold text-slate-900">
+            Plans (rands per month, before VAT)
+          </h2>
+          {plans.map((pl) => (
+            <form
+              key={pl.id + JSON.stringify(pl)}
+              onSubmit={(e) => void savePlan(e, pl)}
+              onChange={() => setPriceSaved(false)}
+              className="grid grid-cols-2 gap-3 rounded-xl border p-3 sm:grid-cols-6"
+            >
+              <p className="col-span-2 text-xs font-semibold uppercase text-slate-500 sm:col-span-6">
+                {pl.business_type === "funeral" ? "Funeral" : "Other business"}
+              </p>
+              {[
+                ["name", "Name", pl.name, "text"],
+                ["base", "Price excl. VAT", pl.base_price_cents / 100, "number"],
+                ["staff", "Staff included", pl.included_staff, "number"],
+                ["branches", "Branches included", pl.included_branches, "number"],
+                ["xstaff", "Each extra staff", pl.extra_staff_cents / 100, "number"],
+                ["xbranch", "Each extra branch", pl.extra_branch_cents / 100, "number"],
+              ].map(([name, label, value, type]) => (
+                <label key={name as string} className="text-xs text-slate-500">
+                  {label}
+                  <input
+                    name={name as string}
+                    type={type as string}
+                    min={0}
+                    step="0.01"
+                    defaultValue={value as string | number}
+                    className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm text-slate-900"
+                  />
+                </label>
+              ))}
+              <label className="flex items-center gap-2 text-xs text-slate-500">
+                <input name="active" type="checkbox" defaultChecked={pl.is_active} />
+                Offered
+              </label>
+              <button className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white">
+                Save plan
+              </button>
+            </form>
+          ))}
+
           <form
             key={JSON.stringify(pricing)}
             onSubmit={savePricing}
             onChange={() => setPriceSaved(false)}
-            className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+            className="grid grid-cols-2 gap-3 border-t pt-3 sm:grid-cols-4"
           >
-            {[
-              ["base", "Standard price", pricing.base_price_cents / 100],
-              ["staff", "Staff included", pricing.included_staff],
-              ["branches", "Branches included", pricing.included_branches],
-              ["xstaff", "Each extra staff", pricing.extra_staff_cents / 100],
-              ["xbranch", "Each extra branch", pricing.extra_branch_cents / 100],
-            ].map(([name, label, value]) => (
-              <label key={name as string} className="text-xs text-slate-500">
-                {label}
-                <input
-                  name={name as string}
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  defaultValue={value as number}
-                  className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm text-slate-900"
-                />
-              </label>
-            ))}
+            <label className="text-xs text-slate-500">
+              VAT %
+              <input
+                name="vat"
+                type="number"
+                min={0}
+                max={100}
+                defaultValue={pricing.vat_percent}
+                className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm text-slate-900"
+              />
+            </label>
             <label className="col-span-2 text-xs text-slate-500 sm:col-span-3">
-              Note shown under prices (for example about VAT)
+              Note shown under the prices
               <input
                 name="note"
                 maxLength={200}
@@ -253,9 +319,9 @@ export default function PlatformPage() {
                 className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm text-slate-900"
               />
             </label>
-            <div className="col-span-2 flex items-center gap-3 sm:col-span-3">
+            <div className="col-span-2 flex items-center gap-3 sm:col-span-4">
               <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
-                Save prices
+                Save VAT and note
               </button>
               {priceSaved && <span className="text-sm text-green-700">Saved</span>}
             </div>
@@ -288,7 +354,7 @@ export default function PlatformPage() {
             <p className="font-semibold text-slate-900">
               {r.name}
               <span className="ml-2 text-sm font-normal text-slate-500">
-                {rands(r.monthly_cents)} / month now
+                {r.plan} · {rands(r.monthly_cents)} / month excl. VAT
               </span>
             </p>
             <div className="flex gap-2">
