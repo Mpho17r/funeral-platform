@@ -6,6 +6,7 @@ Revises: k9c1d2e3f458
 Only rows still matching the original seed values are changed. Any plan
 manually customised by the platform owner is left untouched.
 """
+import sqlalchemy as sa
 from alembic import op
 
 revision = "p7a9b0c1d23e"
@@ -24,17 +25,21 @@ def upgrade() -> None:
         ("general-standard", 95000, 109900, 5000, 5000, 9900),
         ("general-enterprise", 150000, 199900, 5000, 5000, 9900),
     ]
+    bind = op.get_bind()
+    statement = sa.text(
+        """
+        UPDATE pricing_plans
+        SET base_price_cents = :new_base,
+            extra_branch_cents = :new_branch
+        WHERE code = :code
+          AND base_price_cents = :old_base
+          AND extra_staff_cents = :extra_staff
+          AND extra_branch_cents = :old_branch
+        """
+    )
     for code, old_base, new_base, extra_staff, old_branch, new_branch in rows:
-        op.execute(
-            """
-            UPDATE pricing_plans
-            SET base_price_cents = :new_base,
-                extra_branch_cents = :new_branch
-            WHERE code = :code
-              AND base_price_cents = :old_base
-              AND extra_staff_cents = :extra_staff
-              AND extra_branch_cents = :old_branch
-            """,
+        bind.execute(
+            statement,
             {
                 "code": code,
                 "old_base": old_base,
