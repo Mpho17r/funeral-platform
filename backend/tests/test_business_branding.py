@@ -530,7 +530,7 @@ def test_logo_upload_accepts_png_signature(client, test_data, auth_headers):
     response = client.post(
         f"/businesses/{business.id}/branding/logo",
         headers=headers,
-        files={"file": ("logo.png", b"\\x89PNG\\r\\n\\x1a\\nvalid-test-payload", "image/png")},
+        files={"file": ("logo.png", b"\x89PNG\r\n\x1a\nvalid-test-payload", "image/png")},
     )
     assert response.status_code == 200
     assert response.json()["logo_url"] == f"/businesses/{business.id}/branding/logo"
@@ -557,7 +557,7 @@ def test_logo_upload_rejects_images_over_five_megabytes(
     response = client.post(
         f"/businesses/{business.id}/branding/logo",
         headers=headers,
-        files={"file": ("logo.png", b"\\x89PNG\\r\\n\\x1a\\n" + b"x" * (5 * 1024 * 1024), "image/png")},
+        files={"file": ("logo.png", b"\x89PNG\r\n\x1a\n" + b"x" * (5 * 1024 * 1024), "image/png")},
     )
     assert response.status_code == 400
 
