@@ -159,3 +159,11 @@ def test_limits_count_every_branch_even_for_a_branch_limited_person(
     finally:
         db.rollback()
         set_scope(db, None)
+
+
+def test_grouped_usage_matches_single_business_usage(db, test_data):
+    from app.services import plan_limits
+
+    business = test_data["business_a"]
+    grouped = plan_limits.usage_many(db, [business.id])
+    assert grouped[business.id] == plan_limits.usage(db, business.id)
