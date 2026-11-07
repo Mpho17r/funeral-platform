@@ -9,6 +9,7 @@ It replaces setting up four separate cron entries:
   every  5 minutes   move funerals along as arrangements are confirmed
   every 30 minutes   mortuary alerts and licence renewal reminders
   daily at 07:00     payment reminders for businesses that turned them on
+  hourly            staff and branch usage snapshots for subscription statements
   daily at 02:00     backup of the database and uploaded files
 
 Times are South African time (SCHEDULER_TIMEZONE). If the computer was off
@@ -245,7 +246,7 @@ def build_jobs() -> list[Job]:
         Job("autopilot", _autopilot, every_minutes=15),
         Job("autopilot_briefing", _briefing, daily_hour=7, window_hours=10),
         # Staff and branch counts for the monthly bill.
-        Job("usage", _usage, every_minutes=360),
+        Job("usage", _usage, every_minutes=60),
     ]
     if settings.scheduler_backups_enabled:
         jobs.append(
