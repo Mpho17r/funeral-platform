@@ -53,3 +53,17 @@ def test_daily_job_does_not_retry_outside_its_window():
     now = datetime(2026, 11, 8, 0, 10, tzinfo=TZ)
 
     assert not is_due(job, last, now, TZ, last_ok=False)
+
+
+def test_interval_jobs_keep_their_existing_retry_interval():
+    job = Job("delivery", lambda: "ok", every_minutes=10)
+    last = datetime(2026, 11, 7, 2, 10, tzinfo=TZ)
+
+    assert not is_due(
+        job, last, datetime(2026, 11, 7, 2, 19, tzinfo=TZ), TZ,
+        last_ok=False,
+    )
+    assert is_due(
+        job, last, datetime(2026, 11, 7, 2, 20, tzinfo=TZ), TZ,
+        last_ok=False,
+    )
