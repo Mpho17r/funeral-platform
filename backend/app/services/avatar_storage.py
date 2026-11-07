@@ -4,30 +4,20 @@ person, replaced when they change it."""
 from pathlib import Path
 from uuid import UUID
 
+from app.services.image_validation import validate_image
+
 MAX_AVATAR_BYTES = 2 * 1024 * 1024
 STORAGE_ROOT = Path("storage/avatars")
-
-# What the file really is is decided by its first bytes, never by the
-# name or content type the browser claims.
-SIGNATURES = (
-    (b"\x89PNG\r\n\x1a\n", ".png", "image/png"),
-    (b"\xff\xd8\xff", ".jpg", "image/jpeg"),
-)
-
 
 class AvatarError(ValueError):
     """The uploaded photo cannot be used."""
 
 
 def detect_type(contents: bytes) -> tuple[str, str]:
-    for signature, extension, media_type in SIGNATURES:
-        if contents.startswith(signature):
-            return extension, media_type
-
-    if contents[:4] == b"RIFF" and contents[8:12] == b"WEBP":
-        return ".webp", "image/webp"
-
-    raise AvatarError("Use a PNG, JPEG or WebP picture.")
+    try:
+        return validate_image(contents)
+    except ValueError as exc:
+        raise AvatarError(str(exc)) from exc
 
 
 def _folder(business_id: UUID) -> Path:
