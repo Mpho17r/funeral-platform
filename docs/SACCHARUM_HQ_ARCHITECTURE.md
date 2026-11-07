@@ -100,6 +100,39 @@ Start as a **modular monolith** for HQ rather than premature microservices. Keep
 
 ### 4.1 Logical components
 
+```mermaid
+flowchart LR
+    Operator[Owner and authorised operators]
+    subgraph HQ["Saccharum HQ security boundary"]
+        Web[HQ Web application]
+        API[HQ API and domain services]
+        DB[(HQ PostgreSQL database)]
+        Worker[Background worker and scheduler]
+        Files[(Encrypted object storage)]
+        Obs[Logs, metrics, traces and alerts]
+        Web --> API
+        API <--> DB
+        Worker <--> DB
+        API <--> Files
+        Worker <--> Files
+        API --> Obs
+        Worker --> Obs
+    end
+    subgraph Products["Separate product environments"]
+        LindaAPI[LINDA versioned API]
+        LindaDB[(LINDA tenant database)]
+        OtherAPI[Future product APIs]
+        LindaAPI --> LindaDB
+    end
+    Operator --> Web
+    API <-->|Authenticated API calls| LindaAPI
+    Worker <-->|Signed webhooks and idempotent sync| LindaAPI
+    Worker <-->|Versioned connector contract| OtherAPI
+```
+
+**Boundary rule:** HQ connects to LINDA through its API and signed events. There is deliberately no direct HQ-to-LINDA-database connection.
+
+
 - **HQ web application:** authenticated operator interface, dashboards, workflows and reports.
 - **HQ API:** authorization, validation, domain services and integration endpoints.
 - **HQ relational database:** canonical HQ records, audit events, finance subledger and workflow state.
