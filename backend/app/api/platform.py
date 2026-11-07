@@ -152,15 +152,22 @@ def platform_summary(
     db: Session = Depends(get_db),
     admin: PlatformAdmin = Depends(get_platform_admin),
 ):
-    rows = [_business_row(db, b) for b in db.query(Business).all()]
+    # The summary needs only aggregate counts. Do not build a full pricing
+    # row for every customer or issue one count query per business.
+    businesses = db.query(Business.id, Business.subscription_status).all()
+    business_ids = [business_id for business_id, _ in businesses]
+
     by_status: dict[str, int] = {}
-    for r in rows:
-        by_status[r["status"]] = by_status.get(r["status"], 0) + 1
+    for _, status in businesses:
+        by_status[status] = by_status.get(status, 0) + 1
+
+    usage = plan_limits.usage_many(db, business_ids)
     totals: dict[str, int] = {}
-    for r in rows:
-        for key, value in r["usage"].items():
+    for counts in usage.values():
+        for key, value in counts.items():
             totals[key] = totals.get(key, 0) + value
-    return {"businesses": len(rows), "by_status": by_status, "totals": totals}
+
+    return {"businesses": len(businesses), "by_status": by_status, "totals": totals}
 
 
 class SubscriptionUpdate(BaseModel):
