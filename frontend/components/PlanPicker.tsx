@@ -65,6 +65,10 @@ export function PlanPicker({
                   <Check size={16} className="mt-0.5 shrink-0" />
                   Extra staff {rands(p.extra_staff_cents)} each
                 </li>
+                <li className="flex gap-2">
+                  <Check size={16} className="mt-0.5 shrink-0" />
+                  Extra branch {rands(p.extra_branch_cents)} each
+                </li>
               </ul>
               {p.tagline && (
                 <p className="mt-3 text-xs text-slate-500">{p.tagline}</p>
