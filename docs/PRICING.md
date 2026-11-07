@@ -60,7 +60,7 @@ Competitor prices can change and should be rechecked before a public campaign. T
 ## Billing model currently implemented
 
 - Plans are monthly and stored as integer cents.
-- The existing engine calculates the month using peak recorded staff and branch counts.
+- The existing engine calculates the month using peak recorded staff and branch counts. Usage is sampled hourly; very short-lived peaks between snapshots can still be missed, so event-driven usage capture should be completed before automated recurring billing goes live.
 - It currently has no recurring payment collection or payment-provider reconciliation. Statements are calculations, not proof of payment.
 - There is no part-month proration in the current engine.
 - Separate subscription-tier safety caps can restrict users, branches, members or active cases. They are distinct from the billable staff/branch inclusions; their interaction with metered overages is under review and must be made consistent before public launch.
