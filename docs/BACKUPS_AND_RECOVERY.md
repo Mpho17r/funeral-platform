@@ -12,7 +12,7 @@ From the `backend` folder with the virtual environment active:
 python -m app.run_backup
 ```
 
-This creates `backend/backups/funeralos-YYYYMMDD-HHMMSS/` containing
+This creates `backend/backups/funeralos-YYYYMMDD-HHMMSS-xxxxxxxx/` containing
 
 - `database.dump` – a full PostgreSQL dump
 - `files.tar.gz` – everything in `storage/`
@@ -87,10 +87,10 @@ Practise this once on a spare database before you ever need it.
 # 1. Create an empty database and restore into it
 createdb funeralos_restored
 pg_restore --no-owner --dbname funeralos_restored \
-  backups/funeralos-YYYYMMDD-HHMMSS/database.dump
+  backups/funeralos-YYYYMMDD-HHMMSS-xxxxxxxx/database.dump
 
 # 2. Restore the uploaded files
-tar -xzf backups/funeralos-YYYYMMDD-HHMMSS/files.tar.gz   # recreates ./storage
+tar -xzf backups/funeralos-YYYYMMDD-HHMMSS-xxxxxxxx/files.tar.gz   # recreates ./storage
 
 # 3. Point the app at it (DATABASE_URL in .env) and start it
 ```
