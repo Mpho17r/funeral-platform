@@ -618,7 +618,7 @@ def test_replacing_png_logo_with_jpeg_serves_only_the_new_file(
     current = client.get(url, headers=headers)
     assert current.status_code == 200
     assert current.headers["content-type"] == "image/jpeg"
-    assert current.content.startswith(b"\\xff\\xd8\\xff")
+    assert current.content.startswith(bytes.fromhex("ffd8ff"))
 
     folder = business_storage.STORAGE_ROOT / str(business.id)
     assert not (folder / "logo.png").exists()
