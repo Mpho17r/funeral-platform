@@ -75,7 +75,7 @@ or the last run failed.
 
 A backup on the same machine does not survive that machine breaking, being
 stolen or flooded. Copy `backend/backups` to an external drive or cloud
-storage regularly (for example `rclone sync backups remote:funeralos`).
+storage regularly (for example `rclone copy backups remote:funeralos`).
 Backups contain personal information: encrypt the drive or storage and
 limit who can open it.
 
