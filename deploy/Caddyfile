@@ -1,8 +1,11 @@
-# HTTPS certificates are fetched and renewed automatically.
-{$APP_DOMAIN} {
-	reverse_proxy web:3000
-}
+linda.saccharumtech.co.za {
+    encode zstd gzip
 
-{$API_DOMAIN} {
-	reverse_proxy api:8000
+    handle_path /api/* {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:3000
+    }
 }

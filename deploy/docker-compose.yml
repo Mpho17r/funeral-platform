@@ -1,6 +1,8 @@
-# One small server running everything. See docs/HOSTING.md.
+name: linda
+
 services:
   db:
+    platform: linux/amd64
     image: postgres:16
     restart: unless-stopped
     environment:
@@ -10,70 +12,100 @@ services:
     volumes:
       - dbdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U funeralos"]
+      test: ["CMD-SHELL", "pg_isready -U funeralos -d funeralos"]
       interval: 10s
+      timeout: 5s
       retries: 6
+      start_period: 10s
+    networks:
+      - linda_net
+
+  migrate:
+    platform: linux/amd64
+    build: ../backend
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://funeralos:${DB_PASSWORD}@db:5432/funeralos
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed_permissions"]
+    networks:
+      - linda_net
 
   api:
+    platform: linux/amd64
     build: ../backend
     restart: unless-stopped
-    depends_on:
-      db: { condition: service_healthy }
-    env_file: .env
+    env_file:
+      - .env
     environment:
       APP_ENV: production
       DATABASE_URL: postgresql+psycopg://funeralos:${DB_PASSWORD}@db:5432/funeralos
-      CORS_ORIGINS: https://${APP_DOMAIN}
+      CORS_ORIGINS: https://${APP_DOMAIN:?set APP_DOMAIN in deploy/.env}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - storage:/app/storage
       - backups:/app/backups
-    # Apply database changes, then serve.
-    command: >
-      sh -c "alembic upgrade head &&
-             python -m app.seed_permissions &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000
-             --proxy-headers --forwarded-allow-ips='*'"
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --proxy-headers
+      - --forwarded-allow-ips=172.20.0.1
+    networks:
+      - linda_net
 
   scheduler:
+    platform: linux/amd64
     build: ../backend
     restart: unless-stopped
-    depends_on:
-      - api
-    env_file: .env
+    env_file:
+      - .env
     environment:
       APP_ENV: production
       DATABASE_URL: postgresql+psycopg://funeralos:${DB_PASSWORD}@db:5432/funeralos
-      CORS_ORIGINS: https://${APP_DOMAIN}
+      CORS_ORIGINS: https://${APP_DOMAIN:?set APP_DOMAIN in deploy/.env}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - storage:/app/storage
       - backups:/app/backups
-    command: python -m app.run_scheduler
+    command: ["python", "-m", "app.run_scheduler"]
+    networks:
+      - linda_net
 
   web:
+    platform: linux/amd64
     build:
       context: ../frontend
       args:
-        NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
-    restart: unless-stopped
-
-  caddy:
-    image: caddy:2
+        NEXT_PUBLIC_API_URL: https://${APP_DOMAIN:?set APP_DOMAIN in deploy/.env}/api
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN}
-      API_DOMAIN: ${API_DOMAIN}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddydata:/data
-    depends_on:
-      - api
-      - web
+      - "127.0.0.1:3000:3000"
+    networks:
+      - linda_net
 
 volumes:
   dbdata:
   storage:
   backups:
-  caddydata:
+
+networks:
+  linda_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
