@@ -63,11 +63,11 @@ export function PlanPicker({
                 </li>
                 <li className="flex gap-2">
                   <Check size={16} className="mt-0.5 shrink-0" />
-                  Extra staff {rands(p.extra_staff_cents)} each
+                  Extra staff {rands(p.extra_staff_cents)} each excl. VAT
                 </li>
                 <li className="flex gap-2">
                   <Check size={16} className="mt-0.5 shrink-0" />
-                  Extra branch {rands(p.extra_branch_cents)} each
+                  Extra branch {rands(p.extra_branch_cents)} each excl. VAT
                 </li>
               </ul>
               {p.tagline && (
