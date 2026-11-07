@@ -82,7 +82,7 @@ def test_replacing_photo_keeps_one_file(client, test_data, auth_headers):
     user = test_data["staff"]
     h = auth_headers(user)
     put_avatar(client, h, png_bytes())
-    put_avatar(client, h, b"\xff\xd8\xff\xe0" + b"0" * 50, "x.jpg", "image/jpeg")
+    put_avatar(client, h, jpeg_bytes(), "x.jpg", "image/jpeg")
 
     found = avatar_storage.find_avatar(user.business_id, user.id)
     assert found and found[0].suffix == ".jpg"
