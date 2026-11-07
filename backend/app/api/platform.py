@@ -108,7 +108,24 @@ def platform_login(
     return {"access_token": make_token(admin), "token_type": "bearer"}
 
 
-def _business_row(db: Session, b: Business) -> dict:
+def _business_row(
+    db: Session,
+    b: Business,
+    *,
+    usage: dict | None = None,
+    plan: PricingPlan | None = None,
+) -> dict:
+    # Callers rendering many businesses pass preloaded usage and plans to
+    # avoid an N+1 query pattern. Single-business updates can use the defaults.
+    usage = usage if usage is not None else plan_limits.usage(db, b.id)
+    plan = plan or pricing_service.plan_for(db, b)
+    monthly = pricing_service.quote(
+        plan,
+        staff=usage[pricing_service.STAFF],
+        branches=usage[pricing_service.BRANCHES],
+        base_override_cents=b.base_price_override_cents,
+    )["total_cents"]
+
     return {
         "id": b.id,
         "name": b.name,
@@ -119,15 +136,10 @@ def _business_row(db: Session, b: Business) -> dict:
         "status": b.subscription_status,
         "trial_ends_at": b.trial_ends_at,
         "limits": plan_limits.limits(b),
-        "usage": plan_limits.usage(db, b.id),
+        "usage": usage,
         "base_price_override_cents": b.base_price_override_cents,
-        "plan": pricing_service.plan_for(db, b).name,
-        "monthly_cents": pricing_service.quote(
-            pricing_service.plan_for(db, b),
-            staff=plan_limits.usage(db, b.id)[pricing_service.STAFF],
-            branches=plan_limits.usage(db, b.id)[pricing_service.BRANCHES],
-            base_override_cents=b.base_price_override_cents,
-        )["total_cents"],
+        "plan": plan.name,
+        "monthly_cents": monthly,
     }
 
 
@@ -136,8 +148,47 @@ def platform_businesses(
     db: Session = Depends(get_db),
     admin: PlatformAdmin = Depends(get_platform_admin),
 ):
-    rows = db.query(Business).order_by(Business.created_at.desc()).all()
-    return [_business_row(db, b) for b in rows]
+    businesses = db.query(Business).order_by(Business.created_at.desc()).all()
+    business_ids = [business.id for business in businesses]
+    usage_by_business = plan_limits.usage_many(db, business_ids)
+
+    # Ensure default plans exist once, not once per business row.
+    pricing_service.seed_default_plans(db)
+
+    # Load plans once, then select each business's chosen plan or the same
+    # active-first fallback used by pricing_service.plan_for().
+    plans = db.query(PricingPlan).order_by(
+        PricingPlan.sort_order, PricingPlan.name
+    ).all()
+    plans_by_id = {plan.id: plan for plan in plans}
+    active_by_type: dict[str, list[PricingPlan]] = {}
+    all_by_type: dict[str, list[PricingPlan]] = {}
+    for plan in plans:
+        all_by_type.setdefault(plan.business_type, []).append(plan)
+        if plan.is_active:
+            active_by_type.setdefault(plan.business_type, []).append(plan)
+
+    fallback_plans = db.query(PricingPlan).order_by(
+        PricingPlan.sort_order
+    ).all()
+
+    def selected_plan(business: Business) -> PricingPlan:
+        if business.plan_id and business.plan_id in plans_by_id:
+            return plans_by_id[business.plan_id]
+        options = active_by_type.get(business.business_type) or all_by_type.get(
+            business.business_type
+        ) or fallback_plans
+        return options[0]
+
+    return [
+        _business_row(
+            db,
+            business,
+            usage=usage_by_business[business.id],
+            plan=selected_plan(business),
+        )
+        for business in businesses
+    ]
 
 
 @router.get("/platform/summary")
@@ -145,15 +196,22 @@ def platform_summary(
     db: Session = Depends(get_db),
     admin: PlatformAdmin = Depends(get_platform_admin),
 ):
-    rows = [_business_row(db, b) for b in db.query(Business).all()]
+    # The summary needs only aggregate counts. Do not build a full pricing
+    # row for every customer or issue one count query per business.
+    businesses = db.query(Business.id, Business.subscription_status).all()
+    business_ids = [business_id for business_id, _ in businesses]
+
     by_status: dict[str, int] = {}
-    for r in rows:
-        by_status[r["status"]] = by_status.get(r["status"], 0) + 1
+    for _, status in businesses:
+        by_status[status] = by_status.get(status, 0) + 1
+
+    usage = plan_limits.usage_many(db, business_ids)
     totals: dict[str, int] = {}
-    for r in rows:
-        for key, value in r["usage"].items():
+    for counts in usage.values():
+        for key, value in counts.items():
             totals[key] = totals.get(key, 0) + value
-    return {"businesses": len(rows), "by_status": by_status, "totals": totals}
+
+    return {"businesses": len(businesses), "by_status": by_status, "totals": totals}
 
 
 class SubscriptionUpdate(BaseModel):
