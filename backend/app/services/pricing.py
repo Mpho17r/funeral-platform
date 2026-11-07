@@ -222,7 +222,8 @@ def next_costs(plan, staff: int, branches: int, vat_percent: int = 0) -> dict:
 def record_snapshots(db: Session, day: date | None = None) -> int:
     """Note today's staff and branch counts for every business in service.
 
-    Run daily. If it runs more than once in a day the larger counts are kept.
+    The scheduler runs this hourly. If it runs more than once in a day the
+    larger counts are kept so statements use the observed daily peak.
     """
     day = day or today()
     saved = 0
