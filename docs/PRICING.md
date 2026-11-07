@@ -19,6 +19,35 @@ Standard is the intended core revenue plan. Startup is an accessible entry point
 
 The extra-branch amounts are a separate recommendation from the earlier base-price proposal: branches create more operational overhead than an additional staff login, so they should not be priced at the same low add-on rate. The R149 funeral / R99 general branch add-ons are proposed launch assumptions and should be tested with real customer conversations before being treated as validated market prices.
 
+## South African market snapshot
+
+Public competitor prices checked on **7 November 2026**. These are directional comparisons, not like-for-like product evaluations; included members, users, support, onboarding, integrations and payment features differ.
+
+| Product | Public monthly prices found | Positioning note |
+| --- | --- | --- |
+| [DignityFlow](https://dignityflow.co.za/) | R589 / R889 / R1,889, plus once-off setup fees of R3,500 / R6,500 / R15,500 | Funeral parlour CRM; multi-branch and member capacity increases by tier |
+| [Funeral Service System](https://funeralservicesystem.com/pricing) | R199 / R299 / R699 / R849 | Member-count-led plans with limited admin/staff logins and bundled messaging credits |
+| [FuneralPlus](https://funeralplus.co.za/) | R800 Basic / R1,800 Pro; Enterprise custom | Funeral planning, cases, billing, integrations and multi-branch features at higher tiers |
+| [Policy Point](https://policypoint.co.za/) | R299 / R599 / R1,199 | More focused funeral policy/member administration |
+| [Proppela](https://www.proppela.co.za/) | Starts at R1,750; published examples R2,350 / R3,550 / R7,750 | Larger funeral-business operating platform with assisted implementation |
+| [Vivid Business](https://slgroup.co.za/vivid-business.html) | R299 | General SME finance/operations core with add-on modules |
+| [Zentify](https://zentify.co.za/) | R299 / R399 / R599 | General SME business management with tiered user/storage limits |
+
+### What this means for LINDA
+
+The recommended funeral prices (R899 / R1,299 / R2,499) sit above the lower-cost funeral software segment and around or above some established multi-module offers. The general-business prices (R499 / R1,099 / R1,999) also position LINDA above many entry-level SME tools.
+
+That is a **premium-value position**, not a low-cost position. It is defensible only if LINDA consistently demonstrates broader day-to-day operational coverage, dependable support, secure data handling, useful onboarding and measurable time savings. Do not compete by claiming more features alone; demonstrate real workflows and outcomes.
+
+Before public launch:
+- Interview funeral parlours and general businesses at different sizes; test price sensitivity and which capabilities they would actually pay for.
+- Compare total first-year cost, including setup, migration, messaging credits, payment fees and support—not just the monthly headline.
+- Test Standard as the intended core plan and track trial-to-paid conversion, churn, support hours and gross margin.
+- Keep onboarding, data migration, training and bespoke integrations separately scoped and priced.
+- If prospects consistently reject the entry tier, revisit packaging and included capacity before simply discounting every plan.
+
+Competitor prices can change and should be rechecked before a public campaign. This snapshot does not establish market share, product quality or willingness-to-pay.
+
 ## Commercial positioning
 
 - All plans include the core LINDA feature set. Capacity and service level, not arbitrary feature locks, distinguish the tiers.
