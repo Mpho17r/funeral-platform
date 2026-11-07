@@ -109,6 +109,18 @@ def platform_login(
 
 
 def _business_row(db: Session, b: Business) -> dict:
+    # Reuse each calculation: this row is also built for every business in
+    # the platform summary, so repeating these queries multiplies dashboard
+    # database work as the customer count grows.
+    usage = plan_limits.usage(db, b.id)
+    plan = pricing_service.plan_for(db, b)
+    monthly = pricing_service.quote(
+        plan,
+        staff=usage[pricing_service.STAFF],
+        branches=usage[pricing_service.BRANCHES],
+        base_override_cents=b.base_price_override_cents,
+    )["total_cents"]
+
     return {
         "id": b.id,
         "name": b.name,
@@ -119,15 +131,10 @@ def _business_row(db: Session, b: Business) -> dict:
         "status": b.subscription_status,
         "trial_ends_at": b.trial_ends_at,
         "limits": plan_limits.limits(b),
-        "usage": plan_limits.usage(db, b.id),
+        "usage": usage,
         "base_price_override_cents": b.base_price_override_cents,
-        "plan": pricing_service.plan_for(db, b).name,
-        "monthly_cents": pricing_service.quote(
-            pricing_service.plan_for(db, b),
-            staff=plan_limits.usage(db, b.id)[pricing_service.STAFF],
-            branches=plan_limits.usage(db, b.id)[pricing_service.BRANCHES],
-            base_override_cents=b.base_price_override_cents,
-        )["total_cents"],
+        "plan": plan.name,
+        "monthly_cents": monthly,
     }
 
 
