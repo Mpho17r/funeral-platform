@@ -152,9 +152,14 @@ def platform_businesses(
     business_ids = [business.id for business in businesses]
     usage_by_business = plan_limits.usage_many(db, business_ids)
 
+    # Ensure default plans exist once, not once per business row.
+    pricing_service.seed_default_plans(db)
+
     # Load plans once, then select each business's chosen plan or the same
     # active-first fallback used by pricing_service.plan_for().
-    plans = db.query(PricingPlan).order_by(PricingPlan.sort_order).all()
+    plans = db.query(PricingPlan).order_by(
+        PricingPlan.sort_order, PricingPlan.name
+    ).all()
     plans_by_id = {plan.id: plan for plan in plans}
     active_by_type: dict[str, list[PricingPlan]] = {}
     all_by_type: dict[str, list[PricingPlan]] = {}
@@ -163,7 +168,9 @@ def platform_businesses(
         if plan.is_active:
             active_by_type.setdefault(plan.business_type, []).append(plan)
 
-    fallback_plans = plans
+    fallback_plans = db.query(PricingPlan).order_by(
+        PricingPlan.sort_order
+    ).all()
 
     def selected_plan(business: Business) -> PricingPlan:
         if business.plan_id and business.plan_id in plans_by_id:
