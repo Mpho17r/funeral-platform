@@ -3,24 +3,15 @@ from uuid import UUID
 
 from fastapi import UploadFile
 
+from app.services.image_validation import validate_image
+
 
 STORAGE_ROOT = Path("storage/branding")
 MAX_BRANDING_BYTES = 5 * 1024 * 1024
 
-_SIGNATURES = (
-    (b"\x89PNG\r\n\x1a\n", ".png"),
-    (b"\xff\xd8\xff", ".jpg"),
-)
-
-
 def _detect_extension(contents: bytes) -> str:
-    """Determine the image format from its bytes, not the browser's MIME type."""
-    for signature, extension in _SIGNATURES:
-        if contents.startswith(signature):
-            return extension
-    if len(contents) >= 12 and contents[:4] == b"RIFF" and contents[8:12] == b"WEBP":
-        return ".webp"
-    raise ValueError("Use a PNG, JPEG or WebP image file.")
+    extension, _ = validate_image(contents)
+    return extension
 
 
 def save_business_branding_file(
