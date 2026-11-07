@@ -519,6 +519,16 @@ def test_sending_a_null_logo_still_removes_it(
 
     assert response.json()["logo_url"] is None
 
+
+
+def valid_png_bytes():
+    from io import BytesIO
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (2, 2), (220, 30, 30)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
 # ============================================================
 # BRANDING IMAGE UPLOAD VALIDATION
 # ============================================================
@@ -561,3 +571,14 @@ def test_logo_upload_rejects_images_over_five_megabytes(
     )
     assert response.status_code == 400
 
+
+
+def test_logo_upload_rejects_fake_png_signature(client, test_data, auth_headers):
+    business = test_data["business_a"]
+    headers = auth_headers(test_data["main_admin"])
+    response = client.post(
+        f"/businesses/{business.id}/branding/logo",
+        headers=headers,
+        files={"file": ("logo.png", b"\\x89PNG\\r\\n\\x1a\\nnot-a-real-png", "image/png")},
+    )
+    assert response.status_code == 400
