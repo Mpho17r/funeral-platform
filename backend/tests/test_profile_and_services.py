@@ -90,7 +90,12 @@ def test_rejects_non_images_and_big_files(client, test_data, auth_headers):
     bad = put_avatar(client, h, b"<script>alert(1)</script>", "a.png", "image/png")
     assert bad.status_code == 400
 
-    big = put_avatar(client, h, b"\x89PNG\r\n\x1a\n" + b"0" * (2 * 1024 * 1024 + 1))
+    from app.services.avatar_storage import MAX_AVATAR_BYTES
+
+    big = put_avatar(
+        client, h,
+        b"\x89PNG\r\n\x1a\n" + b"0" * MAX_AVATAR_BYTES,
+    )
     assert big.status_code == 400 and "2 MB" in big.json()["detail"]
 
     assert put_avatar(client, h, b"").status_code == 400
