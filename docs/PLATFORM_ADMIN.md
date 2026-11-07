@@ -11,6 +11,7 @@ The platform owner (Saccharum Technologies) manages subscriptions separately fro
 - A suspended or cancelled business cannot sign in. Restoring it brings everyone back; no data is touched.
 - New sign-ups start on a 30-day trial. A trial that passes its end date is not locked automatically yet: move it to active or suspended by hand.
 - The operator sees counts only, never a business's records. Every change is audited against that business.
+- Platform-admin login currently throttles failed attempts by client IP in process memory (10 attempts in 10 minutes). It is not shared across API workers and resets when the process restarts; persistent throttling is tracked as a security hardening item.
 
 A business can see its own plan and usage at `GET /subscription`.
 
