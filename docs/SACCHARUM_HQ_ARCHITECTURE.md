@@ -21,7 +21,7 @@ HQ must not become a shortcut around tenant security. It should default to aggre
 - Monthly recurring revenue (MRR), annual recurring revenue (ARR), new and churned subscriptions, trial conversion, active customers and product adoption.
 - Cash position and runway are shown separately from invoiced revenue and accounting profit.
 - Period comparisons, trend lines, target tracking and data freshness indicators.
-- Every metric links to its definition, source, period and last refresh time.
+- Every metric links to its definition, source, period and last refresh time. See [SACCHARUM_HQ_METRIC_DICTIONARY.md](SACCHARUM_HQ_METRIC_DICTIONARY.md) for the initial definitions and calculation controls.
 
 ### 2.2 Customer and subscription operations
 - Customer/business directory across products; product, plan, status, start date, renewal date and account owner.
