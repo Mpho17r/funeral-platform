@@ -5,6 +5,22 @@ from fastapi import UploadFile
 
 
 STORAGE_ROOT = Path("storage/branding")
+MAX_BRANDING_BYTES = 5 * 1024 * 1024
+
+_SIGNATURES = (
+    (b"\\x89PNG\\r\\n\\x1a\\n", ".png"),
+    (b"\\xff\\xd8\\xff", ".jpg"),
+)
+
+
+def _detect_extension(contents: bytes) -> str:
+    """Determine the image format from its bytes, not the browser's MIME type."""
+    for signature, extension in _SIGNATURES:
+        if contents.startswith(signature):
+            return extension
+    if len(contents) >= 12 and contents[:4] == b"RIFF" and contents[8:12] == b"WEBP":
+        return ".webp"
+    raise ValueError("Use a genuine PNG, JPEG or WebP image.")
 
 
 def save_business_branding_file(
@@ -26,12 +42,12 @@ def save_business_branding_file(
             "Branding file type must be 'logo' or 'watermark'."
         )
 
-    extension = ".png"
+    if not contents:
+        raise ValueError("The image is empty.")
+    if len(contents) > MAX_BRANDING_BYTES:
+        raise ValueError("Branding images must be 5 MB or smaller.")
 
-    if file.content_type == "image/jpeg":
-        extension = ".jpg"
-    elif file.content_type == "image/webp":
-        extension = ".webp"
+    extension = _detect_extension(contents)
 
     business_storage = (
         STORAGE_ROOT / str(business_id)
