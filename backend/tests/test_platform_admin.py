@@ -59,6 +59,7 @@ def test_operator_sees_counts_not_records(client, db, operator, test_data):
     assert case.case_number not in r.text
     s = client.get("/platform/summary", headers=operator).json()
     assert s["businesses"] >= 2
+    assert s["totals"]["active cases"] >= 1
 
 
 def test_tier_defaults_and_manual_limits(client, db, operator, test_data):
