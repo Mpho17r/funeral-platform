@@ -12,7 +12,7 @@ families' information. Written from what the code does today, so every
 | --- | --- |
 | Safe settings | `APP_ENV=production` refuses to start with a short or placeholder `JWT_SECRET_KEY`, a missing `CORS_ORIGINS`, or a non-`https` address |
 | Sign-up | Closed on a live system once the first business exists. Create owners with `python -m app.create_owner` |
-| Recurring work | One process, `python -m app.run_scheduler`, runs the funeral status sync (5 min), mortuary and licence alerts (30 min), payment reminders (07:00) and the backup (02:00), South African time, with catch-up after downtime |
+| Recurring work | One process, `python -m app.run_scheduler`, runs the lifecycle sync (5 min), mortuary alerts (30 min), reminders (07:00) and backup (02:00), South African time; failed interval jobs retry on their interval and failed daily jobs retry hourly inside their permitted run window |
 | Backups | Database dump plus uploaded files, verified, 14 kept, status shown in Settings (see `BACKUPS_AND_RECOVERY.md`) |
 | Health | `GET /health` answers 503 when the database is down, and reports the scheduler (`ok`, `degraded`, `stale`, `never`) |
 | Access control | Role and per-person permissions on every endpoint, one business never sees another's data, audit trail, sign-in lockout after 5 failures |
