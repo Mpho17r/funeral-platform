@@ -108,12 +108,17 @@ def platform_login(
     return {"access_token": make_token(admin), "token_type": "bearer"}
 
 
-def _business_row(db: Session, b: Business) -> dict:
-    # Reuse each calculation: this row is also built for every business in
-    # the platform summary, so repeating these queries multiplies dashboard
-    # database work as the customer count grows.
-    usage = plan_limits.usage(db, b.id)
-    plan = pricing_service.plan_for(db, b)
+def _business_row(
+    db: Session,
+    b: Business,
+    *,
+    usage: dict | None = None,
+    plan: PricingPlan | None = None,
+) -> dict:
+    # Callers rendering many businesses pass preloaded usage and plans to
+    # avoid an N+1 query pattern. Single-business updates can use the defaults.
+    usage = usage if usage is not None else plan_limits.usage(db, b.id)
+    plan = plan or pricing_service.plan_for(db, b)
     monthly = pricing_service.quote(
         plan,
         staff=usage[pricing_service.STAFF],
@@ -143,8 +148,40 @@ def platform_businesses(
     db: Session = Depends(get_db),
     admin: PlatformAdmin = Depends(get_platform_admin),
 ):
-    rows = db.query(Business).order_by(Business.created_at.desc()).all()
-    return [_business_row(db, b) for b in rows]
+    businesses = db.query(Business).order_by(Business.created_at.desc()).all()
+    business_ids = [business.id for business in businesses]
+    usage_by_business = plan_limits.usage_many(db, business_ids)
+
+    # Load plans once, then select each business's chosen plan or the same
+    # active-first fallback used by pricing_service.plan_for().
+    plans = db.query(PricingPlan).order_by(PricingPlan.sort_order).all()
+    plans_by_id = {plan.id: plan for plan in plans}
+    active_by_type: dict[str, list[PricingPlan]] = {}
+    all_by_type: dict[str, list[PricingPlan]] = {}
+    for plan in plans:
+        all_by_type.setdefault(plan.business_type, []).append(plan)
+        if plan.is_active:
+            active_by_type.setdefault(plan.business_type, []).append(plan)
+
+    fallback_plans = plans
+
+    def selected_plan(business: Business) -> PricingPlan:
+        if business.plan_id and business.plan_id in plans_by_id:
+            return plans_by_id[business.plan_id]
+        options = active_by_type.get(business.business_type) or all_by_type.get(
+            business.business_type
+        ) or fallback_plans
+        return options[0]
+
+    return [
+        _business_row(
+            db,
+            business,
+            usage=usage_by_business[business.id],
+            plan=selected_plan(business),
+        )
+        for business in businesses
+    ]
 
 
 @router.get("/platform/summary")
