@@ -9,7 +9,7 @@ MAX_BRANDING_BYTES = 5 * 1024 * 1024
 
 _SIGNATURES = (
     (b"\x89PNG\r\n\x1a\n", ".png"),
-    (b"\xff\\xd8\xff", ".jpg"),
+    (b"\xff\xd8\xff", ".jpg"),
 )
 
 
@@ -20,7 +20,7 @@ def _detect_extension(contents: bytes) -> str:
             return extension
     if len(contents) >= 12 and contents[:4] == b"RIFF" and contents[8:12] == b"WEBP":
         return ".webp"
-    raise ValueError("Use a genuine PNG, JPEG or WebP image.")
+    raise ValueError("Use a PNG, JPEG or WebP image file.")
 
 
 def save_business_branding_file(
