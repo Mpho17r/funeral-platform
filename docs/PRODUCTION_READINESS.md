@@ -15,7 +15,7 @@ families' information. Written from what the code does today, so every
 | Recurring work | One process, `python -m app.run_scheduler`, runs the funeral status sync (5 min), mortuary and licence alerts (30 min), payment reminders (07:00) and the backup (02:00), South African time, with catch-up after downtime |
 | Backups | Database dump plus uploaded files, verified, 14 kept, status shown in Settings (see `BACKUPS_AND_RECOVERY.md`) |
 | Health | `GET /health` answers 503 when the database is down, and reports the scheduler (`ok`, `degraded`, `stale`, `never`) |
-| Access control | Role and per-person permissions on every endpoint, one business never sees another's data, audit trail, sign-in lockout after 5 failures |
+| Access control | Role and per-person permissions, tenant separation and audit trail; business-user lockout after 5 failed attempts. Platform-admin login throttling is currently process-local and does not persist across restarts or workers |
 | Browser safety | `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, HSTS in production |
 | Owner's own copy | Full data export (Settings, Data export and backups) |
 
@@ -33,9 +33,12 @@ families' information. Written from what the code does today, so every
    Encrypt the disk (FileVault, LUKS or your host's volume encryption).
 4. **No automatic error reporting.** Failures are in the logs and in the
    Settings screen only. Add an uptime monitor on `/health` at minimum.
-5. **No API rate limiting** beyond sign-in lockout. Put the rate limit in the
-   reverse proxy.
-6. **Legal and privacy set-up is yours** (section 5).
+5. **Platform-admin login protection needs hardening.** Its current failed-attempt
+   counter is in process memory; it resets on restart and is not shared across
+   multiple workers. Persist it in a shared store before scaling the API.
+6. **No general API rate limiting** beyond the login protections described
+   above. Add route-aware limits at the reverse proxy or a shared API layer.
+7. **Legal and privacy set-up is yours** (section 5).
 
 ## 2. Choosing where it runs
 
