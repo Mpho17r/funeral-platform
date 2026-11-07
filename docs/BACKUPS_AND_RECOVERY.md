@@ -19,7 +19,7 @@ This creates `backend/backups/funeralos-YYYYMMDD-HHMMSS-xxxxxxxx/` containing
 
 It then checks that the dump can be read back, records the result in
 `backend/backups/status.json` (shown in **Settings → Data export & backups**),
-and removes the oldest backups beyond the newest 14.
+and removes the oldest backups beyond the newest 14. The backup root and each dated backup folder are restricted to owner-only permissions (0700).
 
 Settings (in `backend/.env`, all optional):
 
