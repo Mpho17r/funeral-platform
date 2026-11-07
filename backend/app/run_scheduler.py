@@ -43,7 +43,15 @@ class Job:
     window_hours: int = 24            # how long after that hour it may still run
 
 
-def is_due(job: Job, last_run: datetime | None, now: datetime, tz) -> bool:
+def is_due(
+    job: Job,
+    last_run: datetime | None,
+    now: datetime,
+    tz,
+    *,
+    last_ok: bool | None = None,
+    retry_after_minutes: int = 60,
+) -> bool:
     """Should this job run now? `now` must be timezone-aware."""
     if job.every_minutes is not None:
         return last_run is None or now - last_run >= timedelta(
@@ -56,7 +64,16 @@ def is_due(job: Job, last_run: datetime | None, now: datetime, tz) -> bool:
     )
     if not (start <= local < start + timedelta(hours=job.window_hours)):
         return False
-    return last_run is None or last_run.astimezone(tz).date() < local.date()
+
+    if last_run is None or last_run.astimezone(tz).date() < local.date():
+        return True
+
+    # A failed daily job should not wait until tomorrow. Retry it at a
+    # controlled interval while still inside its permitted daytime window.
+    if last_ok is False:
+        return now - last_run >= timedelta(minutes=retry_after_minutes)
+
+    return False
 
 
 # ----------------------------------------------------------------- the jobs
@@ -272,7 +289,7 @@ def tick(jobs: list[Job], now: datetime | None = None) -> dict[str, str]:
             if entry.get("last_run_at")
             else None
         )
-        if not is_due(job, last, now, tz):
+        if not is_due(job, last, now, tz, last_ok=entry.get("ok")):
             continue
 
         try:
