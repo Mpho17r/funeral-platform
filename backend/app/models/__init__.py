@@ -90,3 +90,4 @@ from app.models.leave import LeaveRequest  # noqa: E402,F401
 from app.models.appointments import Appointment, BusinessDocument, ContactMessage  # noqa: E402,F401
 
 from app.models.auth_token import AuthToken  # noqa: E402,F401
+from app.models.pricing import PlatformPricing, PricingPlan, UsageSnapshot  # noqa: E402,F401

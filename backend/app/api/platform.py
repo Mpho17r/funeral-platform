@@ -25,8 +25,11 @@ from app.dependencies.auth import get_current_user
 from app.models.audit_log import AuditLog
 from app.models.business import Business
 from app.models.platform_admin import PlatformAdmin
+from app.models.pricing import PricingPlan
 from app.security import verify_password
+from app.services.permission_service import has_permission
 from app.services import plan_limits
+from app.services import pricing as pricing_service
 
 router = APIRouter(tags=["Platform"])
 bearer = HTTPBearer()
@@ -117,6 +120,14 @@ def _business_row(db: Session, b: Business) -> dict:
         "trial_ends_at": b.trial_ends_at,
         "limits": plan_limits.limits(b),
         "usage": plan_limits.usage(db, b.id),
+        "base_price_override_cents": b.base_price_override_cents,
+        "plan": pricing_service.plan_for(db, b).name,
+        "monthly_cents": pricing_service.quote(
+            pricing_service.plan_for(db, b),
+            staff=plan_limits.usage(db, b.id)[pricing_service.STAFF],
+            branches=plan_limits.usage(db, b.id)[pricing_service.BRANCHES],
+            base_override_cents=b.base_price_override_cents,
+        )["total_cents"],
     }
 
 
@@ -156,6 +167,11 @@ class SubscriptionUpdate(BaseModel):
     max_users: int | None = Field(default=None, ge=1)
     max_members: int | None = Field(default=None, ge=1)
     max_active_cases: int | None = Field(default=None, ge=1)
+    # A special base price for this customer (cents). Send null to go back
+    # to the standard price.
+    base_price_override_cents: int | None = Field(
+        default=None, ge=0, le=10_000_000
+    )
 
 
 @router.patch("/platform/businesses/{business_id}/subscription")
@@ -184,7 +200,7 @@ def update_subscription(
     if "trial_ends_at" in sent:
         b.trial_ends_at = data.trial_ends_at
     for column in ("max_branches", "max_users", "max_members",
-                   "max_active_cases"):
+                   "max_active_cases", "base_price_override_cents"):
         if column in sent:
             setattr(b, column, getattr(data, column))
 
@@ -215,10 +231,84 @@ def my_subscription(
     current_user: dict = Depends(get_current_user),
 ):
     b = db.get(Business, current_user["business_id"])
-    return {
+    used = plan_limits.usage(db, b.id)
+    staff, branches = used[pricing_service.STAFF], used[pricing_service.BRANCHES]
+    settings_row = pricing_service.get_pricing(db)
+    vat = settings_row.vat_percent
+    plan = pricing_service.plan_for(db, b)
+
+    out = {
         "tier": b.subscription_tier,
         "status": b.subscription_status,
         "trial_ends_at": b.trial_ends_at,
         "limits": plan_limits.limits(b),
-        "usage": plan_limits.usage(db, b.id),
+        "usage": used,
+        **pricing_service.settings_dict(settings_row),
+        "plan": pricing_service.plan_dict(plan),
+        "plan_chosen": b.plan_id is not None,
+        "plans": [
+            pricing_service.plan_dict(x)
+            for x in pricing_service.plans_for(db, b.business_type)
+        ],
+        # Lets the "add staff" and "add branch" screens say what it will cost.
+        **pricing_service.next_costs(plan, staff, branches, vat),
     }
+
+    # The bill itself is for the people who run the business.
+    if has_permission(
+        db,
+        user_id=current_user["user_id"],
+        role=current_user["role"],
+        permission_key="subscription.view",
+    ):
+        now = pricing_service.today()
+        out["bill"] = pricing_service.statement(db, b, now.year, now.month)
+        out["bill"]["now"] = pricing_service.quote(
+            plan,
+            staff=staff,
+            branches=branches,
+            base_override_cents=b.base_price_override_cents,
+            vat_percent=vat,
+        )
+
+    return out
+
+
+class PlanChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    plan_code: str = Field(min_length=1, max_length=40)
+
+
+@router.put("/subscription/plan")
+def choose_plan(
+    data: PlanChoice,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """The people who run the business pick (or change) its plan."""
+    if not has_permission(
+        db,
+        user_id=current_user["user_id"],
+        role=current_user["role"],
+        permission_key="subscription.view",
+    ):
+        raise HTTPException(403, "Only the people who run the business can change the plan")
+
+    b = db.get(Business, current_user["business_id"])
+    pricing_service.seed_default_plans(db)
+    plan = (
+        db.query(PricingPlan)
+        .filter(
+            PricingPlan.code == data.plan_code,
+            PricingPlan.business_type == b.business_type,
+            PricingPlan.is_active.is_(True),
+        )
+        .first()
+    )
+    if plan is None:
+        raise HTTPException(404, "That plan is not available for your kind of business")
+
+    b.plan_id = plan.id
+    db.commit()
+    return {"plan": pricing_service.plan_dict(plan)}

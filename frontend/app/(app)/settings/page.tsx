@@ -7,6 +7,7 @@ import {
   DatabaseBackup,
   FileSpreadsheet,
   KeyRound,
+  CreditCard,
   Palette,
   BadgeDollarSign,
   Percent,
@@ -152,6 +153,30 @@ export default function SettingsPage() {
                   appearance across LINDA.
                 </p>
               </button>
+
+              {/* PLAN & BILLING */}
+              {can("subscription.view") && (
+                <button
+                  type="button"
+                  onClick={() => router.push("/settings/subscription")}
+                  className="group rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-secondary)]">
+                      <CreditCard size={22} />
+                    </div>
+                    <span className="text-sm text-[var(--fos-text-muted)]">
+                      View →
+                    </span>
+                  </div>
+                  <h3 className="mt-5 text-lg font-semibold text-[var(--fos-text)]">
+                    Plan &amp; billing
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-[var(--fos-text-muted)]">
+                    Your monthly price, staff accounts and branches.
+                  </p>
+                </button>
+              )}
 
               {/* TEAM & USERS */}
               <button
