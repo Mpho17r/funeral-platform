@@ -44,6 +44,8 @@ def test_backup_collision_does_not_delete_existing_backup(
         "funeralos-20261107-200000-01234567"
     )
     assert (existing / "database.dump").is_file()
+    assert existing.stat().st_mode & 0o777 == 0o700
+    assert backup_root.stat().st_mode & 0o777 == 0o700
 
     # Force the same generated name again. The failed second attempt must not
     # remove the first successful backup folder.
