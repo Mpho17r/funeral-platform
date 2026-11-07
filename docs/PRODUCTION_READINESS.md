@@ -24,7 +24,7 @@ This document separates what the repository implements from what must be verifie
 
 | Area | Implemented behaviour | Operational caveat |
 | --- | --- | --- |
-| Authentication | Separate business-user and platform-admin token types; business-user failed-login counts and lockouts are stored on the user record | Platform-admin IP throttling is process-local; it resets on restart and is not shared between workers |
+| Registration | Production registration closes automatically after the first business exists unless `ALLOW_REGISTRATION` explicitly overrides it | Verify the intended public sign-up state; a database containing seed/demo businesses will be closed by default |\n| Authentication | Separate business-user and platform-admin token types; business-user failed-login counts and lockouts are stored on the user record | Platform-admin IP throttling is process-local; it resets on restart and is not shared between workers |
 | Permissions | Role permissions plus per-user allow/deny overrides; server-side permission checks | Review permissions whenever new routes/modules are added |
 | Tenant separation | Business-owned queries are scoped by business ID; platform admin sees aggregate business/subscription metadata rather than case/member/document contents | Continue regression testing every new endpoint for cross-tenant access |
 | Account security | Email verification and password-reset token flows use hashed, expiring, single-use tokens; resend is rate-limited | Email verification is currently not required to sign in (a product decision); token email uses a short-lived background task, not a durable transactional mail queue |
@@ -96,7 +96,7 @@ Before live customer onboarding:
 - [ ] Confirm database and upload volumes survive container recreation and VPS reboot.
 - [ ] Confirm only one scheduler is running and its heartbeat is current.
 - [ ] Send and receive a real test email; verify delivery failures are visible.
-- [ ] Verify registration policy and create a customer through the intended onboarding path.
+- [ ] Verify `ALLOW_REGISTRATION` and the public registration status endpoint; create a customer through the intended onboarding path without accidentally opening owner setup.
 - [ ] Verify tenant isolation with two separate test businesses.
 - [ ] Verify role permissions and platform-admin separation.
 - [ ] Verify upload limits, image validation and storage persistence after PR #70 is deployed.
