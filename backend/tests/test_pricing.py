@@ -121,15 +121,15 @@ def test_vat_is_added_on_top_of_the_plan_price(client, db):
 
     assert q["total_cents"] == 89900
     assert q["vat_percent"] == 15
-    assert q["vat_cents"] == 12000
-    assert q["total_incl_vat_cents"] == 92000
+    assert q["vat_cents"] == 13485
+    assert q["total_incl_vat_cents"] == 103385
 
 
 def test_extra_staff_on_the_beginner_plan_cost_R60_each_plus_vat(client, db):
     q = client.get("/pricing/quote?plan=funeral-beginner&staff=8&branches=1").json()
 
     assert q["total_cents"] == 89900 + 3 * 6000
-    assert q["total_incl_vat_cents"] == 98000 * 115 // 100
+    assert q["total_incl_vat_cents"] == 107900 * 115 // 100
 
 
 def test_vat_is_rounded_to_the_cent(db):
@@ -260,7 +260,7 @@ def test_the_bill_follows_the_chosen_plan_and_shows_vat(
     bill = client.get("/subscription", headers=headers).json()["bill"]
 
     assert bill["plan"] == "Enterprise"
-    assert bill["amount_due_cents"] == 189900
+    assert bill["amount_due_cents"] == 249900
     assert bill["vat_cents"] == 37485
     assert bill["amount_due_incl_vat_cents"] == 287385
 
