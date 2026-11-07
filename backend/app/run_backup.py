@@ -65,7 +65,9 @@ def run_backup(
     backup_dir: str | None = None, keep: int | None = None
 ) -> dict:
     root = Path(backup_dir or settings.backup_dir)
-    root.mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    # Backups contain customer records and uploaded documents.
+    root.chmod(0o700)
     started = datetime.now(timezone.utc)
     target = root / (
         f"{PREFIX}{started.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
@@ -79,7 +81,7 @@ def run_backup(
                 "pg_dump was not found. Install the PostgreSQL client tools."
             )
 
-        target.mkdir(exist_ok=False)
+        target.mkdir(mode=0o700, exist_ok=False)
         created_target = True
         database, args, env = _pg_env()
         dump = target / "database.dump"
