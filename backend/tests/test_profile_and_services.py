@@ -27,6 +27,15 @@ def png_bytes(size=2):
     )
 
 
+def jpeg_bytes():
+    from io import BytesIO
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (2, 2), (20, 40, 220)).save(buffer, format="JPEG")
+    return buffer.getvalue()
+
+
 def put_avatar(client, headers, content, name="me.png", ctype="image/png"):
     return client.post(
         "/users/me/avatar", headers=headers,
