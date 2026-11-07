@@ -32,7 +32,7 @@ This document separates what the repository implements from what must be verifie
 | Recurring work | One scheduler runs lifecycle, alerts, reminders, message delivery, appointments, stock, archive, overdue, autopilot, usage snapshots and backups | Monitor scheduler heartbeat and job outcomes; a scheduler process being alive does not prove each job succeeded |
 | Backups | Database dump and uploaded-file archive are created and locally verified; retention is configured | Local backups are on the same VPS; no automated off-site copy is currently confirmed |
 | Health | `GET /health` checks database availability and reports scheduler health | Add an external uptime monitor and alert a human when it fails |
-| Pricing | Monthly subscription statements are calculated from usage and VAT settings | This is not recurring payment collection, bank reconciliation or proof that money was received |
+| Pricing | Monthly subscription statements are calculated from usage and platform VAT settings | This is not recurring payment collection, bank reconciliation or proof that money was received |\n| Business tax | Business-level VAT enablement/rate fields exist | Do not assume end-to-end VAT compliance: expenses, legacy case-financial records, document exports and tax reports still need completion and accountant/SARS review (see draft PR #39) |
 | Trial lifecycle | A 30-day trial end timestamp is stored | Trial expiry is not automatically enforced; platform operations must currently change subscription status |
 | Uploads | Avatar and branding storage paths are tenant-scoped | File size, decoder and pixel-limit hardening is under review in PR #70; do not assume production includes it until merged and deployed |
 
