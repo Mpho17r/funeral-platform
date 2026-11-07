@@ -63,6 +63,7 @@ Competitor prices can change and should be rechecked before a public campaign. T
 - The existing engine calculates the month using peak recorded staff and branch counts.
 - It currently has no recurring payment collection or payment-provider reconciliation. Statements are calculations, not proof of payment.
 - There is no part-month proration in the current engine.
+- Separate subscription-tier safety caps can restrict users, branches, members or active cases. They are distinct from the billable staff/branch inclusions; their interaction with metered overages is under review and must be made consistent before public launch.
 - Trial, suspended and cancelled businesses currently show no amount due.
 - The trial expiry policy remains a separate product decision.
 
