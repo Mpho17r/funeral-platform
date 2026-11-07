@@ -57,6 +57,30 @@ def usage(db: Session, business_id) -> dict:
     return out
 
 
+def usage_many(db: Session, business_ids) -> dict:
+    """Return usage counts for many businesses with one grouped query per model."""
+    ids = list(business_ids)
+    result = {
+        business_id: {entry[1]: 0 for entry in LIMITED.values()}
+        for business_id in ids
+    }
+    if not ids:
+        return result
+
+    for model, (_, label, where) in LIMITED.items():
+        rows = (
+            db.query(model.business_id, func.count(model.id))
+            .filter(model.business_id.in_(ids), where())
+            .execution_options(all_branches=True)
+            .group_by(model.business_id)
+            .all()
+        )
+        for business_id, count in rows:
+            result[business_id][label] = count
+
+    return result
+
+
 def limits(business: Business) -> dict:
     return {
         label: getattr(business, column)
