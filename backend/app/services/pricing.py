@@ -40,12 +40,12 @@ DEFAULTS = dict(currency="ZAR", vat_percent=15)
 # Standard are the agreed figures; Enterprise and the extra-branch prices are
 # starting points for the platform owner to change.
 DEFAULT_PLANS = [
-    ("funeral", "funeral-beginner", "Beginner", "For a funeral home just starting out", 80000, 5, 1, 6000, 6000),
-    ("funeral", "funeral-standard", "Standard", "For an established funeral home", 100000, 7, 2, 6000, 6000),
-    ("funeral", "funeral-enterprise", "Enterprise", "For a larger funeral business", 180000, 15, 5, 6000, 6000),
-    ("general", "general-startup", "Startup", "For a small business just starting out", 45000, 3, 1, 5000, 5000),
-    ("general", "general-standard", "Standard", "For an established business", 95000, 6, 2, 5000, 5000),
-    ("general", "general-enterprise", "Enterprise", "For a larger business", 150000, 12, 5, 5000, 5000),
+    ("funeral", "funeral-beginner", "Beginner", "For a funeral home just starting out", 89900, 5, 1, 6000, 14900),
+    ("funeral", "funeral-standard", "Standard", "For an established funeral home", 129900, 7, 2, 6000, 14900),
+    ("funeral", "funeral-enterprise", "Enterprise", "For a larger funeral business", 249900, 15, 5, 6000, 14900),
+    ("general", "general-startup", "Startup", "For a small business just starting out", 49900, 3, 1, 5000, 9900),
+    ("general", "general-standard", "Standard", "For an established business", 109900, 6, 2, 5000, 9900),
+    ("general", "general-enterprise", "Enterprise", "For a larger business", 199900, 12, 5, 5000, 9900),
 ]
 
 
