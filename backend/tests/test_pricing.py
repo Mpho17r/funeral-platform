@@ -106,20 +106,20 @@ def test_plans_are_public_and_need_no_sign_in(client, db):
 
     beginner = funeral["funeral-beginner"]
     assert (beginner["base_price_cents"], beginner["included_staff"],
-            beginner["included_branches"], beginner["extra_staff_cents"]) == (80000, 5, 1, 6000)
+            beginner["included_branches"], beginner["extra_staff_cents"]) == (89900, 5, 1, 6000)
     standard = funeral["funeral-standard"]
     assert (standard["base_price_cents"], standard["included_staff"],
-            standard["included_branches"]) == (100000, 7, 2)
+            standard["included_branches"]) == (129900, 7, 2)
     startup = general["general-startup"]
-    assert (startup["base_price_cents"], startup["included_staff"]) == (45000, 3)
+    assert (startup["base_price_cents"], startup["included_staff"]) == (49900, 3)
     gstandard = general["general-standard"]
-    assert (gstandard["base_price_cents"], gstandard["included_staff"]) == (95000, 6)
+    assert (gstandard["base_price_cents"], gstandard["included_staff"]) == (109900, 6)
 
 
 def test_vat_is_added_on_top_of_the_plan_price(client, db):
     q = client.get("/pricing/quote?plan=funeral-beginner&staff=5&branches=1").json()
 
-    assert q["total_cents"] == 80000
+    assert q["total_cents"] == 89900
     assert q["vat_percent"] == 15
     assert q["vat_cents"] == 12000
     assert q["total_incl_vat_cents"] == 92000
@@ -128,7 +128,7 @@ def test_vat_is_added_on_top_of_the_plan_price(client, db):
 def test_extra_staff_on_the_beginner_plan_cost_R60_each_plus_vat(client, db):
     q = client.get("/pricing/quote?plan=funeral-beginner&staff=8&branches=1").json()
 
-    assert q["total_cents"] == 80000 + 3 * 6000
+    assert q["total_cents"] == 89900 + 3 * 6000
     assert q["total_incl_vat_cents"] == 98000 * 115 // 100
 
 
@@ -260,9 +260,9 @@ def test_the_bill_follows_the_chosen_plan_and_shows_vat(
     bill = client.get("/subscription", headers=headers).json()["bill"]
 
     assert bill["plan"] == "Enterprise"
-    assert bill["amount_due_cents"] == 180000
-    assert bill["vat_cents"] == 27000
-    assert bill["amount_due_incl_vat_cents"] == 207000
+    assert bill["amount_due_cents"] == 189900
+    assert bill["vat_cents"] == 37485
+    assert bill["amount_due_incl_vat_cents"] == 287385
 
 
 # ============================================================
