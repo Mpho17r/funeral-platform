@@ -102,10 +102,12 @@ def run_backup(
         result.update(ok=True, size_mb=_size_mb(target))
         prune(root, keep if keep is not None else settings.backup_keep)
     except subprocess.CalledProcessError as exc:
+        result["ok"] = False
         result["error"] = (exc.stderr or str(exc)).strip()[:500]
         if created_target:
             shutil.rmtree(target, ignore_errors=True)
     except Exception as exc:  # noqa: BLE001 - recorded, then reported
+        result["ok"] = False
         result["error"] = str(exc)[:500]
         if created_target:
             shutil.rmtree(target, ignore_errors=True)
