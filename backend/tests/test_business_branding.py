@@ -521,6 +521,16 @@ def test_sending_a_null_logo_still_removes_it(
 
 
 
+
+def valid_jpeg_bytes():
+    from io import BytesIO
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (2, 2), (30, 80, 180)).save(buffer, format="JPEG")
+    return buffer.getvalue()
+
+
 def valid_png_bytes():
     from io import BytesIO
     from PIL import Image
@@ -582,3 +592,34 @@ def test_logo_upload_rejects_fake_png_signature(client, test_data, auth_headers)
         files={"file": ("logo.png", b"\x89PNG\r\n\x1a\nnot-a-real-png", "image/png")},
     )
     assert response.status_code == 400
+
+
+def test_replacing_png_logo_with_jpeg_serves_only_the_new_file(
+    client, test_data, auth_headers
+):
+    from app.services import business_storage
+
+    business = test_data["business_a"]
+    headers = auth_headers(test_data["main_admin"])
+    url = f"/businesses/{business.id}/branding/logo"
+
+    first = client.post(
+        url, headers=headers,
+        files={"file": ("logo.png", valid_png_bytes(), "image/png")},
+    )
+    assert first.status_code == 200
+
+    second = client.post(
+        url, headers=headers,
+        files={"file": ("logo.jpg", valid_jpeg_bytes(), "image/jpeg")},
+    )
+    assert second.status_code == 200
+
+    current = client.get(url, headers=headers)
+    assert current.status_code == 200
+    assert current.headers["content-type"] == "image/jpeg"
+    assert current.content.startswith(b"\\xff\\xd8\\xff")
+
+    folder = business_storage.STORAGE_ROOT / str(business.id)
+    assert not (folder / "logo.png").exists()
+    assert (folder / "logo.jpg").is_file()
