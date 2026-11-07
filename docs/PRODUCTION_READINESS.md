@@ -21,7 +21,7 @@ families' information. Written from what the code does today, so every
 
 **Open: needs a decision or work**
 
-1. **Hosting is undecided** (section 2).
+1. **Hosting is selected and deployed on a single VPS** using Docker Compose and Caddy (section 2). Confirm the hosting account is in good standing, access credentials are safely held, and the current deployment has a tested recovery path before treating the service as fully launch-ready.
 2. **Reminders are queued, not delivered.** The system prepares each payment
    reminder and a person sends it with one tap (WhatsApp, SMS or email link),
    then marks it sent. No SMS or WhatsApp provider is connected. This is a
@@ -40,7 +40,9 @@ families' information. Written from what the code does today, so every
    above. Add route-aware limits at the reverse proxy or a shared API layer.
 7. **Legal and privacy set-up is yours** (section 5).
 
-## 2. Choosing where it runs
+## 2. Current hosting and future options
+
+The current LINDA deployment uses a single VPS with Docker Compose and Caddy. This is a sensible starting point, but it remains a single point of failure until encrypted off-site backups and a tested restore procedure are in place. Confirm provider billing/account status and retain secure owner access to the hosting control panel.
 
 | Option | Good | Watch out |
 | --- | --- | --- |
