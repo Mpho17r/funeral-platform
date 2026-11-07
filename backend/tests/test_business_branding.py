@@ -540,7 +540,7 @@ def test_logo_upload_accepts_png_signature(client, test_data, auth_headers):
     response = client.post(
         f"/businesses/{business.id}/branding/logo",
         headers=headers,
-        files={"file": ("logo.png", b"\x89PNG\r\n\x1a\nvalid-test-payload", "image/png")},
+        files={"file": ("logo.png", valid_png_bytes(), "image/png")},
     )
     assert response.status_code == 200
     assert response.json()["logo_url"] == f"/businesses/{business.id}/branding/logo"
@@ -579,6 +579,6 @@ def test_logo_upload_rejects_fake_png_signature(client, test_data, auth_headers)
     response = client.post(
         f"/businesses/{business.id}/branding/logo",
         headers=headers,
-        files={"file": ("logo.png", b"\\x89PNG\\r\\n\\x1a\\nnot-a-real-png", "image/png")},
+        files={"file": ("logo.png", b"\x89PNG\r\n\x1a\nnot-a-real-png", "image/png")},
     )
     assert response.status_code == 400
