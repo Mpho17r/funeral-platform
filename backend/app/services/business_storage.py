@@ -8,8 +8,8 @@ STORAGE_ROOT = Path("storage/branding")
 MAX_BRANDING_BYTES = 5 * 1024 * 1024
 
 _SIGNATURES = (
-    (b"\\x89PNG\\r\\n\\x1a\\n", ".png"),
-    (b"\\xff\\xd8\\xff", ".jpg"),
+    (b"\x89PNG\r\n\x1a\n", ".png"),
+    (b"\xff\\xd8\xff", ".jpg"),
 )
 
 
