@@ -226,7 +226,25 @@ def _backup() -> str:
     result = run_backup()
     if not result["ok"]:
         raise RuntimeError(result["error"] or "backup failed")
-    return f"{result['size_mb']} MB"
+
+    # The cloud copy is deliberately a separate result. A B2 outage must not
+    # change the successful local backup status or stop other scheduler jobs.
+    from app.offsite_backup import run_offsite_backup
+
+    remote = run_offsite_backup(result["path"])
+    if remote.get("enabled") and not remote.get("ok"):
+        log.error("Off-site backup failed; local backup remains successful: %s",
+                  remote.get("error") or "unknown error")
+        return (
+            f"local {result['size_mb']} MB; off-site FAILED: "
+            f"{remote.get('error') or 'unknown error'}"
+        )
+    if remote.get("enabled"):
+        return (
+            f"local {result['size_mb']} MB; off-site snapshot "
+            f"{remote.get('snapshot_id') or 'verified'}"
+        )
+    return f"local {result['size_mb']} MB; off-site disabled"
 
 
 def build_jobs() -> list[Job]:
