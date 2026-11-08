@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -64,10 +65,15 @@ def run_backup(
     backup_dir: str | None = None, keep: int | None = None
 ) -> dict:
     root = Path(backup_dir or settings.backup_dir)
-    root.mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    # Backups contain customer records and uploaded documents.
+    root.chmod(0o700)
     started = datetime.now(timezone.utc)
-    target = root / f"{PREFIX}{started.strftime('%Y%m%d-%H%M%S')}"
+    target = root / (
+        f"{PREFIX}{started.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
+    )
     result = {"ok": False, "path": str(target), "error": None}
+    created_target = False
 
     try:
         if shutil.which("pg_dump") is None:
@@ -75,7 +81,8 @@ def run_backup(
                 "pg_dump was not found. Install the PostgreSQL client tools."
             )
 
-        target.mkdir()
+        target.mkdir(mode=0o700, exist_ok=False)
+        created_target = True
         database, args, env = _pg_env()
         dump = target / "database.dump"
 
@@ -97,11 +104,15 @@ def run_backup(
         result.update(ok=True, size_mb=_size_mb(target))
         prune(root, keep if keep is not None else settings.backup_keep)
     except subprocess.CalledProcessError as exc:
+        result["ok"] = False
         result["error"] = (exc.stderr or str(exc)).strip()[:500]
-        shutil.rmtree(target, ignore_errors=True)
+        if created_target:
+            shutil.rmtree(target, ignore_errors=True)
     except Exception as exc:  # noqa: BLE001 - recorded, then reported
+        result["ok"] = False
         result["error"] = str(exc)[:500]
-        shutil.rmtree(target, ignore_errors=True)
+        if created_target:
+            shutil.rmtree(target, ignore_errors=True)
 
     result["finished_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -115,7 +126,16 @@ def run_backup(
         except (OSError, ValueError):
             result["last_ok_at"] = None
 
-    (root / "status.json").write_text(json.dumps(result, indent=2))
+    # Replace the status file atomically so a VPS/process interruption cannot
+    # leave a truncated JSON file and erase the last known good backup time.
+    temporary_status = root / f".status-{uuid.uuid4().hex}.tmp"
+    try:
+        temporary_status.write_text(json.dumps(result, indent=2))
+        os.replace(temporary_status, root / "status.json")
+    finally:
+        # If writing or replacing is interrupted, preserve the previous
+        # status.json and remove any abandoned temporary file.
+        temporary_status.unlink(missing_ok=True)
     return result
 
 

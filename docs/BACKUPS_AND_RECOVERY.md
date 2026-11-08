@@ -12,14 +12,14 @@ From the `backend` folder with the virtual environment active:
 python -m app.run_backup
 ```
 
-This creates `backend/backups/funeralos-YYYYMMDD-HHMMSS/` containing
+This creates `backend/backups/funeralos-YYYYMMDD-HHMMSS-xxxxxxxx/` containing
 
 - `database.dump` – a full PostgreSQL dump
 - `files.tar.gz` – everything in `storage/`
 
 It then checks that the dump can be read back, records the result in
 `backend/backups/status.json` (shown in **Settings → Data export & backups**),
-and removes the oldest backups beyond the newest 14.
+and removes the oldest backups beyond the newest 14. The backup root and each dated backup folder are restricted to owner-only permissions (0700).
 
 Settings (in `backend/.env`, all optional):
 
@@ -75,7 +75,7 @@ or the last run failed.
 
 A backup on the same machine does not survive that machine breaking, being
 stolen or flooded. Copy `backend/backups` to an external drive or cloud
-storage regularly (for example `rclone sync backups remote:funeralos`).
+storage regularly (for example `rclone copy backups remote:funeralos`).
 Backups contain personal information: encrypt the drive or storage and
 limit who can open it.
 
@@ -87,10 +87,10 @@ Practise this once on a spare database before you ever need it.
 # 1. Create an empty database and restore into it
 createdb funeralos_restored
 pg_restore --no-owner --dbname funeralos_restored \
-  backups/funeralos-YYYYMMDD-HHMMSS/database.dump
+  backups/funeralos-YYYYMMDD-HHMMSS-xxxxxxxx/database.dump
 
 # 2. Restore the uploaded files
-tar -xzf backups/funeralos-YYYYMMDD-HHMMSS/files.tar.gz   # recreates ./storage
+tar -xzf backups/funeralos-YYYYMMDD-HHMMSS-xxxxxxxx/files.tar.gz   # recreates ./storage
 
 # 3. Point the app at it (DATABASE_URL in .env) and start it
 ```
