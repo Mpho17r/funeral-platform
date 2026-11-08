@@ -72,6 +72,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+      - path: offsite.env
+        required: false
     environment:
       APP_ENV: production
       DATABASE_URL: postgresql+psycopg://funeralos:${DB_PASSWORD}@db:5432/funeralos
