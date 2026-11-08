@@ -2,6 +2,8 @@
 
 import json
 from datetime import datetime, timezone
+
+import pytest
 from types import SimpleNamespace
 
 from app import run_backup
@@ -54,4 +56,35 @@ def test_backup_collision_does_not_delete_existing_backup(
     assert (existing / "database.dump").is_file()
     status = json.loads((backup_root / "status.json").read_text())
     assert status["last_ok_at"] == first["finished_at"]
+    assert not list(backup_root.glob(".status-*.tmp"))
+
+
+
+def test_interrupted_status_replace_preserves_previous_status(
+    tmp_path, monkeypatch
+):
+    backup_root = tmp_path / "backups"
+    backup_root.mkdir()
+    previous_status = {
+        "ok": True,
+        "last_ok_at": "2026-11-08T00:00:00+00:00",
+        "path": "backups/funeralos-previous",
+    }
+    status_path = backup_root / "status.json"
+    status_path.write_text(json.dumps(previous_status))
+
+    # Force the backup attempt to fail before status is written, then simulate
+    # an interruption at the atomic replacement step.
+    monkeypatch.setattr(run_backup.shutil, "which", lambda _: None)
+
+    def interrupted_replace(source, destination):
+        raise OSError("simulated interruption during status replacement")
+
+    monkeypatch.setattr(run_backup.os, "replace", interrupted_replace)
+
+    with pytest.raises(OSError, match="simulated interruption"):
+        run_backup.run_backup(str(backup_root), keep=14)
+
+    # The old known-good status remains readable and no temporary file leaks.
+    assert json.loads(status_path.read_text()) == previous_status
     assert not list(backup_root.glob(".status-*.tmp"))
