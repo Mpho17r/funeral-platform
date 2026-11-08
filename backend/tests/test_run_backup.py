@@ -2,9 +2,9 @@
 
 import json
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
-from types import SimpleNamespace
 
 from app import run_backup
 
@@ -57,7 +57,6 @@ def test_backup_collision_does_not_delete_existing_backup(
     status = json.loads((backup_root / "status.json").read_text())
     assert status["last_ok_at"] == first["finished_at"]
     assert not list(backup_root.glob(".status-*.tmp"))
-
 
 
 def test_interrupted_status_replace_preserves_previous_status(
