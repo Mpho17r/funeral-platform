@@ -129,8 +129,13 @@ def run_backup(
     # Replace the status file atomically so a VPS/process interruption cannot
     # leave a truncated JSON file and erase the last known good backup time.
     temporary_status = root / f".status-{uuid.uuid4().hex}.tmp"
-    temporary_status.write_text(json.dumps(result, indent=2))
-    os.replace(temporary_status, root / "status.json")
+    try:
+        temporary_status.write_text(json.dumps(result, indent=2))
+        os.replace(temporary_status, root / "status.json")
+    finally:
+        # If writing or replacing is interrupted, preserve the previous
+        # status.json and remove any abandoned temporary file.
+        temporary_status.unlink(missing_ok=True)
     return result
 
 
