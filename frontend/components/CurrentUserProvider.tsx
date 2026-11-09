@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import api from "@/lib/api";
+import { getToken, removeToken } from "@/lib/auth";
 
 export type CurrentUser = {
   user_id: string;
@@ -90,6 +91,8 @@ export function titleOf(
 type CurrentUserContextValue = {
   user: CurrentUser | null;
   loading: boolean;
+  /** True when the server could not be reached to validate the session. */
+  authUnavailable: boolean;
   /** The profile photo, ready to use as an image source, or null. */
   avatarUrl: string | null;
   /** Re-read who is signed in, e.g. after they change their profile. */
@@ -113,6 +116,7 @@ type CurrentUserContextValue = {
 const CurrentUserContext = createContext<CurrentUserContextValue>({
   user: null,
   loading: true,
+  authUnavailable: false,
   avatarUrl: null,
   refresh: async () => {},
   access: null,
@@ -129,29 +133,65 @@ export function CurrentUserProvider({
 }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authUnavailable, setAuthUnavailable] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [access, setAccess] = useState<Access | null>(null);
   const [accessFailed, setAccessFailed] = useState(false);
 
   const refresh = useCallback(async () => {
+    setLoading(true);
+    setAuthUnavailable(false);
+
+    // Do not make an unauthenticated request and wait for its 401. This
+    // also lets the protected shell decide before rendering any app chrome.
+    if (!getToken()) {
+      setUser(null);
+      setAccess(null);
+      setAccessFailed(false);
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await api.get<CurrentUser>("/auth/me");
-
       setUser(response.data);
 
       try {
         const mine = await api.get<Access>("/users/me/access");
-
         setAccess(mine.data);
         setAccessFailed(false);
-      } catch {
+      } catch (error) {
+        const status = (
+          error as { response?: { status?: number } }
+        ).response?.status;
+
         setAccess(null);
-        setAccessFailed(true);
+
+        if (status === 401) {
+          // The session may expire between /auth/me and the access lookup.
+          setUser(null);
+          removeToken();
+        } else {
+          // Keep the authenticated identity, but fail closed for permissions.
+          setAccessFailed(true);
+        }
       }
-    } catch {
-      // The page's own requests handle a lapsed sign-in; the shell just
-      // shows no name rather than an error.
+    } catch (error) {
+      const status = (
+        error as { response?: { status?: number } }
+      ).response?.status;
+
       setUser(null);
+      setAccess(null);
+      setAccessFailed(false);
+
+      if (status === 401) {
+        // Only an explicitly rejected credential is cleared. Network errors
+        // must not silently sign a customer out.
+        removeToken();
+      } else {
+        setAuthUnavailable(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -206,6 +246,7 @@ export function CurrentUserProvider({
     return {
       user,
       loading,
+      authUnavailable,
       avatarUrl,
       refresh,
       access,
@@ -218,7 +259,7 @@ export function CurrentUserProvider({
       isGeneral: access?.business_type === "general",
       membershipEnabled: access?.membership_enabled !== false,
     };
-  }, [user, loading, avatarUrl, refresh, access, accessFailed]);
+  }, [user, loading, authUnavailable, avatarUrl, refresh, access, accessFailed]);
 
   return (
     <CurrentUserContext.Provider value={value}>
