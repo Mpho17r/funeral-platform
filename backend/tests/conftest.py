@@ -367,13 +367,19 @@ def test_data(db):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def auth_headers(client):
+def auth_headers(client, db):
     """
     Returns a helper function that logs a test user in
     and returns the Authorization header.
     """
 
     def login(user):
+        # Most tests exercise workspace permissions, not email onboarding.
+        # Verification-specific tests explicitly set this field to None.
+        if user.email_verified_at is None:
+            user.email_verified_at = datetime.now(timezone.utc)
+            db.commit()
+
         response = client.post(
             "/auth/login",
             json={
