@@ -32,7 +32,10 @@ from app.security import (
     verify_password,
     create_access_token,
 )
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import (
+    get_current_user,
+    get_current_user_allow_unverified,
+)
 
 
 router = APIRouter(
@@ -90,7 +93,6 @@ def get_unique_business_slug(
 
 @router.post(
     "/register",
-    response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def register(
@@ -244,20 +246,10 @@ def create_business_with_owner(
             background_tasks, account_tokens.verify_email(user, raw)
         )
 
-    # ---------------------------------------------------------
-    # CREATE LOGIN TOKEN
-    # ---------------------------------------------------------
-
-    access_token = create_access_token(
-        user_id=str(user.id),
-        business_id=str(user.business_id),
-        role=user.role,
-        auth_type="business_user",
-    )
-
     return {
-        "access_token": access_token,
-        "token_type": "bearer",
+        "message": "Your business account has been created. Verify your email address before signing in.",
+        "email": user.email,
+        "verification_required": True,
     }
 
 
@@ -325,11 +317,17 @@ def login(
 
         raise invalid
 
-    # Only someone who knows the password learns the account is off.
+    # Only someone who knows the password learns the account state.
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive",
+        )
+
+    if user.email_verified_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address before signing in. Check your inbox or request a new verification link.",
         )
 
     record_success(db, user)
@@ -428,7 +426,7 @@ def change_password(
     "/me",
 )
 def get_me(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_allow_unverified),
     db: Session = Depends(get_db),
 ):
     """Who is signed in: the token details plus the name, job title and
