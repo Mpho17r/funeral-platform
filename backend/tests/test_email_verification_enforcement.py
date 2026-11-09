@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 
 def test_unverified_password_login_is_denied_without_token(client, test_data):
     user = test_data["main_admin"]
