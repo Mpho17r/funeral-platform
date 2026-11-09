@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 
 import Sidebar from "@/components/Sidebar";
 import { useBranding } from "@/components/BrandingProvider";
-import { CurrentUserProvider } from "@/components/CurrentUserProvider";
+import { CurrentUserProvider, useCurrentUser } from "@/components/CurrentUserProvider";
+import { LindaLockup } from "@/components/LindaLogo";
 import { TourProvider } from "@/components/GuidedTour";
 import TaskAlert from "@/components/TaskAlert";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -20,10 +22,31 @@ type AppShellProps = {
   children: React.ReactNode;
 };
 
-export default function AppShell({ children }: AppShellProps) {
+function AppShellContent({ children }: AppShellProps) {
+  const router = useRouter();
+  const { user, loading, authUnavailable, refresh } = useCurrentUser();
   const { branding, watermarkObjectUrl } = useBranding();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !user && !authUnavailable) {
+      router.replace("/login");
+    }
+  }, [loading, user, authUnavailable, router]);
+
+  useEffect(() => {
+    function handleSessionExpired() {
+      setSessionExpired(true);
+      router.replace("/login");
+    }
+
+    window.addEventListener("linda-session-expired", handleSessionExpired);
+    return () => {
+      window.removeEventListener("linda-session-expired", handleSessionExpired);
+    };
+  }, [router]);
 
   // Escape closes the mobile menu, and the page behind it stops scrolling.
   useEffect(() => {
@@ -43,8 +66,41 @@ export default function AppShell({ children }: AppShellProps) {
     };
   }, [menuOpen]);
 
+  if (loading || !user || authUnavailable || sessionExpired) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#101D2B] px-6 text-white">
+        <div className="flex w-full max-w-sm flex-col items-center text-center">
+          <LindaLockup markSize={48} size="lg" className="text-white" />
+          {authUnavailable ? (
+            <>
+              <p className="mt-8 text-sm text-white/75">
+                We couldn&apos;t verify your session. Check your connection and try again.
+              </p>
+              <button
+                type="button"
+                onClick={() => void refresh()}
+                className="mt-5 rounded-lg bg-[#D6A85F] px-5 py-2.5 text-sm font-semibold text-[#101D2B] transition hover:opacity-90"
+              >
+                Try again
+              </button>
+            </>
+          ) : (
+            <>
+              <span
+                aria-hidden="true"
+                className="mt-8 h-7 w-7 animate-spin rounded-full border-2 border-white/25 border-t-[#D6A85F]"
+              />
+              <p className="mt-4 text-sm text-white/75">
+                Securing your workspace…
+              </p>
+            </>
+          )}
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <CurrentUserProvider>
       <TourProvider>
       <TaskAlert />
       <div className="flex min-h-screen bg-[var(--fos-page)] text-[var(--fos-text)]">
@@ -151,6 +207,13 @@ export default function AppShell({ children }: AppShellProps) {
         </div>
       </div>
       </TourProvider>
+  );
+}
+
+export default function AppShell({ children }: AppShellProps) {
+  return (
+    <CurrentUserProvider>
+      <AppShellContent>{children}</AppShellContent>
     </CurrentUserProvider>
   );
 }
