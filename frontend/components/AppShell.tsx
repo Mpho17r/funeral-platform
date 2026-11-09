@@ -35,6 +35,17 @@ function AppShellContent({ children }: AppShellProps) {
     }
   }, [loading, user, authUnavailable, router]);
 
+  useEffect(() => {
+    function handleSessionExpired() {
+      router.replace("/login");
+    }
+
+    window.addEventListener("linda-session-expired", handleSessionExpired);
+    return () => {
+      window.removeEventListener("linda-session-expired", handleSessionExpired);
+    };
+  }, [router]);
+
   // Escape closes the mobile menu, and the page behind it stops scrolling.
   useEffect(() => {
     if (!menuOpen) return;
