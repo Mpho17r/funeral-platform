@@ -308,7 +308,7 @@ def test_auth_me_uses_current_database_role_after_role_change(
     assert response.json()["role"] == "manager"
 
 
-def test_registration_creates_main_admin(client):
+def test_registration_creates_main_admin(client, db):
     email = f"new-owner-{uuid4().hex[:8]}@example.com"
 
     response = client.post(
@@ -326,18 +326,14 @@ def test_registration_creates_main_admin(client):
 
     assert response.status_code == 201
 
-    token = response.json()["access_token"]
-
-    me_response = client.get(
-        "/auth/me",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert me_response.status_code == 200
-    assert me_response.json()["role"] == "main_admin"
+    assert response.json()["verification_required"] is True
+    assert "access_token" not in response.json()
+    owner = db.query(User).filter(User.email == email).one()
+    assert owner.role == "main_admin"
+    assert owner.email_verified_at is None
 
 
-def test_registration_does_not_allow_role_injection(client):
+def test_registration_does_not_allow_role_injection(client, db):
     email = f"injected-role-{uuid4().hex[:8]}@example.com"
 
     response = client.post(
@@ -353,15 +349,10 @@ def test_registration_does_not_allow_role_injection(client):
 
     assert response.status_code == 201
 
-    token = response.json()["access_token"]
-
-    me_response = client.get(
-        "/auth/me",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert me_response.status_code == 200
-    assert me_response.json()["role"] == "main_admin"
+    assert "access_token" not in response.json()
+    owner = db.query(User).filter(User.email == email).one()
+    assert owner.role == "main_admin"
+    assert owner.email_verified_at is None
 
 
 def test_registration_does_not_allow_business_id_injection(
@@ -383,17 +374,10 @@ def test_registration_does_not_allow_business_id_injection(
 
     assert response.status_code == 201
 
-    token = response.json()["access_token"]
-
-    me_response = client.get(
-        "/auth/me",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert me_response.status_code == 200
-    assert me_response.json()["business_id"] != str(
-        test_data["business_b"].id
-    )
+    assert "access_token" not in response.json()
+    owner = db.query(User).filter(User.email == email).one()
+    assert str(owner.business_id) != str(test_data["business_b"].id)
+    assert owner.email_verified_at is None
 
 
 def test_registration_rejects_duplicate_email(
