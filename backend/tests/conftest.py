@@ -296,7 +296,10 @@ def test_data(db):
     # USERS
     # -----------------------------------------------------------------------
 
+    verified_at = datetime.now(timezone.utc)
+
     main_admin = User(
+        email_verified_at=verified_at,
         business_id=business_a.id,
         full_name="Test Main Admin",
         email=f"main-admin-{uuid4().hex[:8]}@example.com",
@@ -306,6 +309,7 @@ def test_data(db):
     )
 
     manager = User(
+        email_verified_at=verified_at,
         business_id=business_a.id,
         full_name="Test Manager",
         email=f"manager-{uuid4().hex[:8]}@example.com",
@@ -315,6 +319,7 @@ def test_data(db):
     )
 
     staff = User(
+        email_verified_at=verified_at,
         business_id=business_a.id,
         full_name="Test Staff",
         email=f"staff-{uuid4().hex[:8]}@example.com",
@@ -324,6 +329,7 @@ def test_data(db):
     )
 
     other_business_manager = User(
+        email_verified_at=verified_at,
         business_id=business_b.id,
         full_name="Other Business Manager",
         email=f"other-manager-{uuid4().hex[:8]}@example.com",
