@@ -8,6 +8,7 @@ os.environ["TZ"] = "Africa/Johannesburg"
 if hasattr(time, "tzset"):
     time.tzset()
 
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -118,6 +119,9 @@ def db():
             "platform_pricing",
             "pricing_plans",
             "usage_snapshots",
+
+            # Authentication tokens
+            "auth_tokens",
 
             # Portal links
             "portal_links",
