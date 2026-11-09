@@ -160,11 +160,21 @@ export function CurrentUserProvider({
         const mine = await api.get<Access>("/users/me/access");
         setAccess(mine.data);
         setAccessFailed(false);
-      } catch {
-        // Authentication is valid even if permission metadata is temporarily
-        // unavailable. RouteGuard and the API remain fail-closed.
+      } catch (error) {
+        const status = (
+          error as { response?: { status?: number } }
+        ).response?.status;
+
         setAccess(null);
-        setAccessFailed(true);
+
+        if (status === 401) {
+          // The session may expire between /auth/me and the access lookup.
+          setUser(null);
+          removeToken();
+        } else {
+          // Keep the authenticated identity, but fail closed for permissions.
+          setAccessFailed(true);
+        }
       }
     } catch (error) {
       const status = (
