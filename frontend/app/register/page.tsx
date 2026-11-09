@@ -2,11 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Briefcase, HeartHandshake, Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
-import { saveToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/format";
 import { LindaMark } from "@/components/LindaLogo";
 import { PLATFORM_OWNER, PLATFORM_SLOGAN } from "@/lib/platform";
@@ -29,7 +27,6 @@ const KINDS: { value: Kind; title: string; body: string; icon: typeof Briefcase 
 ];
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [open, setOpen] = useState<boolean | null>(null);
   const [kind, setKind] = useState<Kind>("funeral");
   const [businessName, setBusinessName] = useState("");
