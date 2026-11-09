@@ -28,6 +28,7 @@ function AppShellContent({ children }: AppShellProps) {
   const { branding, watermarkObjectUrl } = useBranding();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
     if (!loading && !user && !authUnavailable) {
@@ -37,6 +38,7 @@ function AppShellContent({ children }: AppShellProps) {
 
   useEffect(() => {
     function handleSessionExpired() {
+      setSessionExpired(true);
       router.replace("/login");
     }
 
@@ -64,7 +66,7 @@ function AppShellContent({ children }: AppShellProps) {
     };
   }, [menuOpen]);
 
-  if (loading || !user || authUnavailable) {
+  if (loading || !user || authUnavailable || sessionExpired) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#101D2B] px-6 text-white">
         <div className="flex w-full max-w-sm flex-col items-center text-center">
