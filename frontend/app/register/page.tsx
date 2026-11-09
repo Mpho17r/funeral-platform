@@ -55,7 +55,7 @@ export default function RegisterPage() {
     try {
       setBusy(true);
       setError("");
-      const r = await api.post("/auth/register", {
+      await api.post("/auth/register", {
         business_name: businessName,
         business_phone: phone.trim() || null,
         business_type: kind,
