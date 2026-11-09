@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = ""
     smtp_starttls: bool = True
+    platform_alert_email: str = ""
 
     # Where the app is reached by people. Emailed links (reset password,
     # verify email) point here, so on a live system it must be the real

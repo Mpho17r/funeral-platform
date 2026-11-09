@@ -247,6 +247,17 @@ def _backup() -> str:
     return f"local {result['size_mb']} MB; off-site disabled"
 
 
+
+def _platform_monitor() -> str:
+    from app.services.platform_incidents import run
+
+    result = run()
+    return (
+        f"{result['active']} active incident(s), "
+        f"{result['notifications_sent']} notification(s) sent"
+    )
+
+
 def build_jobs() -> list[Job]:
     jobs = [
         Job("lifecycle", _lifecycle, every_minutes=5),
@@ -270,6 +281,7 @@ def build_jobs() -> list[Job]:
             Job("backup", _backup,
                 daily_hour=settings.scheduler_backup_hour, window_hours=22)
         )
+    jobs.append(Job("platform_monitor", _platform_monitor, every_minutes=5))
     return jobs
 
 

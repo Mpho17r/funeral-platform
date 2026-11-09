@@ -158,3 +158,308 @@ def test_limits_count_every_branch_even_for_a_branch_limited_person(
     finally:
         db.rollback()
         set_scope(db, None)
+
+
+def test_platform_health_requires_platform_admin(client):
+    response = client.get("/platform/health")
+    assert response.status_code in (401, 403)
+
+
+def test_platform_health_is_separate_from_business_access(
+    client, auth_headers, operator, test_data
+):
+    business_headers = auth_headers(test_data["main_admin"])
+
+    response = client.get("/platform/health", headers=business_headers)
+    assert response.status_code == 401
+
+    response = client.get("/platform/health", headers=operator)
+    assert response.status_code == 200, response.text
+
+    body = response.json()
+    assert body["state"] in ("ok", "degraded", "unknown")
+    assert "checked_at" in body
+    assert "local_backup" in body
+    assert "offsite_backup" in body
+    assert "scheduler" in body
+
+
+def test_missing_offsite_status_is_unknown(tmp_path, monkeypatch):
+    from app.services import platform_health
+
+    monkeypatch.setattr(
+        platform_health.settings, "backup_dir", str(tmp_path)
+    )
+
+    result = platform_health._offsite_status()
+
+    assert result["state"] == "unknown"
+    assert result["enabled"] is None
+
+
+def test_offsite_failure_is_reported(tmp_path, monkeypatch):
+    import json
+
+    from app.services import platform_health
+
+    monkeypatch.setattr(
+        platform_health.settings, "backup_dir", str(tmp_path)
+    )
+
+    status_file = tmp_path / "offsite_status.json"
+    status_file.write_text(json.dumps({
+        "enabled": True,
+        "ok": False,
+        "error": "repository unavailable",
+        "last_ok_at": "2026-11-07T02:00:00+00:00",
+    }))
+
+    result = platform_health._offsite_status()
+
+    assert result["state"] == "failed"
+    assert result["last_ok_at"] == "2026-11-07T02:00:00+00:00"
+    assert result["error"] == "repository unavailable"
+
+
+def test_offsite_success_older_than_26_hours_is_stale(
+    tmp_path, monkeypatch
+):
+    import json
+    from datetime import datetime, timezone
+    from app.services import platform_health
+
+    monkeypatch.setattr(
+        platform_health.settings, "backup_dir", str(tmp_path)
+    )
+
+    (tmp_path / "offsite_status.json").write_text(json.dumps({
+        "enabled": True,
+        "ok": True,
+        "last_ok_at": "2026-11-08T00:00:00+00:00",
+    }))
+
+    result = platform_health._offsite_status(
+        now=datetime(2026, 11, 9, 3, 0, tzinfo=timezone.utc)
+    )
+
+    assert result["state"] == "stale"
+    assert result["age_hours"] == 27.0
+
+
+def test_offsite_recent_success_is_healthy(tmp_path, monkeypatch):
+    import json
+    from datetime import datetime, timezone
+    from app.services import platform_health
+
+    monkeypatch.setattr(
+        platform_health.settings, "backup_dir", str(tmp_path)
+    )
+
+    (tmp_path / "offsite_status.json").write_text(json.dumps({
+        "enabled": True,
+        "ok": True,
+        "last_ok_at": "2026-11-09T00:00:00+00:00",
+    }))
+
+    result = platform_health._offsite_status(
+        now=datetime(2026, 11, 9, 3, 0, tzinfo=timezone.utc)
+    )
+
+    assert result["state"] == "ok"
+    assert result["age_hours"] == 3.0
+
+
+def test_offsite_success_without_valid_timestamp_is_unknown(
+    tmp_path, monkeypatch
+):
+    import json
+    from app.services import platform_health
+
+    monkeypatch.setattr(
+        platform_health.settings, "backup_dir", str(tmp_path)
+    )
+
+    (tmp_path / "offsite_status.json").write_text(json.dumps({
+        "enabled": True,
+        "ok": True,
+        "last_ok_at": "not-a-timestamp",
+    }))
+
+    result = platform_health._offsite_status()
+
+    assert result["state"] == "unknown"
+
+
+def test_offsite_failed_attempt_is_not_hidden_by_recent_success(
+    tmp_path, monkeypatch
+):
+    import json
+    from app.services import platform_health
+
+    monkeypatch.setattr(
+        platform_health.settings, "backup_dir", str(tmp_path)
+    )
+
+    (tmp_path / "offsite_status.json").write_text(json.dumps({
+        "enabled": True,
+        "ok": False,
+        "last_ok_at": "2026-11-09T02:00:00+00:00",
+        "error": "repository unavailable",
+    }))
+
+    result = platform_health._offsite_status()
+
+    assert result["state"] == "failed"
+
+
+def test_malformed_offsite_json_is_unknown(tmp_path, monkeypatch):
+    from app.services import platform_health
+
+    monkeypatch.setattr(
+        platform_health.settings, "backup_dir", str(tmp_path)
+    )
+
+    (tmp_path / "offsite_status.json").write_text("{not valid json")
+
+    result = platform_health._offsite_status()
+
+    assert result["state"] == "unknown"
+
+
+def test_offsite_json_list_is_unknown(tmp_path, monkeypatch):
+    from app.services import platform_health
+
+    monkeypatch.setattr(
+        platform_health.settings, "backup_dir", str(tmp_path)
+    )
+
+    (tmp_path / "offsite_status.json").write_text("[]")
+
+    result = platform_health._offsite_status()
+
+    assert result["state"] == "unknown"
+
+
+
+def test_platform_health_response_excludes_internal_error_details(
+    monkeypatch,
+):
+    from app.services import platform_health
+
+    monkeypatch.setattr(
+        platform_health.backup_status,
+        "read",
+        lambda: {
+            "state": "failed",
+            "message": "The last backup failed.",
+            "error": "SECRET_LOCAL_EXCEPTION",
+            "last_backup_at": "2026-11-09T02:00:00+00:00",
+            "age_hours": 3,
+            "size_mb": 12,
+        },
+    )
+    monkeypatch.setattr(
+        platform_health,
+        "_offsite_status",
+        lambda: {
+            "state": "failed",
+            "message": "The latest off-site backup failed.",
+            "enabled": True,
+            "error": "SECRET_REMOTE_EXCEPTION",
+            "snapshot_id": "SECRET_SNAPSHOT_ID",
+        },
+    )
+    monkeypatch.setattr(
+        platform_health.scheduler_state,
+        "read",
+        lambda: {
+            "state": "degraded",
+            "heartbeat_at": "2026-11-09T02:00:00+00:00",
+            "failing": ["backup"],
+            "jobs": {
+                "backup": {
+                    "ok": False,
+                    "last_run_at": "2026-11-09T02:00:00+00:00",
+                    "detail": "SECRET_SCHEDULER_DETAIL",
+                }
+            },
+        },
+    )
+
+    result = platform_health.read()
+    rendered = str(result)
+
+    assert result["state"] == "degraded"
+    assert result["local_backup"]["state"] == "failed"
+    assert result["offsite_backup"]["state"] == "failed"
+    assert result["scheduler"]["jobs"]["backup"]["ok"] is False
+
+    assert "SECRET_LOCAL_EXCEPTION" not in rendered
+    assert "SECRET_REMOTE_EXCEPTION" not in rendered
+    assert "SECRET_SNAPSHOT_ID" not in rendered
+    assert "SECRET_SCHEDULER_DETAIL" not in rendered
+
+
+def test_platform_incidents_requires_platform_admin(client):
+    response = client.get("/platform/incidents")
+    assert response.status_code in (401, 403)
+
+
+def test_business_admin_cannot_read_platform_incidents(
+    client, auth_headers, test_data
+):
+    response = client.get(
+        "/platform/incidents",
+        headers=auth_headers(test_data["main_admin"]),
+    )
+    assert response.status_code == 401
+
+
+def test_platform_admin_receives_sanitized_incident_history(
+    client, operator, tmp_path, monkeypatch
+):
+    import json
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "backup_dir", str(tmp_path))
+
+    incident_data = {
+        "incidents": {
+            "offsite_backup": {
+                "status": "active",
+                "state": "failed",
+                "opened_at": "2026-11-09T07:00:00+00:00",
+                "updated_at": "2026-11-09T07:05:00+00:00",
+                "notified_at": "2026-11-09T07:01:00+00:00",
+                "recovery_notified_at": None,
+                "notification_error": "PRIVATE SMTP HOST DETAIL",
+                "internal_secret": "PRIVATE SECRET",
+            }
+        }
+    }
+
+    (tmp_path / "platform_incidents.json").write_text(
+        json.dumps(incident_data)
+    )
+
+    response = client.get("/platform/incidents", headers=operator)
+
+    assert response.status_code == 200, response.text
+
+    body = response.json()
+    assert body["active"] == 1
+    assert body["total"] == 1
+    assert len(body["incidents"]) == 1
+
+    incident = body["incidents"][0]
+    assert incident["component"] == "offsite_backup"
+    assert incident["label"] == "Off-site backups"
+    assert incident["status"] == "active"
+    assert incident["state"] == "failed"
+    assert incident["alert_notified"] is True
+    assert incident["recovery_notified"] is False
+
+    assert "notification_error" not in response.text
+    assert "internal_secret" not in response.text
+    assert "PRIVATE SMTP HOST DETAIL" not in response.text
+    assert "PRIVATE SECRET" not in response.text

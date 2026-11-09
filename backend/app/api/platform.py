@@ -30,6 +30,8 @@ from app.security import verify_password
 from app.services.permission_service import has_permission
 from app.services import plan_limits
 from app.services import pricing as pricing_service
+from app.services import platform_health
+from app.services import platform_incidents
 
 router = APIRouter(tags=["Platform"])
 bearer = HTTPBearer()
@@ -154,6 +156,24 @@ def platform_summary(
         for key, value in r["usage"].items():
             totals[key] = totals.get(key, 0) + value
     return {"businesses": len(rows), "by_status": by_status, "totals": totals}
+
+
+
+
+@router.get("/platform/incidents")
+def platform_incident_list(
+    admin: PlatformAdmin = Depends(get_platform_admin),
+):
+    """Safe incident history, visible only to Saccharum platform admins."""
+    return platform_incidents.read()
+
+
+@router.get("/platform/health")
+def platform_health_status(
+    admin: PlatformAdmin = Depends(get_platform_admin),
+):
+    """Operational health, visible only to Saccharum platform admins."""
+    return platform_health.read()
 
 
 class SubscriptionUpdate(BaseModel):
