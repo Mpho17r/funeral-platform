@@ -14,7 +14,11 @@ import { useCurrentUser } from "@/components/CurrentUserProvider";
  */
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { can } = useCurrentUser();
+  const { can, user, loading } = useCurrentUser();
+
+  // Defence in depth: never render protected route children while the
+  // session is unresolved or the account is not authenticated.
+  if (loading || !user) return null;
 
   const needed = permissionForPath(pathname);
 
