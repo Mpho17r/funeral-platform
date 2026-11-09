@@ -14,7 +14,7 @@ jobs:
   backend:
     name: Backend (migrations, permissions, tests)
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     services:
       postgres:

@@ -36,6 +36,71 @@ type Plan = {
 
 type Pricing = { vat_percent: number; price_note: string | null };
 
+type HealthComponent = {
+  state: string;
+  message?: string;
+  last_backup_at?: string | null;
+  age_hours?: number | null;
+  size_mb?: number | null;
+  enabled?: boolean;
+  last_ok_at?: string | null;
+  finished_at?: string | null;
+  heartbeat_at?: string | null;
+  failing?: string[];
+  jobs?: Record<string, { ok?: boolean; last_run_at?: string | null }>;
+};
+
+type PlatformHealth = {
+  state: string;
+  checked_at: string;
+  local_backup: HealthComponent;
+  offsite_backup: HealthComponent;
+  scheduler: HealthComponent;
+};
+
+type Incident = {
+  component: string;
+  label: string;
+  status: "active" | "resolved";
+  state: string;
+  opened_at: string | null;
+  updated_at: string | null;
+  resolved_at: string | null;
+  alert_notified: boolean;
+  recovery_notified: boolean;
+};
+
+type IncidentResponse = {
+  active: number;
+  total: number;
+  incidents: Incident[];
+};
+
+function formatDate(value?: string | null) {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Not available"
+    : date.toLocaleString("en-ZA");
+}
+
+function stateLabel(value?: string) {
+  return value ? value.replaceAll("_", " ") : "unknown";
+}
+
+function stateStyle(value?: string) {
+  if (value === "ok" || value === "resolved") {
+    return "bg-green-100 text-green-800";
+  }
+  if (value === "failed" || value === "active") {
+    return "bg-red-100 text-red-800";
+  }
+  if (value === "degraded" || value === "stale" || value === "unknown") {
+    return "bg-amber-100 text-amber-800";
+  }
+  return "bg-slate-100 text-slate-700";
+}
+
 const rands = (c: number) => `R${(c / 100).toLocaleString("en-ZA")}`;
 
 const TIERS = ["standard", "starter", "growth", "professional", "enterprise"];
@@ -64,6 +129,12 @@ export default function PlatformPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [priceSaved, setPriceSaved] = useState(false);
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+
+  const [health, setHealth] = useState<PlatformHealth | null>(null);
+  const [incidents, setIncidents] = useState<IncidentResponse | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthError, setHealthError] = useState("");
+  const [lastHealthRefresh, setLastHealthRefresh] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -103,7 +174,52 @@ export default function PlatformPage() {
     void load();
   }, [load]);
 
+  const loadHealth = useCallback(async () => {
+    if (!token) return;
+
+    setHealthLoading(true);
+    setHealthError("");
+
+    try {
+      const [healthResponse, incidentResponse] = await Promise.all([
+        axios.get<PlatformHealth>(`${API}/platform/health`, auth()),
+        axios.get<IncidentResponse>(`${API}/platform/incidents`, auth()),
+      ]);
+      setHealth(healthResponse.data);
+      setIncidents(incidentResponse.data);
+      setLastHealthRefresh(new Date().toISOString());
+    } catch (e) {
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
+        sessionStorage.removeItem(KEY);
+        setToken(null);
+      } else {
+        setHealthError(detail(e, "Could not load operational health."));
+      }
+    } finally {
+      setHealthLoading(false);
+    }
+  }, [token, auth]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const initialLoad = window.setTimeout(() => {
+      void loadHealth();
+    }, 0);
+
+    const interval = window.setInterval(() => {
+      void loadHealth();
+    }, 60_000);
+
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(interval);
+    };
+  }, [token, loadHealth]);
+
   async function login(e: FormEvent) {
+
+
     e.preventDefault();
     try {
       setError("");
@@ -224,6 +340,160 @@ export default function PlatformPage() {
             className="w-full rounded-lg border px-3 py-2.5 text-sm"
           />
           {error && <p className="text-sm text-red-700">{error}</p>}
+
+      <section className="space-y-4 rounded-2xl border bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Operational Health
+            </h2>
+            <p className="text-xs text-slate-500">
+              LINDA services, backups and background jobs
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {health && (
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${stateStyle(health.state)}`}>
+                {stateLabel(health.state)}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => void loadHealth()}
+              disabled={healthLoading}
+              className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+            >
+              {healthLoading && <Loader2 size={15} className="animate-spin" />}
+              {healthLoading ? "Refreshing" : "Refresh"}
+            </button>
+          </div>
+        </div>
+
+        {healthError && (
+          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+            {healthError}
+          </p>
+        )}
+
+        {!health && !healthError && (
+          <p className="text-sm text-slate-500">Loading operational health…</p>
+        )}
+
+        {health && (
+          <>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border p-3">
+                <p className="text-xs font-medium uppercase text-slate-500">Local backups</p>
+                <span className={`mt-2 inline-block rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${stateStyle(health.local_backup.state)}`}>
+                  {stateLabel(health.local_backup.state)}
+                </span>
+                <p className="mt-3 text-xs text-slate-600">
+                  Last backup: {formatDate(health.local_backup.last_backup_at)}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Age: {health.local_backup.age_hours == null
+                    ? "Not available"
+                    : `${health.local_backup.age_hours.toFixed(1)} hours`}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Size: {health.local_backup.size_mb == null
+                    ? "Not available"
+                    : `${health.local_backup.size_mb.toFixed(2)} MB`}
+                </p>
+              </div>
+
+              <div className="rounded-xl border p-3">
+                <p className="text-xs font-medium uppercase text-slate-500">Off-site backups</p>
+                <span className={`mt-2 inline-block rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${stateStyle(health.offsite_backup.state)}`}>
+                  {stateLabel(health.offsite_backup.state)}
+                </span>
+                <p className="mt-3 text-xs text-slate-600">
+                  Enabled: {health.offsite_backup.enabled == null
+                    ? "Unknown"
+                    : health.offsite_backup.enabled ? "Yes" : "No"}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Last successful backup: {formatDate(health.offsite_backup.last_ok_at)}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Last attempt: {formatDate(health.offsite_backup.finished_at)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border p-3">
+                <p className="text-xs font-medium uppercase text-slate-500">Scheduler</p>
+                <span className={`mt-2 inline-block rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${stateStyle(health.scheduler.state)}`}>
+                  {stateLabel(health.scheduler.state)}
+                </span>
+                <p className="mt-3 text-xs text-slate-600">
+                  Heartbeat: {formatDate(health.scheduler.heartbeat_at)}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Failing jobs: {health.scheduler.failing?.length ?? 0}
+                </p>
+                {health.scheduler.failing && health.scheduler.failing.length > 0 && (
+                  <p className="mt-2 break-words text-xs text-red-700">
+                    {health.scheduler.failing.join(", ")}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold text-slate-900">Incident history</h3>
+                <span className="text-xs text-slate-500">
+                  {incidents?.active ?? 0} active · {incidents?.total ?? 0} recorded
+                </span>
+              </div>
+
+              {!incidents || incidents.incidents.length === 0 ? (
+                <p className="mt-3 text-sm text-slate-500">
+                  No incidents recorded.
+                </p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {incidents.incidents.map((incident) => (
+                    <div
+                      key={`${incident.component}-${incident.opened_at}`}
+                      className="rounded-xl border p-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {incident.label}
+                        </p>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${stateStyle(incident.status)}`}>
+                          {incident.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs capitalize text-slate-600">
+                        State: {stateLabel(incident.state)}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Opened: {formatDate(incident.opened_at)}
+                        {incident.resolved_at
+                          ? ` · Resolved: ${formatDate(incident.resolved_at)}`
+                          : ""}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Alert email: {incident.alert_notified ? "Sent" : "Not sent"}
+                        {incident.status === "resolved"
+                          ? ` · Recovery email: ${incident.recovery_notified ? "Sent" : "Not sent"}`
+                          : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <p className="text-right text-xs text-slate-400">
+              Last refreshed: {formatDate(lastHealthRefresh)}
+              {" · "}Automatic refresh every 60 seconds
+            </p>
+          </>
+        )}
+      </section>
           <button className="w-full rounded-lg bg-slate-900 py-2.5 text-sm font-semibold text-white">
             Sign in
           </button>
