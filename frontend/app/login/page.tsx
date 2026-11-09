@@ -84,6 +84,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [verificationNotice, setVerificationNotice] = useState("");
+  const [resendingVerification, setResendingVerification] = useState(false);
 
   useEffect(() => {
     api
@@ -93,12 +94,14 @@ export default function LoginPage() {
   }, []);
 
   async function resendVerification() {
-    setVerificationNotice("sending");
+    setResendingVerification(true);
     try {
       const response = await api.post("/auth/resend-verification", { email });
       setVerificationNotice(response.data.message || "If the account needs verification, a link has been sent.");
     } catch {
       setVerificationNotice("We couldn't send the link right now. Please try again later.");
+    } finally {
+      setResendingVerification(false);
     }
   }
 
@@ -342,11 +345,11 @@ export default function LoginPage() {
                 {verificationNotice === "needed" ? (
                   <>
                     <p>Your email address must be confirmed before you can sign in.</p>
-                    <button type="button" onClick={resendVerification} disabled={!email || verificationNotice === "sending"} className="font-semibold underline disabled:opacity-50">
-                      Send a new verification link
+                    <button type="button" onClick={resendVerification} disabled={!email || resendingVerification} className="font-semibold underline disabled:opacity-50">
+                      {resendingVerification ? "Sending a verification link…" : "Send a new verification link"}
                     </button>
                   </>
-                ) : verificationNotice === "sending" ? "Sending a verification link…" : verificationNotice}
+                ) : verificationNotice}
               </div>
             )}
 
