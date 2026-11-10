@@ -307,6 +307,7 @@ export default function TeamPage() {
         });
 
         setUsers((current) => [...current, response.data]);
+        setNotice(`Invitation email queued for ${email}. They will create their own password from the link.`);
       }
 
       closeForm();
