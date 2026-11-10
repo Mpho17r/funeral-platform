@@ -13,7 +13,7 @@ from app.models.user import User
 security = HTTPBearer()
 
 
-def _authenticate(credentials, db):
+def _authenticate(credentials, db, *, require_verified=True):
     token = credentials.credentials
 
     try:
@@ -62,6 +62,12 @@ def _authenticate(credentials, db):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User account is inactive",
+            )
+
+        if require_verified and user.email_verified_at is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Please verify your email address before accessing LINDA. Check your inbox or request a new verification link.",
             )
 
         from app.models.business import Business
@@ -116,5 +122,18 @@ def get_current_user(
 
     try:
         yield _authenticate(credentials, db)
+    finally:
+        set_scope(db, None)
+
+
+def get_current_user_allow_unverified(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    """Authenticate an account while allowing access to verification-only identity flows."""
+    from app.services.branch_scope import set_scope
+
+    try:
+        yield _authenticate(credentials, db, require_verified=False)
     finally:
         set_scope(db, None)

@@ -137,8 +137,10 @@ def test_autopilot_does_not_invent_funeral_work_for_a_general_business(db, test_
     assert [p for p in proposals if p["kind"] == "create_task"] == []
 
 
-def test_registration_chooses_the_kind_of_business(client):
+def test_registration_chooses_the_kind_of_business(client, db):
     from uuid import uuid4
+    from datetime import datetime, timezone
+    from app.models.user import User
 
     def register(kind):
         email = f"owner-{uuid4().hex[:8]}@example.com"
@@ -148,9 +150,13 @@ def test_registration_chooses_the_kind_of_business(client):
             body["business_type"] = kind
         r = client.post("/auth/register", json=body)
         assert r.status_code == 201, r.text
-        login = client.post("/auth/login", data={"username": email, "password": "TestPassword123!"})
-        if login.status_code != 200:
-            login = client.post("/auth/login", json={"email": email, "password": "TestPassword123!"})
+        assert r.json()["verification_required"] is True
+        assert "access_token" not in r.json()
+        owner = db.query(User).filter(User.email == email).one()
+        owner.email_verified_at = datetime.now(timezone.utc)
+        db.commit()
+        login = client.post("/auth/login", json={"email": email, "password": "TestPassword123!"})
+        assert login.status_code == 200, login.text
         token = login.json()["access_token"]
         return client.get("/users/me/access", headers={"Authorization": f"Bearer {token}"}).json()
 

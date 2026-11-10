@@ -8,7 +8,6 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.security import hash_password
 from app.services import account_tokens as tokens
@@ -146,40 +145,33 @@ def verify_email(data: VerifyIn, db: Session = Depends(get_db)):
     return {"message": "Your email address is confirmed."}
 
 
-@router.post("/resend-verification")
+@router.post("/resend-verification", status_code=status.HTTP_202_ACCEPTED)
 def resend_verification(
+    data: ForgotIn,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
 ):
-    user = db.get(User, current_user["user_id"])
+    """Send a verification link without requiring an authenticated session.
 
-    if user is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-
-    if user.email_verified_at is not None:
-        return {"status": "already_verified"}
-
-    if not message_delivery.email_configured():
-        return {
-            "status": "email_not_set_up",
-            "message": (
-                "Email sending is not set up on this server, so a "
-                "confirmation cannot be sent. Ask your administrator."
-            ),
-        }
-
+    The same response is returned for unknown, inactive, and already-verified
+    addresses to avoid account enumeration.
+    """
+    user = _by_email(db, data.email)
     if (
-        tokens.sent_in_last_hour(db, user.id, tokens.VERIFY)
-        >= tokens.MAX_VERIFY_EMAILS_PER_HOUR
+        user is not None
+        and user.is_active
+        and user.email_verified_at is None
+        and message_delivery.email_configured()
+        and tokens.sent_in_last_hour(db, user.id, tokens.VERIFY)
+        < tokens.MAX_VERIFY_EMAILS_PER_HOUR
     ):
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            "Too many emails sent. Try again in an hour.",
+        raw = tokens.issue(db, user, tokens.VERIFY)
+        db.commit()
+        tokens.send_later(background_tasks, tokens.verify_email(user, raw))
+
+    return {
+        "message": (
+            "If the account exists and still needs verification, "
+            "a confirmation link has been sent."
         )
-
-    raw = tokens.issue(db, user, tokens.VERIFY)
-    db.commit()
-    tokens.send_later(background_tasks, tokens.verify_email(user, raw))
-
-    return {"status": "sent", "message": f"We sent a link to {user.email}."}
+    }

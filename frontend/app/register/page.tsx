@@ -2,11 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Briefcase, HeartHandshake, Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
-import { saveToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/format";
 import { LindaMark } from "@/components/LindaLogo";
 import { PLATFORM_OWNER, PLATFORM_SLOGAN } from "@/lib/platform";
@@ -29,7 +27,6 @@ const KINDS: { value: Kind; title: string; body: string; icon: typeof Briefcase 
 ];
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [open, setOpen] = useState<boolean | null>(null);
   const [kind, setKind] = useState<Kind>("funeral");
   const [businessName, setBusinessName] = useState("");
@@ -40,6 +37,7 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState(false);
 
   useEffect(() => {
     api
@@ -57,7 +55,7 @@ export default function RegisterPage() {
     try {
       setBusy(true);
       setError("");
-      const r = await api.post("/auth/register", {
+      await api.post("/auth/register", {
         business_name: businessName,
         business_phone: phone.trim() || null,
         business_type: kind,
@@ -65,8 +63,8 @@ export default function RegisterPage() {
         email,
         password,
       });
-      saveToken(r.data.access_token);
-      router.push("/choose-plan");
+      setCreated(true);
+      setBusy(false);
     } catch (err) {
       setError(getApiErrorMessage(err, "We could not create your account."));
       setBusy(false);
@@ -96,7 +94,13 @@ export default function RegisterPage() {
         </p>
       </header>
 
-      {open === false ? (
+      {created ? (
+        <section className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900" role="status">
+          <h2 className="font-semibold">Check your email to continue</h2>
+          <p>Your LINDA business account has been created. We sent a confirmation link to {email}. Open that email and confirm your address, then return here to sign in.</p>
+          <Link href="/login" className="inline-block font-semibold underline">Go to sign in</Link>
+        </section>
+      ) : open === false ? (
         <p className="rounded-xl border bg-amber-50 p-4 text-sm text-amber-900">
           Sign-up is closed. Ask your administrator to create your account.
         </p>

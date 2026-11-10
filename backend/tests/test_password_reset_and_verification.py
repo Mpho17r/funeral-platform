@@ -269,16 +269,24 @@ def test_registering_sends_a_confirmation_email(client, db, outbox):
 
 
 def test_a_new_owner_starts_unverified_and_the_link_verifies(client, db, outbox):
-    access = register(client).json()["access_token"]
-    headers = {"Authorization": f"Bearer {access}"}
+    registration = register(client)
+    assert registration.status_code == 201
+    assert registration.json()["verification_required"] is True
+    assert "access_token" not in registration.json()
 
-    assert client.get("/auth/me", headers=headers).json()["email_verified"] is False
+    email = registration.json()["email"]
+    owner = db.query(User).filter(User.email == email).one()
+    assert owner.email_verified_at is None
+    assert login(client, email, PASSWORD).status_code == 403
 
     response = client.post(
         "/auth/verify-email", json={"token": token_from(outbox[0])}
     )
 
     assert response.status_code == 200
+    signed_in = login(client, email, PASSWORD)
+    assert signed_in.status_code == 200
+    headers = {"Authorization": f"Bearer {signed_in.json()['access_token']}"}
     assert client.get("/auth/me", headers=headers).json()["email_verified"] is True
     assert len(audits(db, "auth.email_verified")) == 1
 
@@ -330,33 +338,39 @@ def test_an_administrator_adding_staff_sends_them_a_confirmation(
 
 
 def test_resend_sends_a_new_link_when_email_is_set_up(
-    client, db, test_data, auth_headers, outbox, monkeypatch
+    client, db, test_data, outbox, monkeypatch
 ):
     monkeypatch.setattr(message_delivery, "email_configured", lambda: True)
-    headers = auth_headers(test_data["staff"])
+    user = test_data["staff"]
+    user.email_verified_at = None
+    db.commit()
 
-    response = client.post("/auth/resend-verification", headers=headers)
+    response = client.post(
+        "/auth/resend-verification", json={"email": user.email}
+    )
 
-    assert response.json()["status"] == "sent"
+    assert response.status_code == 202
+    assert "If the account exists" in response.json()["message"]
     assert len(outbox) == 1
     assert "/verify-email#token=" in outbox[0]["body"]
 
 
 def test_resend_says_so_when_email_is_not_set_up(
-    client, test_data, auth_headers, outbox, monkeypatch
+    client, test_data, outbox, monkeypatch
 ):
     monkeypatch.setattr(message_delivery, "email_configured", lambda: False)
 
     response = client.post(
-        "/auth/resend-verification", headers=auth_headers(test_data["staff"])
+        "/auth/resend-verification", json={"email": test_data["staff"].email}
     )
 
-    assert response.json()["status"] == "email_not_set_up"
+    assert response.status_code == 202
+    assert "If the account exists" in response.json()["message"]
     assert outbox == []
 
 
 def test_resend_does_nothing_for_someone_already_verified(
-    client, db, test_data, auth_headers, outbox, monkeypatch
+    client, db, test_data, outbox, monkeypatch
 ):
     monkeypatch.setattr(message_delivery, "email_configured", lambda: True)
     user = test_data["staff"]
@@ -364,28 +378,31 @@ def test_resend_does_nothing_for_someone_already_verified(
     db.commit()
 
     response = client.post(
-        "/auth/resend-verification", headers=auth_headers(user)
+        "/auth/resend-verification", json={"email": user.email}
     )
 
-    assert response.json()["status"] == "already_verified"
+    assert response.status_code == 202
+    assert "If the account exists" in response.json()["message"]
     assert outbox == []
 
 
 def test_resend_is_limited(
-    client, test_data, auth_headers, outbox, monkeypatch
+    client, db, test_data, outbox, monkeypatch
 ):
     monkeypatch.setattr(message_delivery, "email_configured", lambda: True)
-    headers = auth_headers(test_data["staff"])
+    user = test_data["staff"]
+    user.email_verified_at = None
+    db.commit()
     codes = [
-        client.post("/auth/resend-verification", headers=headers).status_code
+        client.post(
+            "/auth/resend-verification", json={"email": user.email}
+        ).status_code
         for _ in range(account_tokens.MAX_VERIFY_EMAILS_PER_HOUR + 2)
     ]
 
-    assert codes[: account_tokens.MAX_VERIFY_EMAILS_PER_HOUR] == [200] * (
-        account_tokens.MAX_VERIFY_EMAILS_PER_HOUR
-    )
-    assert codes[-1] == 429
+    assert codes == [202] * len(codes)
+    assert len(outbox) == account_tokens.MAX_VERIFY_EMAILS_PER_HOUR
 
 
-def test_resend_needs_a_signed_in_user(client):
-    assert client.post("/auth/resend-verification").status_code in (401, 403)
+def test_resend_requires_an_email_address(client):
+    assert client.post("/auth/resend-verification").status_code == 422

@@ -154,6 +154,18 @@ export function CurrentUserProvider({
 
     try {
       const response = await api.get<CurrentUser>("/auth/me");
+
+      // A pre-existing session may predate mandatory email verification.
+      // Keep the identity endpoint available for verification UX, but never
+      // hydrate the business workspace for an unverified account.
+      if (response.data.email_verified === false) {
+        removeToken();
+        setUser(null);
+        setAccess(null);
+        setAccessFailed(false);
+        return;
+      }
+
       setUser(response.data);
 
       try {
