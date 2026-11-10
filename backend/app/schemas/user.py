@@ -16,7 +16,6 @@ def _clean_title(value):
 class UserCreate(BaseModel):
     full_name: str
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
     role: str = "staff"
     job_title: str | None = Field(default=None, max_length=100)
 
