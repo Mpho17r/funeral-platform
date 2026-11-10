@@ -185,7 +185,8 @@ def test_create_staff_user(
 
     assert created is not None
     assert created.password_hash != "NewPassword123!"
-    assert verify_password("NewPassword123!", created.password_hash)
+    assert not verify_password("NewPassword123!", created.password_hash)
+    assert created.email_verified_at is None
 
 
 def test_create_manager_user(
