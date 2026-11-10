@@ -604,21 +604,24 @@ def test_creating_a_user_is_audited(client, db, test_data, auth_headers):
     assert "NewPersonPass" not in str(row.details)
 
 
-def test_new_user_password_needs_eight_characters(
-    client, test_data, auth_headers
+def test_new_user_can_be_created_without_admin_password(
+    client, db, test_data, auth_headers
 ):
     response = client.post(
         "/users",
         json={
             "full_name": "New Person",
-            "email": "short.pass@example.com",
-            "password": "short",
+            "email": "invite.only@example.com",
             "role": "staff",
         },
         headers=auth_headers(test_data["manager"]),
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 201
+    created = db.query(User).filter(
+        User.email == "invite.only@example.com"
+    ).one()
+    assert created.email_verified_at is None
 
 
 def test_role_change_is_audited(client, db, test_data, auth_headers):

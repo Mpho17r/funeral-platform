@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import secrets
 from uuid import UUID
 
 from fastapi import (
@@ -205,7 +206,7 @@ def create_user(
         branch_id=branch_id,
         full_name=data.full_name,
         email=data.email,
-        password_hash=hash_password(data.password),
+        password_hash=hash_password(secrets.token_urlsafe(48)),
         role=data.role,
         job_title=data.job_title,
         is_active=True,
@@ -232,14 +233,21 @@ def create_user(
     db.commit()
     db.refresh(user)
 
-    # Ask the new person to confirm the address the administrator typed.
+    # The invitee chooses their own password. Until they accept the
+    # single-use invitation, their unverified account cannot sign in.
     from app.services import account_tokens
 
-    raw = account_tokens.issue(db, user, account_tokens.VERIFY)
-    db.commit()
-    account_tokens.send_later(
-        background_tasks, account_tokens.verify_email(user, raw)
-    )
+    if (
+        account_tokens.sent_in_last_hour(
+            db, user.id, account_tokens.INVITE
+        )
+        < account_tokens.MAX_INVITE_EMAILS_PER_HOUR
+    ):
+        raw = account_tokens.issue(db, user, account_tokens.INVITE)
+        db.commit()
+        account_tokens.send_later(
+            background_tasks, account_tokens.invite_email(user, raw)
+        )
 
     return user
 

@@ -27,9 +27,11 @@ log = logging.getLogger("linda.account_tokens")
 
 RESET = "password_reset"
 VERIFY = "email_verify"
+INVITE = "team_invite"
 
 MAX_RESET_EMAILS_PER_HOUR = 3
 MAX_VERIFY_EMAILS_PER_HOUR = 5
+MAX_INVITE_EMAILS_PER_HOUR = 5
 
 
 def _now() -> datetime:
@@ -77,7 +79,7 @@ def issue(db: Session, user: User, purpose: str) -> str:
             user_id=user.id,
             purpose=purpose,
             token_hash=_hash(raw),
-            email=user.email if purpose == VERIFY else None,
+            email=user.email if purpose in (VERIFY, INVITE) else None,
             expires_at=now + lifetime,
         )
     )
@@ -138,6 +140,20 @@ def verify_email(user: User, raw: str) -> tuple[str, str, str, str]:
         "If you did not create an account, ignore this email.\n\nLINDA\n"
     )
     return user.email, "Confirm your email address", body, url
+
+
+def invite_email(user: User, raw: str) -> tuple[str, str, str, str]:
+    url = link("accept-invitation", raw)
+    body = (
+        f"Hello {user.full_name},\n\n"
+        "You have been invited to join a business on LINDA. "
+        "Your account has been created, but you need to choose your own "
+        "password before you can sign in.\n\n"
+        f"Create your password using this secure link (valid for "
+        f"{settings.verify_token_hours // 24} days):\n\n{url}\n\n"
+        "If you were not expecting this invitation, you can ignore this email.\n\nLINDA\n"
+    )
+    return user.email, "You have been invited to LINDA", body, url
 
 
 def changed_notice(user: User) -> tuple[str, str, str, str]:

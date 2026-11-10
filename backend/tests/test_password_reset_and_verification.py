@@ -335,6 +335,8 @@ def test_an_administrator_adding_staff_sends_them_a_confirmation(
 
     assert response.status_code == 201, response.text
     assert [m["to"] for m in outbox] == ["fresh.hire@example.com"]
+    assert outbox[0]["subject"] == "You have been invited to LINDA"
+    assert "/accept-invitation#token=" in outbox[0]["body"]
 
 
 def test_resend_sends_a_new_link_when_email_is_set_up(
@@ -406,3 +408,59 @@ def test_resend_is_limited(
 
 def test_resend_requires_an_email_address(client):
     assert client.post("/auth/resend-verification").status_code == 422
+
+
+def test_invited_team_member_sets_their_own_password(
+    client, db, test_data, auth_headers, outbox
+):
+    response = client.post(
+        "/users",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "full_name": "Invited Colleague",
+            "email": "invite.accept@example.com",
+            "role": "staff",
+        },
+    )
+    assert response.status_code == 201
+    invited = db.query(User).filter(
+        User.email == "invite.accept@example.com"
+    ).one()
+    assert invited.email_verified_at is None
+    assert login(client, invited.email, PASSWORD).status_code == 401
+
+    accepted = client.post(
+        "/auth/accept-invitation",
+        json={
+            "token": token_from(outbox[-1]),
+            "new_password": NEW_PASSWORD,
+        },
+    )
+    assert accepted.status_code == 200
+    assert invited.email_verified_at is not None
+    assert login(client, invited.email, NEW_PASSWORD).status_code == 200
+
+
+def test_team_invitation_token_cannot_be_reused(
+    client, test_data, auth_headers, outbox
+):
+    client.post(
+        "/users",
+        headers=auth_headers(test_data["main_admin"]),
+        json={
+            "full_name": "One Time Invite",
+            "email": "one.time@example.com",
+            "role": "staff",
+        },
+    )
+    token = token_from(outbox[-1])
+    first = client.post(
+        "/auth/accept-invitation",
+        json={"token": token, "new_password": NEW_PASSWORD},
+    )
+    second = client.post(
+        "/auth/accept-invitation",
+        json={"token": token, "new_password": "OtherPassw0rd!"},
+    )
+    assert first.status_code == 200
+    assert second.status_code == 400

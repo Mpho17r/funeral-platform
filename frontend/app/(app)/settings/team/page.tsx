@@ -70,7 +70,6 @@ type User = {
 type UserForm = {
   full_name: string;
   email: string;
-  password: string;
   role: string;
   job_title: string;
   is_active: boolean;
@@ -98,7 +97,6 @@ function getApiErrorDetails(error: unknown) {
 const emptyForm: UserForm = {
   full_name: "",
   email: "",
-  password: "",
   role: "staff",
   job_title: "",
   is_active: true,
@@ -183,7 +181,6 @@ export default function TeamPage() {
     setForm({
       full_name: user.full_name,
       email: user.email,
-      password: "",
       role: user.role,
       job_title: user.job_title ?? "",
       is_active: user.is_active,
@@ -257,11 +254,6 @@ export default function TeamPage() {
       return;
     }
 
-    if (!editingUser && !form.password) {
-      setFormError("Password is required when creating a user.");
-      return;
-    }
-
     if (!editingUser && !canCreateRole(form.role)) {
       setFormError(
         "You do not have permission to create this role."
@@ -306,7 +298,6 @@ export default function TeamPage() {
         const response = await api.post<User>("/users", {
           full_name: fullName,
           email,
-          password: form.password,
           role: form.role,
           ...(form.job_title.trim()
             ? { job_title: form.job_title.trim() }
@@ -316,6 +307,7 @@ export default function TeamPage() {
         });
 
         setUsers((current) => [...current, response.data]);
+        setNotice(`Invitation email queued for ${email}. They will create their own password from the link.`);
       }
 
       closeForm();
@@ -464,7 +456,7 @@ export default function TeamPage() {
                 Team & Users
               </h1>
               <p className="mt-1 text-sm text-[var(--fos-text-muted)]">
-                Add workers and manage their roles and access to your business.
+                Add workers and manage their roles and access. New team members receive an email invitation to create their own password.
               </p>
             </div>
 
@@ -861,25 +853,11 @@ export default function TeamPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-[var(--fos-text-secondary)]">
-                      Temporary Password
-                    </label>
-
-                    <input
-                      type="password"
-                      value={form.password}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          password: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-[var(--fos-border)] px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                      placeholder="Enter a password"
-                      disabled={saving}
-                    />
-                  </div>
+                  <p className="rounded-lg bg-[var(--fos-surface-muted)] px-3 py-3 text-sm text-[var(--fos-text-secondary)]">
+                    LINDA will email this person a secure invitation so they
+                    can verify their address and create their own password.
+                    You will not see or set their password.
+                  </p>
                 </>
               )}
 
