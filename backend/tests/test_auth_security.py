@@ -357,6 +357,7 @@ def test_registration_does_not_allow_role_injection(client, db):
 
 def test_registration_does_not_allow_business_id_injection(
     client,
+    db,
     test_data,
 ):
     email = f"injected-business-{uuid4().hex[:8]}@example.com"
