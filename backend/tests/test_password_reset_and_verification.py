@@ -427,7 +427,7 @@ def test_invited_team_member_sets_their_own_password(
         User.email == "invite.accept@example.com"
     ).one()
     assert invited.email_verified_at is None
-    assert login(client, invited.email, PASSWORD).status_code == 403
+    assert login(client, invited.email, PASSWORD).status_code == 401
 
     accepted = client.post(
         "/auth/accept-invitation",
