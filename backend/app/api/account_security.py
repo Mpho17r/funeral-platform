@@ -43,6 +43,12 @@ class VerifyIn(BaseModel):
 
     token: str = Field(min_length=20, max_length=200)
 
+class AcceptInviteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=20, max_length=200)
+    new_password: str = Field(min_length=8, max_length=128)
+
 
 def _by_email(db: Session, email: str) -> User | None:
     return (
@@ -112,6 +118,45 @@ def reset_password(
     tokens.send_later(background_tasks, tokens.changed_notice(user))
 
     return {"message": "Your password has been changed. You can sign in now."}
+
+
+@router.post("/accept-invitation")
+def accept_invitation(
+    data: AcceptInviteIn,
+    db: Session = Depends(get_db),
+):
+    """Accept a team invitation and let the invited person set their password."""
+    token = tokens.find_valid(db, data.token, tokens.INVITE)
+    user = db.get(User, token.user_id) if token is not None else None
+
+    if (
+        token is None
+        or user is None
+        or not user.is_active
+        or token.email != user.email
+        or user.email_verified_at is not None
+    ):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, BAD_LINK)
+
+    now = datetime.now(timezone.utc)
+    user.password_hash = hash_password(data.new_password)
+    user.password_changed_at = now
+    user.email_verified_at = now
+    user.failed_login_count = 0
+    user.locked_until = None
+    token.used_at = now
+
+    create_audit_log(
+        db,
+        business_id=user.business_id,
+        user_id=user.id,
+        action="auth.team_invitation_accepted",
+        entity_type="user",
+        entity_id=user.id,
+    )
+    db.commit()
+
+    return {"message": "Your LINDA account is ready. You can now sign in."}
 
 
 @router.post("/verify-email")
