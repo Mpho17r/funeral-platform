@@ -37,8 +37,8 @@ class PlatformPricing(Base):
     # Always id 1: settings shared by every plan.
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="ZAR")
-    # Plan prices are stored without VAT; this is added on top (South Africa 15%).
-    vat_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=15)
+    # Platform VAT remains configurable and defaults to zero until Saccharum is registered.
+    vat_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Shown under the prices.
     price_note: Mapped[str | None] = mapped_column(String(200), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(

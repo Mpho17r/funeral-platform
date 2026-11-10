@@ -5,7 +5,7 @@ The model is deliberately simple:
     plan price (before VAT)             covers a set number of staff and branches
   + the plan's price per extra staff    (per month)
   + the plan's price per extra branch   (per month)
-  + VAT on the total                    (15% in South Africa)
+  + VAT on the total                    (only when configured)
 
 Each kind of business (funeral, general) has its own plans, set in the
 platform admin.
@@ -33,7 +33,7 @@ from app.services import plan_limits
 STAFF = "staff accounts"
 BRANCHES = "branches"
 
-DEFAULTS = dict(currency="ZAR", vat_percent=15)
+DEFAULTS = dict(currency="ZAR", vat_percent=0)
 
 # (kind, code, name, tagline, price, staff, branches, extra staff, extra branch)
 # Cents, before VAT. Funeral Beginner / Standard and general Startup /
