@@ -8,7 +8,7 @@ import { Plan, Quote, inclVat, rands } from "@/lib/pricing";
 
 /**
  * The plans for one kind of business, with sliders to try a team size and
- * number of branches. Prices are shown with VAT first, and without it below.
+ * number of branches. Prices include VAT only when a platform VAT rate is configured.
  */
 export function PlanPicker({
   plans,
@@ -43,13 +43,13 @@ export function PlanPicker({
             >
               <p className="text-sm font-medium text-slate-500">{p.name}</p>
               <p className="mt-1 text-3xl font-semibold text-slate-900 dark:text-white">
-                {rands(inclVat(p.base_price_cents, vatPercent))}
+                {rands(vatPercent > 0 ? inclVat(p.base_price_cents, vatPercent) : p.base_price_cents)}
                 <span className="block text-sm font-normal text-slate-500">
-                  per month incl. VAT
+                  {vatPercent > 0 ? "per month incl. VAT" : "per month"}
                 </span>
               </p>
               <p className="text-xs text-slate-500">
-                {rands(p.base_price_cents)} excl. VAT
+                {vatPercent > 0 ? `${rands(p.base_price_cents)} excl. VAT` : null}
               </p>
               <ul className="mt-4 space-y-1.5 text-sm text-slate-700 dark:text-slate-300">
                 <li className="flex gap-2">
@@ -143,16 +143,18 @@ function Calculator({ plan }: { plan: Plan }) {
                 </li>
               ))}
               <li className="flex justify-between gap-4 border-t border-slate-200 pt-1.5 dark:border-slate-800">
-                <span>Total excl. VAT</span>
+                <span>{quote.vat_percent > 0 ? "Total excl. VAT" : "Total"}</span>
                 <span>{rands(quote.total_cents)}</span>
               </li>
-              <li className="flex justify-between gap-4">
-                <span>VAT ({quote.vat_percent}%)</span>
-                <span>{rands(quote.vat_cents)}</span>
-              </li>
+              {quote.vat_percent > 0 && (
+                <li className="flex justify-between gap-4">
+                  <span>VAT ({quote.vat_percent}%)</span>
+                  <span>{rands(quote.vat_cents)}</span>
+                </li>
+              )}
             </ul>
             <p className="mt-3 flex items-baseline justify-between text-lg font-semibold text-slate-900 dark:text-white">
-              <span>Per month incl. VAT</span>
+              <span>{quote.vat_percent > 0 ? "Per month incl. VAT" : "Per month"}</span>
               <span data-testid="quote-total">
                 {rands(quote.total_incl_vat_cents)}
               </span>
