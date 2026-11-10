@@ -44,6 +44,11 @@ export default function AcceptInvitationPage() {
       return;
     }
 
+    if (!token) {
+      setError("This invitation link is incomplete. Ask your administrator to send a new one.");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await api.post<{ message: string }>(
