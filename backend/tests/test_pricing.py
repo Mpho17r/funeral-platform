@@ -100,7 +100,7 @@ def test_plans_are_public_and_need_no_sign_in(client, db):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["vat_percent"] == 15
+    assert body["vat_percent"] == 0
     funeral = {p["code"]: p for p in body["plans"]["funeral"]}
     general = {p["code"]: p for p in body["plans"]["general"]}
 
@@ -120,16 +120,18 @@ def test_vat_is_added_on_top_of_the_plan_price(client, db):
     q = client.get("/pricing/quote?plan=funeral-beginner&staff=5&branches=1").json()
 
     assert q["total_cents"] == 80000
-    assert q["vat_percent"] == 15
-    assert q["vat_cents"] == 12000
-    assert q["total_incl_vat_cents"] == 92000
+    assert q["vat_percent"] == 0
+    assert q["vat_cents"] == 0
+    assert q["total_incl_vat_cents"] == 80000
 
 
-def test_extra_staff_on_the_beginner_plan_cost_R60_each_plus_vat(client, db):
+def test_extra_staff_on_the_beginner_plan_cost_R60_each_without_platform_vat(client, db):
     q = client.get("/pricing/quote?plan=funeral-beginner&staff=8&branches=1").json()
 
     assert q["total_cents"] == 80000 + 3 * 6000
-    assert q["total_incl_vat_cents"] == 98000 * 115 // 100
+    assert q["vat_percent"] == 0
+    assert q["vat_cents"] == 0
+    assert q["total_incl_vat_cents"] == 98000
 
 
 def test_vat_is_rounded_to_the_cent(db):
