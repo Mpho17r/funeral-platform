@@ -9,7 +9,15 @@ import {
 
 type Theme = "light" | "dark" | "system";
 
+type UiStyle = "default" | "glass";
+
 type ThemeContextType = {
+  /** Look chosen by this person. Glass only shows on the business side. */
+  uiStyle: UiStyle;
+  setUiStyle: (style: UiStyle) => void;
+  /** Set by the app shell: glass is offered to general businesses only. */
+  setGlassAllowed: (allowed: boolean) => void;
+  glassActive: boolean;
   theme: Theme;
   setTheme: (theme: Theme) => void;
   resolvedTheme: "light" | "dark";
@@ -43,6 +51,21 @@ export function ThemeProvider({
   const [resolvedTheme, setResolvedTheme] =
     useState<"light" | "dark">("light");
 
+  const [uiStyle, setUiStyleState] = useState<UiStyle>("default");
+  const [glassAllowed, setGlassAllowed] = useState(false);
+  const glassActive = glassAllowed && uiStyle === "glass";
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("linda_ui_style") === "glass") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setUiStyleState("glass");
+      }
+    } catch {
+      /* storage unavailable: stay on the standard look */
+    }
+  }, []);
+
   useEffect(() => {
     const savedTheme =
       localStorage.getItem(
@@ -63,8 +86,10 @@ export function ThemeProvider({
 
   useEffect(() => {
     function applyTheme() {
-      const nextTheme =
-        theme === "system"
+      // The glass look is built on a dark scene, so it always runs dark.
+      const nextTheme: "light" | "dark" = glassActive
+        ? "dark"
+        : theme === "system"
           ? getSystemTheme()
           : theme;
 
@@ -81,13 +106,19 @@ export function ThemeProvider({
       root.dataset.theme =
         nextTheme;
 
+      if (glassActive) {
+        root.dataset.ui = "glass";
+      } else {
+        delete root.dataset.ui;
+      }
+
       root.style.colorScheme =
         nextTheme;
     }
 
     applyTheme();
 
-    if (theme !== "system") {
+    if (theme !== "system" || glassActive) {
       return;
     }
 
@@ -111,7 +142,17 @@ export function ThemeProvider({
         handleChange,
       );
     };
-  }, [theme]);
+  }, [theme, glassActive]);
+
+  function setUiStyle(next: UiStyle) {
+    setUiStyleState(next);
+
+    try {
+      localStorage.setItem("linda_ui_style", next);
+    } catch {
+      /* ignore */
+    }
+  }
 
   function setTheme(nextTheme: Theme) {
     setThemeState(nextTheme);
@@ -125,6 +166,10 @@ export function ThemeProvider({
   return (
     <ThemeContext.Provider
       value={{
+        uiStyle,
+        setUiStyle,
+        setGlassAllowed,
+        glassActive,
         theme,
         setTheme,
         resolvedTheme,

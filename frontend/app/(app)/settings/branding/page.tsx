@@ -136,7 +136,7 @@ export default function BrandingPage() {
   const {
     refreshBranding,
   } = useBranding();
-  const { setTheme } = useTheme();
+  const { setTheme, uiStyle, setUiStyle } = useTheme();
 
   const [business, setBusiness] =
     useState<Business | null>(null);
@@ -1002,6 +1002,37 @@ export default function BrandingPage() {
                   Dark
                 </option>
               </select>
+
+              {isGeneral && (
+                <div className="mt-6">
+                  <label className="mb-2 block text-sm font-medium text-[var(--fos-text)]">
+                    Style (for you)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(
+                      [
+                        ["default", "Standard", "Clean and light"],
+                        ["glass", "Glass", "Frosted panels over a soft scene. Your watermark and brand colours still show."],
+                      ] as const
+                    ).map(([id, label, hint]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-pressed={uiStyle === id}
+                        onClick={() => setUiStyle(id)}
+                        className={`rounded-xl border p-3 text-left text-sm transition ${
+                          uiStyle === id
+                            ? "border-[var(--brand-primary)] ring-2 ring-[var(--brand-primary)]"
+                            : "border-[var(--fos-border)]"
+                        }`}
+                      >
+                        <span className="block font-semibold text-[var(--fos-text)]">{label}</span>
+                        <span className="mt-1 block text-xs text-[var(--fos-text-muted)]">{hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-6">
                 <label className="mb-2 flex justify-between text-sm font-medium text-[var(--fos-text)]">

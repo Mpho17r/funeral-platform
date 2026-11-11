@@ -675,3 +675,36 @@ html.dark
     animation: none;
   }
 }
+
+/* ============================================================
+   GLASS STYLE (general businesses only, opt-in per person)
+   Frosted panels over the dawn scene drawn by <GlassScene />.
+   The tenant watermark is a separate, higher layer, so it still shows.
+============================================================ */
+html[data-ui="glass"] {
+  --fos-page: transparent;
+  --fos-surface: rgba(30, 42, 36, 0.55);
+  --fos-surface-muted: rgba(255, 255, 255, 0.08);
+  --fos-border: rgba(255, 255, 255, 0.16);
+  --fos-text: rgba(255, 255, 255, 0.94);
+  --fos-text-secondary: rgba(255, 255, 255, 0.78);
+  --fos-text-muted: rgba(255, 255, 255, 0.62);
+  --fos-primary: #bfe0b0;
+  --fos-on-primary: #14201a;
+  --fos-primary-hover: #d3edc6;
+}
+
+html[data-ui="glass"],
+html[data-ui="glass"] body {
+  background: #101714;
+}
+
+html[data-ui="glass"] :is(
+    [class*="bg-[var(--fos-surface)]"],
+    .bg-white,
+    .fos-drawer
+  ):not(input, select, textarea, button) {
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  backdrop-filter: blur(22px) saturate(1.25);
+  box-shadow: 0 24px 50px -26px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
