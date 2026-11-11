@@ -5,17 +5,16 @@ import { useEffect } from "react";
 import { useTheme } from "@/components/ThemeProvider";
 
 /**
- * The "Glass" look for general businesses: a dawn scene behind the app with
+ * The "Glass" look, open to every business: a dawn scene behind the app with
  * frosted panels on top. It sits below everything (the tenant watermark is a
  * separate layer above the page) and is tinted by the business's brand colours.
  */
-export function GlassScene({ allowed }: { allowed: boolean }) {
-  const { glassActive, setGlassAllowed } = useTheme();
+export function GlassScene({ userId }: { userId: string | null }) {
+  const { glassActive, loadStyleFor } = useTheme();
 
   useEffect(() => {
-    setGlassAllowed(allowed);
-    return () => setGlassAllowed(false);
-  }, [allowed, setGlassAllowed]);
+    loadStyleFor(userId);
+  }, [userId, loadStyleFor]);
 
   if (!glassActive) return null;
 

@@ -683,7 +683,7 @@ html.dark
 ============================================================ */
 html[data-ui="glass"] {
   --fos-page: transparent;
-  --fos-surface: rgba(30, 42, 36, 0.55);
+  --fos-surface: rgba(26, 36, 31, 0.66);
   --fos-surface-muted: rgba(255, 255, 255, 0.08);
   --fos-border: rgba(255, 255, 255, 0.16);
   --fos-text: rgba(255, 255, 255, 0.94);
@@ -694,9 +694,13 @@ html[data-ui="glass"] {
   --fos-primary-hover: #d3edc6;
 }
 
-html[data-ui="glass"],
-html[data-ui="glass"] body {
+html[data-ui="glass"] {
   background: #101714;
+}
+
+/* The page behind must not paint over the scene (which sits at z-index -10) */
+html[data-ui="glass"] body {
+  background: transparent;
 }
 
 html[data-ui="glass"] :is(
@@ -707,4 +711,59 @@ html[data-ui="glass"] :is(
   -webkit-backdrop-filter: blur(22px) saturate(1.25);
   backdrop-filter: blur(22px) saturate(1.25);
   box-shadow: 0 24px 50px -26px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Native dropdown lists and form fields stay readable over the scene */
+html[data-ui="glass"] option,
+html[data-ui="glass"] optgroup {
+  background: #1b261f;
+  color: #f1f5ef;
+}
+
+html[data-ui="glass"] :is(input, select, textarea):not([type="checkbox"], [type="radio"]) {
+  background-color: rgba(255, 255, 255, 0.07);
+  border-color: var(--fos-border);
+  color: var(--fos-text);
+}
+
+html[data-ui="glass"] ::placeholder {
+  color: var(--fos-text-muted);
+}
+
+/* Primary buttons are light green here, so their text must be dark */
+html[data-ui="glass"] :is([class*="bg-[var(--fos-primary)]"], .bg-slate-900, .bg-gray-900) {
+  color: var(--fos-on-primary);
+}
+
+/* Soft glow on the active/hover states, scrollbars that blend in */
+html[data-ui="glass"] * {
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+html[data-ui="glass"] :is(.sticky, header, nav) {
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  backdrop-filter: blur(22px) saturate(1.25);
+}
+
+/* The sidebar sets its navy inline, so glass needs !important to frost it */
+html[data-ui="glass"] aside {
+  background-color: rgba(14, 22, 18, 0.55) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  backdrop-filter: blur(22px) saturate(1.25);
+}
+
+/* Pages that paint their own solid background (dark:bg-slate-9xx, a full-height
+   wrapper) would hide the scene, so glass turns them see-through or frosted. */
+html[data-ui="glass"] .min-h-screen:not(aside) {
+  background-color: transparent !important;
+}
+
+html[data-ui="glass"] [class*="dark:bg-slate-900"]:not(.min-h-screen) {
+  background-color: var(--fos-surface) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  backdrop-filter: blur(22px) saturate(1.25);
+}
+
+html[data-ui="glass"] [class*="dark:bg-slate-950"]:not(.min-h-screen) {
+  background-color: rgba(255, 255, 255, 0.06) !important;
 }

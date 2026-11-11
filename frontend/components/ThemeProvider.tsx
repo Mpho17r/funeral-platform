@@ -2,6 +2,8 @@
 
 import {
   createContext,
+  useCallback,
+  useRef,
   useContext,
   useEffect,
   useState,
@@ -15,8 +17,12 @@ type ThemeContextType = {
   /** Look chosen by this person. Glass only shows on the business side. */
   uiStyle: UiStyle;
   setUiStyle: (style: UiStyle) => void;
-  /** Set by the app shell: glass is offered to general businesses only. */
-  setGlassAllowed: (allowed: boolean) => void;
+  /** Show a look without saving it yet (used while choosing). */
+  previewUiStyle: (style: UiStyle) => void;
+  /** Loads this person's saved look once we know who they are. */
+  loadStyleFor: (userId: string | null) => void;
+  /** True once this person has picked a look (or we've loaded their pick). */
+  styleChosen: boolean;
   glassActive: boolean;
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -52,36 +58,27 @@ export function ThemeProvider({
     useState<"light" | "dark">("light");
 
   const [uiStyle, setUiStyleState] = useState<UiStyle>("default");
-  const [glassAllowed, setGlassAllowed] = useState(false);
-  const glassActive = glassAllowed && uiStyle === "glass";
+  const [styleChosen, setStyleChosen] = useState(true);
+  const userKey = useRef<string | null>(null);
+  const glassActive = uiStyle === "glass";
 
-  useEffect(() => {
+  // Each person keeps their own look on this device. Someone who has never
+  // chosen gets asked once, the first time they sign in.
+  const loadStyleFor = useCallback((userId: string | null) => {
+    userKey.current = userId;
+    if (!userId) {
+      setUiStyleState("default");
+      setStyleChosen(true);
+      return;
+    }
+    let saved: string | null = null;
     try {
-      if (localStorage.getItem("linda_ui_style") === "glass") {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setUiStyleState("glass");
-      }
+      saved = localStorage.getItem(`linda_ui_style:${userId}`);
     } catch {
-      /* storage unavailable: stay on the standard look */
+      /* storage unavailable */
     }
-  }, []);
-
-  useEffect(() => {
-    const savedTheme =
-      localStorage.getItem(
-        "funeralos_theme",
-      ) as Theme | null;
-
-    if (
-      savedTheme === "light" ||
-      savedTheme === "dark" ||
-      savedTheme === "system"
-    ) {
-      // This effect synchronizes React state with the persisted
-      // preference after hydration; keep the update intentional.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setThemeState(savedTheme);
-    }
+    setUiStyleState(saved === "glass" ? "glass" : "default");
+    setStyleChosen(saved === "glass" || saved === "default");
   }, []);
 
   useEffect(() => {
@@ -146,9 +143,12 @@ export function ThemeProvider({
 
   function setUiStyle(next: UiStyle) {
     setUiStyleState(next);
+    setStyleChosen(true);
 
     try {
-      localStorage.setItem("linda_ui_style", next);
+      if (userKey.current) {
+        localStorage.setItem(`linda_ui_style:${userKey.current}`, next);
+      }
     } catch {
       /* ignore */
     }
@@ -168,7 +168,9 @@ export function ThemeProvider({
       value={{
         uiStyle,
         setUiStyle,
-        setGlassAllowed,
+        previewUiStyle: setUiStyleState,
+        loadStyleFor,
+        styleChosen,
         glassActive,
         theme,
         setTheme,

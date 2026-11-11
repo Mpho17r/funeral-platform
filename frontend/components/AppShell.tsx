@@ -17,6 +17,7 @@ import { WorkspaceBadge } from "@/components/WorkspaceBadge";
 import { RouteGuard } from "@/components/RouteGuard";
 import { AccessWarning } from "@/components/AccessWarning";
 import { GlassScene } from "@/components/GlassScene";
+import { FirstLoginStylePicker } from "@/components/StylePicker";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 
 type AppShellProps = {
@@ -25,7 +26,7 @@ type AppShellProps = {
 
 function AppShellContent({ children }: AppShellProps) {
   const router = useRouter();
-  const { user, loading, authUnavailable, refresh, isGeneral } = useCurrentUser();
+  const { user, loading, authUnavailable, refresh } = useCurrentUser();
   const { branding, watermarkObjectUrl } = useBranding();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -104,7 +105,8 @@ function AppShellContent({ children }: AppShellProps) {
   return (
       <TourProvider>
       <TaskAlert />
-      <GlassScene allowed={isGeneral} />
+      <GlassScene userId={user?.user_id ?? null} />
+      <FirstLoginStylePicker />
       <div className="flex min-h-screen bg-[var(--fos-page)] text-[var(--fos-text)]">
         <a
           href="#main"

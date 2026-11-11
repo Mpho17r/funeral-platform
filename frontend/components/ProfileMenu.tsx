@@ -13,6 +13,7 @@ import {
 } from "@/components/CurrentUserProvider";
 import { ChangePasswordDialog } from "@/components/PasswordDialogs";
 import { ProfileDialog } from "@/components/ProfileDialog";
+import { StyleChoices } from "@/components/StylePicker";
 import { UserAvatar } from "@/components/UserAvatar";
 import { removeToken } from "@/lib/auth";
 import api from "@/lib/api";
@@ -284,6 +285,11 @@ export function ProfileMenu() {
               ))}
             </div>
             {attendance?.current_break && <p className="mt-2 text-xs text-[var(--fos-text-muted)]">You're on a break, so your status stays Away until you return.</p>}
+          </div>
+
+          <div className="mx-1 mt-1 rounded-xl border border-[var(--fos-border)] p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--fos-text-muted)]">Look</p>
+            <StyleChoices />
           </div>
 
           <div className="mx-1 mt-1 rounded-xl border border-[var(--fos-border)] p-3">
