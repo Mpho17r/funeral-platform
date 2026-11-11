@@ -1,147 +1,117 @@
-# Production readiness
+# LINDA production readiness
 
-What it takes to run LINDA for a real funeral business with real
-families' information. Written from what the code does today, so every
-"done" below is something you can check, and every "open" is a real gap.
+This document separates what the repository implements from what must be verified on the live VPS. LINDA is a multi-business platform, not a funeral-only application. Treat customer data, uploaded documents and financial records as production-sensitive.
 
-## 1. Where things stand
+## 1. Current deployment shape
 
-**Done in the code**
+**Known deployment architecture**
+- One VPS runs the Docker Compose deployment.
+- Caddy terminates HTTPS for `linda.saccharumtech.co.za` and proxies the web application and `/api` requests.
+- The API, frontend, PostgreSQL database and one scheduler process run as separate Compose services.
+- PostgreSQL data, uploaded files and local backups use persistent Docker volumes.
+- API and frontend ports are bound to localhost behind Caddy; PostgreSQL is internal to the Compose network.
+- The scheduler is a single process. Do not run a second copy against the same environment.
 
-| Area | State |
-| --- | --- |
-| Safe settings | `APP_ENV=production` refuses to start with a short or placeholder `JWT_SECRET_KEY`, a missing `CORS_ORIGINS`, or a non-`https` address |
-| Sign-up | Closed on a live system once the first business exists. Create owners with `python -m app.create_owner` |
-| Recurring work | One process, `python -m app.run_scheduler`, runs the funeral status sync (5 min), mortuary and licence alerts (30 min), payment reminders (07:00) and the backup (02:00), South African time, with catch-up after downtime |
-| Backups | Database dump plus uploaded files, verified, 14 kept, status shown in Settings (see `BACKUPS_AND_RECOVERY.md`) |
-| Health | `GET /health` answers 503 when the database is down, and reports the scheduler (`ok`, `degraded`, `stale`, `never`) |
-| Access control | Role and per-person permissions on every endpoint, one business never sees another's data, audit trail, sign-in lockout after 5 failures |
-| Browser safety | `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, HSTS in production |
-| Owner's own copy | Full data export (Settings, Data export and backups) |
+**Must be verified on the server**
+- Hosting provider account/payment standing and access to the control panel.
+- Current deployment commit and image tags.
+- Firewall exposes only the intended public HTTP/HTTPS ports.
+- Docker services restart after a VPS reboot.
+- The current database and uploaded-file volumes are mounted where the application expects them.
+- Disk capacity, memory headroom, log rotation and Docker image cleanup are monitored.
 
-**Open: needs a decision or work**
+## 2. Implemented application controls
 
-1. **Hosting is undecided** (section 2).
-2. **Reminders are queued, not delivered.** The system prepares each payment
-   reminder and a person sends it with one tap (WhatsApp, SMS or email link),
-   then marks it sent. No SMS or WhatsApp provider is connected. This is a
-   good default (consent, cost, no accidental messages to bereaved families)
-   but it is not "automatic sending". Connecting a gateway is a separate piece
-   of work and a cost per message.
-3. **Uploaded files live on the server's disk** (`backend/storage`). They are
-   backed up, but there is no encryption at rest and no separate file store.
-   Encrypt the disk (FileVault, LUKS or your host's volume encryption).
-4. **No automatic error reporting.** Failures are in the logs and in the
-   Settings screen only. Add an uptime monitor on `/health` at minimum.
-5. **No API rate limiting** beyond sign-in lockout. Put the rate limit in the
-   reverse proxy.
-6. **Legal and privacy set-up is yours** (section 5).
-
-## 2. Choosing where it runs
-
-| Option | Good | Watch out |
+| Area | Implemented behaviour | Operational caveat |
 | --- | --- | --- |
-| The business's own computer or mini-PC | Cheapest, data on site | Power cuts, theft, no one to fix it at 2 a.m.; needs a static address or tunnel and its own backups off the machine |
-| A South African VPS or cloud region (for example AWS af-south-1 in Cape Town, or a local host) | Real uptime, data stays in South Africa, simple to back up | Monthly cost; someone must apply updates |
-| A VPS outside South Africa | Often cheaper | POPIA limits sending personal information abroad unless conditions in section 72 are met; get advice first |
+| Registration | Production registration closes automatically after the first business exists unless `ALLOW_REGISTRATION` explicitly overrides it | Verify the intended public sign-up state; a database containing seed/demo businesses will be closed by default |\n| Authentication | Separate business-user and platform-admin token types; business-user failed-login counts and lockouts are stored on the user record | Platform-admin IP throttling is process-local; it resets on restart and is not shared between workers |
+| Permissions | Role permissions plus per-user allow/deny overrides; server-side permission checks | Review permissions whenever new routes/modules are added |
+| Tenant separation | Business-owned queries are scoped by business ID; platform admin sees aggregate business/subscription metadata rather than case/member/document contents | Continue regression testing every new endpoint for cross-tenant access |
+| Account security | Email verification and password-reset token flows use hashed, expiring, single-use tokens; resend is rate-limited | Email verification is currently not required to sign in (a product decision); token email uses a short-lived background task, not a durable transactional mail queue |
+| Operational messaging | Communication messages are queued; configured SMTP email is processed by the scheduler with bounded retries | SMS and WhatsApp require provider integration or manual sending; consent/opt-out rules must be respected |
+| Recurring work | One scheduler runs lifecycle, alerts, reminders, message delivery, appointments, stock, archive, overdue, autopilot, usage snapshots and backups | Monitor scheduler heartbeat and job outcomes; a scheduler process being alive does not prove each job succeeded |
+| Backups | Database dump and uploaded-file archive are created and locally verified; retention is configured | Local backups are on the same VPS; no automated off-site copy is currently confirmed |
+| Health | `GET /health` checks database availability and reports scheduler health | Add an external uptime monitor and alert a human when it fails |
+| Pricing | Monthly subscription statements are calculated from usage and platform VAT settings | This is not recurring payment collection, bank reconciliation or proof that money was received |\n| Business tax | Business-level VAT enablement/rate fields exist | Do not assume end-to-end VAT compliance: expenses, legacy case-financial records, document exports and tax reports still need completion and accountant/SARS review (see draft PR #39) |
+| Trial lifecycle | A 30-day trial end timestamp is stored | Trial expiry is not automatically enforced; platform operations must currently change subscription status |
+| Uploads | Avatar and branding storage paths are tenant-scoped | File size, decoder and pixel-limit hardening is under review in PR #70; do not assume production includes it until merged and deployed |
 
-Either way you need: one small Linux machine (2 CPU, 4 GB RAM is plenty to
-start), PostgreSQL 16, a domain name, and HTTPS. For a first live customer
-the South African VPS is the sensible default.
+## 3. Backups and recovery
 
-## 3. Setting it up (single machine)
+The current backup process writes a PostgreSQL dump and an archive of uploaded files to the VPS backup volume. It checks that the database dump is readable and keeps a configured local retention set.
 
-These are standard recipes, not tested on your server: try them on a spare
-machine first.
+**This is not yet disaster recovery.** Loss, compromise or filesystem failure of the VPS can also destroy the local backup volume.
 
-**1. Prepare**
-- Install PostgreSQL 16, Python 3.13, Node 22, and Caddy (or nginx).
-- Create a database and a database user that only owns it. Postgres must
-  listen on `localhost` only.
-- Open only ports 80 and 443 in the firewall.
+Before accepting valuable customer data:
+- Configure encrypted off-site backup storage with credentials restricted to the backup task.
+- Verify the remote object checksum and size after every copy.
+- Alert when the newest successful off-site copy exceeds the approved recovery-point objective.
+- Define recovery-point objective (RPO) and recovery-time objective (RTO).
+- Restore both database and uploaded files into an isolated environment and record the result.
+- Repeat restore drills at least quarterly and after major storage/deployment changes.
 
-**2. Configure `backend/.env`** (see `backend/.env.example`)
-```
-DATABASE_URL=postgresql+psycopg://funeralos:STRONG-PASSWORD@localhost:5432/funeralos
-JWT_SECRET_KEY=<python -c "import secrets; print(secrets.token_urlsafe(48))">
-APP_ENV=production
-CORS_ORIGINS=https://app.yourfuneralhome.co.za
-```
-Build the web app with `NEXT_PUBLIC_API_URL=https://api.yourfuneralhome.co.za`
-set at build time (it is baked into the build).
+See [BACKUPS_AND_RECOVERY.md](BACKUPS_AND_RECOVERY.md) for the current backup and restore procedure.
 
-**3. First run**
-```bash
-cd backend
-alembic upgrade head
-python -m app.seed_permissions
-python -m app.create_owner          # the first business and its administrator
-cd ../frontend && npm ci && npm run build
-```
+## 4. Security and reliability work still required
 
-**4. Keep four things running** (systemd, shown for the API; copy the pattern)
-```ini
-# /etc/systemd/system/funeralos-api.service
-[Service]
-WorkingDirectory=/srv/funeralos/backend
-ExecStart=/srv/funeralos/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
-Restart=always
-User=funeralos
-# Same pattern for:
-#   funeralos-web.service        npm start (port 3000) in /srv/funeralos/frontend
-#   funeralos-scheduler.service  python -m app.run_scheduler   (exactly ONE copy)
-```
+1. **Persistent platform-admin throttling.** Move the process-local failed-login counter into a shared persistent store. Store a keyed hash of the client IP, not the raw address; make updates atomic and expire old records.
+2. **General API rate limiting.** Add route-aware limits for login, registration, token resend, upload and other abuse-sensitive endpoints.
+3. **Durable transactional email.** Verification and password-reset emails should use a persistent queue with retry state, delivery history and secret-safe handling. Do not log raw tokens.
+4. **Off-site backups and restore drills.** Local backups alone do not protect against VPS loss.
+5. **Image validation.** Fully decode supported formats, enforce byte/dimension/pixel limits and consider metadata stripping/re-encoding. Merge and deploy PR #70 only after CI passes.
+6. **Monitoring and alerting.** Add external uptime checks, API error reporting, disk/CPU/memory alerts, backup-age alerts and scheduler-job failure alerts.
+7. **Production data review.** Confirm demo/seed businesses and tracked sample assets are not real customer data before using the system for live customers.
+8. **Secrets and storage.** Keep environment files out of Git, restrict VPS access, rotate secrets after any exposure and verify disk/volume encryption options with the host.
+9. **Trial and billing lifecycle.** Decide the expiry/grace policy and implement payment collection/reconciliation before treating statements as money received.
+10. **Tenant isolation regression.** Add cross-business access tests whenever a new module, file route, report or background job is introduced.
 
-**5. HTTPS in front** (Caddy gets and renews certificates by itself)
-```
-app.yourfuneralhome.co.za { reverse_proxy 127.0.0.1:3000 }
-api.yourfuneralhome.co.za { reverse_proxy 127.0.0.1:8000 }
-```
+## 5. Subscription and financial controls
 
-**6. Updating later**: pull the code, then `alembic upgrade head`,
-`python -m app.seed_permissions`, `npm run build`, restart the services.
+- The application calculates subscription statements; it does not yet collect recurring payments or reconcile settlements.
+- Distinguish invoices/statements, cash received, payment-provider fees, refunds, VAT liability and outstanding balances.
+- A trial end date is currently stored but does not automatically suspend access.
+- Do not send a payment demand or claim a customer has paid based only on a calculated statement.
+- Final LINDA prices must use the separately approved Saccharum commercial strategy. Old repository seed values are not proof of approved prices.
+- VAT settings and rates must be reviewed for the relevant legal entity and tax period. This document is not tax or legal advice.
 
-## 4. Before the first real family is entered
+## 6. Privacy and legal readiness (South Africa)
 
-- [ ] `APP_ENV=production` and the app starts (it refuses if anything is unsafe)
-- [ ] Reached over `https://` only; plain `http://` redirects
-- [ ] The demo and test accounts do not exist on this database
-- [ ] Each staff member has their own account, with the right role
-- [ ] The main administrator's password is long and unique; consider a second
-      administrator so the business is never locked out
-- [ ] The scheduler service is running (Settings shows "Background jobs: running")
-- [ ] A backup has completed **and you have restored one** onto a spare
-      database (`BACKUPS_AND_RECOVERY.md`, section 4)
-- [ ] Backups are copied somewhere off the server
-- [ ] The disk is encrypted and the server's operating system updates itself
-      for security fixes
-- [ ] An uptime monitor checks `https://api.../health` every minute and
-      alerts a person's phone
-- [ ] Someone other than you knows how to restart the services and where the
-      backups are (write it down)
+LINDA can hold personal information about customers, family members, staff and business contacts. Depending on the business type, records may include identity, financial, employment and other sensitive operational information. Confirm obligations with a qualified South African privacy/legal professional.
 
-## 5. Privacy and legal (South Africa)
+Before live customer onboarding:
+- Appoint and register the appropriate Information Officer where required.
+- Publish a privacy notice explaining purposes, lawful basis/consent where applicable, retention, rights and contact channels.
+- Put an operator/data-processing agreement in place with hosting and other service providers.
+- Document retention, deletion, export and backup-retention policies.
+- Maintain a breach-response plan and know who must be notified and when.
+- Obtain and record appropriate channel consent before marketing or operational messaging.
+- Restrict support access to customer data and audit exceptional access.
+- Treat exports and backups with the same protection as the live database.
 
-LINDA holds personal information about deceased persons, families,
-members and staff, including ID numbers, cause of death and payment details.
-That falls under POPIA. This is not legal advice; confirm with a lawyer.
+## 7. First-customer go-live checklist
 
-- [ ] Name an **Information Officer** and register them with the Information
-      Regulator
-- [ ] Give families and members a **privacy notice** saying what you keep, why
-      and for how long; get consent for reminders by WhatsApp, SMS or email
-      (the system records each member's channel choice)
-- [ ] If a hosting company stores the data, sign an **operator agreement** with it
-- [ ] Decide how long records are kept; the system can anonymise a member who
-      has left (Members) while keeping the financial history
-- [ ] Have a **breach plan**: who is told, and within what time, if data leaks
-- [ ] Keep exports and backups as carefully as the live system: they hold
-      everything
+- [ ] Confirm the live deployment is on the reviewed commit and the latest approved image.
+- [ ] Confirm HTTPS, DNS, Caddy routing and firewall rules.
+- [ ] Confirm production secrets are strong, private and not present in Git.
+- [ ] Confirm database and upload volumes survive container recreation and VPS reboot.
+- [ ] Confirm only one scheduler is running and its heartbeat is current.
+- [ ] Send and receive a real test email; verify delivery failures are visible.
+- [ ] Verify `ALLOW_REGISTRATION` and the public registration status endpoint; create a customer through the intended onboarding path without accidentally opening owner setup.
+- [ ] Verify tenant isolation with two separate test businesses.
+- [ ] Verify role permissions and platform-admin separation.
+- [ ] Verify upload limits, image validation and storage persistence after PR #70 is deployed.
+- [ ] Complete an off-site backup and restore drill.
+- [ ] Confirm support contact, incident owner and recovery instructions.
+- [ ] Confirm customer terms, privacy notice, operator agreement and tax treatment.
+- [ ] Confirm final prices, plan limits, trial policy and payment terms before charging customers.
 
-## 6. Day-to-day
+## 8. Day-to-day operations
 
-- Settings, Data export and backups: last backup time and scheduler status.
-- Audit trail: who did what, including every data export.
-- Logs: `journalctl -u funeralos-api` (and `-scheduler`, `-web`).
-- Once a quarter: repeat the restore drill. A backup nobody has restored is a
-  hope, not a backup.
+- Check `/health` from an external monitor.
+- Review scheduler heartbeat and failed job details.
+- Review local and off-site backup freshness.
+- Monitor disk usage, database capacity, memory and container restarts.
+- Review platform-admin sign-in failures and privileged audit events.
+- Review queued/failed emails and customer support messages.
+- Keep a release log with commit, migration, deployment time and rollback reference.
+- Perform a restore drill quarterly; a backup nobody has restored is only an assumption.

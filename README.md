@@ -4,9 +4,11 @@ LINDA (Linked Intelligence for Networked Development & Administration) is a mult
 
 ## Project documentation
 
-- [Product blueprint and system structure](docs/FUNERALOS_BLUEPRINT.md) — product principles, business/branch structure, case journey, department workspaces, security invariants, and roadmap.
-- [Production readiness](docs/PRODUCTION_READINESS.md) — hosting options, safe settings, setup recipe, launch checklist and POPIA notes.
-- [Backups and recovery](docs/BACKUPS_AND_RECOVERY.md) — nightly backups, restore drill and the owner's data export.
+- [LINDA product blueprint and system structure](docs/FUNERALOS_BLUEPRINT.md) — original product foundation, business/branch structure, operational workflows, security invariants and roadmap.
+- [Production readiness](docs/PRODUCTION_READINESS.md) — current VPS deployment shape, implemented controls, real launch gaps and first-customer checklist.
+- [Backups and recovery](docs/BACKUPS_AND_RECOVERY.md) — database and upload backups, restore drill and the owner's data export.
+- [Saccharum HQ architecture](docs/SACCHARUM_HQ_ARCHITECTURE.md) — owner operations command centre, integration boundaries, data model, security and phased build plan.
+- [Saccharum HQ metric dictionary](docs/SACCHARUM_HQ_METRIC_DICTIONARY.md) — definitions for MRR/ARR, cash collected, VAT obligations, customer health, platform reliability and support metrics.
 - [Project tracker](docs/PROJECT_TRACKER.md) — what is present in the repository, what needs review, and the next priorities.
 
 ## Running without your own computer
