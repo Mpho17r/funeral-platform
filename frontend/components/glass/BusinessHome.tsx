@@ -66,6 +66,7 @@ export default function GlassBusinessHome() {
   const weather = useWeather(null);
   const first = user?.full_name?.split(" ")[0] ?? "";
   const todayKey = dayKey(new Date());
+  const weekEnd = dayKey(new Date(new Date().getTime() + 7 * 86_400_000));
   const todayText = new Date().toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" });
 
   const upcoming = useMemo(
@@ -73,7 +74,7 @@ export default function GlassBusinessHome() {
     [events, todayKey],
   );
   const today = upcoming.filter((e) => e.date === todayKey);
-  const weekAhead = upcoming.filter((e) => e.event_type === "appointment" && new Date(e.date).getTime() - Date.now() < 7 * 86_400_000).length;
+  const weekAhead = upcoming.filter((e) => e.event_type === "appointment" && e.date < weekEnd).length;
 
   const stops: RouteStop[] = (today.length ? today : upcoming).slice(0, 4).map((e) => ({
     label: e.title,

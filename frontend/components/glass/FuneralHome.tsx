@@ -99,10 +99,7 @@ export default function GlassFuneralHome() {
   const next = upcoming[0];
 
   useEffect(() => {
-    if (!next || !can("transport.view")) {
-      setJobs([]);
-      return;
-    }
+    if (!next || !can("transport.view")) return;
     api
       .get<Job[]>("/transport/jobs", { params: { case_id: next.id } })
       .then((r) => setJobs(r.data))
@@ -130,7 +127,7 @@ export default function GlassFuneralHome() {
   // Route: real transport stops when planned, otherwise the venue we know
   const stops: RouteStop[] = useMemo(() => {
     if (!next) return [];
-    const timed = jobs.filter((j) => j.report_time).sort((a, b) => String(a.report_time).localeCompare(String(b.report_time)));
+    const timed = (next && can("transport.view") ? jobs : []).filter((j) => j.report_time).sort((a, b) => String(a.report_time).localeCompare(String(b.report_time)));
     const out: RouteStop[] = [];
     const t = (iso: string | null) =>
       iso ? new Date(iso).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }) : undefined;
@@ -143,7 +140,7 @@ export default function GlassFuneralHome() {
     const last = timed[timed.length - 1]?.destination;
     out.push({ label: last ?? "Burial" });
     return out.slice(0, 4);
-  }, [next, jobs]);
+  }, [next, jobs, can]);
 
   // Chart
   const series = useMemo(() => {
