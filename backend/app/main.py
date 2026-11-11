@@ -70,7 +70,6 @@ from app.api.reconciliation import router as reconciliation_router
 from app.api.operations_overview import router as operations_overview_router
 from app.api.mortuary_overview import router as mortuary_overview_router
 from app.api.meetings import router as meetings_router
-from app.api.service_overview import router as service_overview_router
 from app.api.onboarding import router as onboarding_router
 from app.api.service_overview import router as service_overview_router
 from app.api.members import router as members_router
@@ -348,9 +347,6 @@ app.include_router(
     meetings_router
 )
 
-app.include_router(
-    service_overview_router
-)
 
 app.include_router(
     onboarding_router
