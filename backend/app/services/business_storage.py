@@ -1,10 +1,17 @@
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import UploadFile
 
+from app.services.image_validation import validate_image
+
 
 STORAGE_ROOT = Path("storage/branding")
+MAX_BRANDING_BYTES = 5 * 1024 * 1024
+
+def _detect_extension(contents: bytes) -> str:
+    extension, _ = validate_image(contents)
+    return extension
 
 
 def save_business_branding_file(
@@ -26,12 +33,12 @@ def save_business_branding_file(
             "Branding file type must be 'logo' or 'watermark'."
         )
 
-    extension = ".png"
+    if not contents:
+        raise ValueError("The image is empty.")
+    if len(contents) > MAX_BRANDING_BYTES:
+        raise ValueError("Branding images must be 5 MB or smaller.")
 
-    if file.content_type == "image/jpeg":
-        extension = ".jpg"
-    elif file.content_type == "image/webp":
-        extension = ".webp"
+    extension = _detect_extension(contents)
 
     business_storage = (
         STORAGE_ROOT / str(business_id)
@@ -42,12 +49,24 @@ def save_business_branding_file(
         exist_ok=True,
     )
 
-    file_path = (
-        business_storage
-        / f"{file_type}{extension}"
-    )
+    file_path = business_storage / f"{file_type}{extension}"
+    temporary_path = business_storage / f".{file_type}.{uuid4().hex}.tmp"
 
-    file_path.write_bytes(contents)
+    try:
+        temporary_path.write_bytes(contents)
+        # Replace atomically so an interrupted write cannot leave a partial
+        # image at the public branding path.
+        temporary_path.replace(file_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+    # A business has one current logo and one current watermark. Remove files
+    # in the other formats so retrieval cannot accidentally serve an older
+    # image just because PNG is checked before JPEG/WebP.
+    for old_extension in (".png", ".jpg", ".webp"):
+        old_path = business_storage / f"{file_type}{old_extension}"
+        if old_path != file_path:
+            old_path.unlink(missing_ok=True)
 
     # Store an API URL in the database,
     # not the physical filesystem path.

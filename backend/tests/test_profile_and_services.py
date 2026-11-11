@@ -27,6 +27,15 @@ def png_bytes(size=2):
     )
 
 
+def jpeg_bytes():
+    from io import BytesIO
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (2, 2), (20, 40, 220)).save(buffer, format="JPEG")
+    return buffer.getvalue()
+
+
 def put_avatar(client, headers, content, name="me.png", ctype="image/png"):
     return client.post(
         "/users/me/avatar", headers=headers,
@@ -73,7 +82,7 @@ def test_replacing_photo_keeps_one_file(client, test_data, auth_headers):
     user = test_data["staff"]
     h = auth_headers(user)
     put_avatar(client, h, png_bytes())
-    put_avatar(client, h, b"\xff\xd8\xff\xe0" + b"0" * 50, "x.jpg", "image/jpeg")
+    put_avatar(client, h, jpeg_bytes(), "x.jpg", "image/jpeg")
 
     found = avatar_storage.find_avatar(user.business_id, user.id)
     assert found and found[0].suffix == ".jpg"
@@ -90,7 +99,12 @@ def test_rejects_non_images_and_big_files(client, test_data, auth_headers):
     bad = put_avatar(client, h, b"<script>alert(1)</script>", "a.png", "image/png")
     assert bad.status_code == 400
 
-    big = put_avatar(client, h, b"\x89PNG\r\n\x1a\n" + b"0" * (2 * 1024 * 1024 + 1))
+    from app.services.avatar_storage import MAX_AVATAR_BYTES
+
+    big = put_avatar(
+        client, h,
+        b"\x89PNG\r\n\x1a\n" + b"0" * MAX_AVATAR_BYTES,
+    )
     assert big.status_code == 400 and "2 MB" in big.json()["detail"]
 
     assert put_avatar(client, h, b"").status_code == 400

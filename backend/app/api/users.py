@@ -292,7 +292,9 @@ async def upload_my_avatar(
 
     try:
         avatar_storage.save_avatar(
-            user.business_id, user.id, await file.read()
+            user.business_id,
+            user.id,
+            await file.read(avatar_storage.MAX_AVATAR_BYTES + 1),
         )
     except avatar_storage.AvatarError as error:
         raise HTTPException(

@@ -30,6 +30,7 @@ from app.services.audit_service import (
     snapshot_fields,
 )
 from app.services.business_storage import (
+    MAX_BRANDING_BYTES,
     get_business_branding_file,
     save_business_branding_file,
 )
@@ -654,7 +655,7 @@ async def upload_business_logo(
     )
 
     try:
-        contents = await file.read()
+        contents = await file.read(MAX_BRANDING_BYTES + 1)
         logo_url = save_business_branding_file(
             business_id=business_id,
             file=file,
@@ -707,7 +708,7 @@ async def upload_business_watermark(
     )
 
     try:
-        contents = await file.read()
+        contents = await file.read(MAX_BRANDING_BYTES + 1)
         watermark_url = save_business_branding_file(
             business_id=business_id,
             file=file,
