@@ -465,7 +465,9 @@ def end_break(
         .first()
     )
     if presence is not None:
-        presence.status = "online"
+        # Ending a break must not undo an explicit Busy choice.
+        if presence.status != "busy":
+            presence.status = "online"
         presence.last_seen_at = now
 
     db.commit()

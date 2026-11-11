@@ -269,7 +269,11 @@ export function CurrentUserProvider({
         held ? held.has(permission) : !accessFailed,
       accessFailed,
       isGeneral: access?.business_type === "general",
-      membershipEnabled: access?.membership_enabled !== false,
+      // Memberships belong to the funeral side only: a general business
+      // never has them, whatever the stored flag says.
+      membershipEnabled:
+        access?.business_type !== "general" &&
+        access?.membership_enabled !== false,
     };
   }, [user, loading, authUnavailable, avatarUrl, refresh, access, accessFailed]);
 

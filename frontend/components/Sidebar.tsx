@@ -53,7 +53,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 import api from "@/lib/api";
-import { ROUTE_PERMISSIONS, holds } from "@/lib/access";
+import { ROUTE_PERMISSIONS, holds, MEMBERSHIP_PATHS } from "@/lib/access";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 import { removeToken } from "@/lib/auth";
@@ -177,17 +177,6 @@ function useChatUnread(): number {
 
   return unread;
 }
-
-const MEMBERSHIP_PATHS = new Set([
-  "/members",
-  "/membership-plans",
-  "/memberships",
-  "/covered-dependents",
-  "/beneficiaries",
-  "/claims",
-  "/membership-contributions",
-  "/membership-payments",
-]);
 
 export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
   const router = useRouter();

@@ -288,7 +288,7 @@ function OverallDashboard() {
     };
   }, [router]);
 
-  const { user: currentUser, can } = useCurrentUser();
+  const { user: currentUser, can, membershipEnabled } = useCurrentUser();
   const firstName = currentUser?.full_name?.trim().split(/\s+/)[0];
 
   const today = new Date().toLocaleDateString("en-GB", {
@@ -744,7 +744,7 @@ function OverallDashboard() {
               />
             )}
 
-            {can("memberships.view") && (
+            {membershipEnabled && can("memberships.view") && (
               <QuickAction
                 href="/memberships"
                 icon={<HeartHandshake size={18} />}

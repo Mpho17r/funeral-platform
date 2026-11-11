@@ -40,6 +40,7 @@ function getApiError(err: unknown): {
 type PresenceStatus =
   | "online"
   | "away"
+  | "busy"
   | "offline"
   | "checked_in";
 
@@ -97,6 +98,9 @@ function getStatusLabel(status: PresenceStatus) {
     case "away":
       return "Away";
 
+    case "busy":
+      return "Busy";
+
     case "checked_in":
       return "Checked in";
 
@@ -112,6 +116,9 @@ function getStatusClasses(status: PresenceStatus) {
 
     case "away":
       return "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300";
+
+    case "busy":
+      return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300";
 
     case "checked_in":
       return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300";
@@ -351,11 +358,17 @@ export default function StaffWorkspacePage() {
     (person) => person.status === "away"
   ).length;
 
+  const busyCount = presence.filter(
+    (person) => person.status === "busy"
+  ).length;
+
+  // Busy people are at work too: they chose "Busy", they did not leave.
   const checkedInCount = presence.filter(
     (person) =>
       person.status === "checked_in" ||
       person.status === "online" ||
-      person.status === "away"
+      person.status === "away" ||
+      person.status === "busy"
   ).length;
 
   const breakExpiresAt = attendance?.break_expires_at ?? null;
@@ -443,7 +456,7 @@ export default function StaffWorkspacePage() {
       {tab === "team" && (
         <>
       {/* SUMMARY */}
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
         <div className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-[var(--fos-surface-muted)] p-2.5 dark:bg-slate-800">
@@ -511,6 +524,24 @@ export default function StaffWorkspacePage() {
 
               <p className="text-2xl font-bold text-[var(--fos-text)] dark:text-white">
                 {loading ? "—" : awayCount}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-red-100 p-2.5 text-red-700 dark:bg-red-500/10 dark:text-red-300">
+              <Clock3 size={19} />
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--fos-text-muted)]">
+                Busy
+              </p>
+
+              <p className="text-2xl font-bold text-[var(--fos-text)] dark:text-white">
+                {loading ? "—" : busyCount}
               </p>
             </div>
           </div>

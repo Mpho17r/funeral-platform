@@ -57,6 +57,25 @@ export function holds(needed: string, can: (permission: string) => boolean) {
   return needed.split("|").some((permission) => can(permission));
 }
 
+/** Screens that only exist for a business running memberships (funeral side). */
+export const MEMBERSHIP_PATHS = new Set([
+  "/members",
+  "/membership-plans",
+  "/memberships",
+  "/covered-dependents",
+  "/beneficiaries",
+  "/claims",
+  "/membership-contributions",
+  "/membership-payments",
+  "/settings/membership-rules",
+]);
+
+export function isMembershipPath(pathname: string) {
+  return Array.from(MEMBERSHIP_PATHS).some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+}
+
 export type WorkArea = "general" | "mortuary" | "finance" | "operations";
 
 export function permissionForPath(pathname: string): string | null {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Lock } from "lucide-react";
 
-import { holds, permissionForPath } from "@/lib/access";
+import { holds, isMembershipPath, permissionForPath } from "@/lib/access";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 
 /**
@@ -14,7 +14,7 @@ import { useCurrentUser } from "@/components/CurrentUserProvider";
  */
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { can, user, loading } = useCurrentUser();
+  const { can, user, loading, membershipEnabled } = useCurrentUser();
 
   // Defence in depth: never render protected route children while the
   // session is unresolved or the account is not authenticated.
@@ -22,7 +22,10 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
 
   const needed = permissionForPath(pathname);
 
-  if (needed && !holds(needed, can)) {
+  if (
+    (needed && !holds(needed, can)) ||
+    (!membershipEnabled && isMembershipPath(pathname))
+  ) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-6 py-24 text-center">
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--fos-surface-muted)] text-[var(--fos-text-muted)]">

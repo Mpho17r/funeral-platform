@@ -15,6 +15,7 @@ import {
   BranchFilter,
 } from "@/components/BranchControls";
 import { Banner } from "@/components/Notices";
+import { useCurrentUser } from "@/components/CurrentUserProvider";
 import OwnerOverview, { type OverviewData } from "@/components/OwnerOverview";
 
 /* ============================================================
@@ -485,6 +486,7 @@ function MembershipBody({ data }: { data: MembershipReport }) {
 
 export default function ReportsPage() {
   const branchData = useBranches();
+  const { membershipEnabled } = useCurrentUser();
 
   const [tab, setTab] = useState<Tab>("overview");
   const [preset, setPreset] = useState<Preset>("month");
@@ -578,7 +580,9 @@ export default function ReportsPage() {
           role="tablist"
           className="inline-flex max-w-full overflow-x-auto rounded-lg border border-gray-300 bg-white p-1"
         >
-          {TABS.map((item) => (
+          {TABS.filter(
+            (item) => item.id !== "membership" || membershipEnabled,
+          ).map((item) => (
             <button
               key={item.id}
               type="button"

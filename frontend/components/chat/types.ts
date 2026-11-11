@@ -3,7 +3,7 @@ export type Person = {
   name: string;
   role: string;
   job_title: string | null;
-  status: "online" | "away" | "offline" | "checked_in";
+  status: "online" | "away" | "busy" | "offline" | "checked_in";
 };
 
 export type Conversation = {
@@ -92,6 +92,8 @@ export function presenceColor(status: Person["status"] | undefined) {
       return "#22c55e";
     case "away":
       return "#f59e0b";
+    case "busy":
+      return "#ef4444";
     default:
       return "#94a3b8";
   }
@@ -105,6 +107,8 @@ export function presenceLabel(status: Person["status"] | undefined) {
       return "At work";
     case "away":
       return "Away";
+    case "busy":
+      return "Busy";
     default:
       return "Offline";
   }
