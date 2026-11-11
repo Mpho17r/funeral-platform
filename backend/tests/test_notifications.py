@@ -138,11 +138,15 @@ def test_reconciliation_difference_alerts_other_managers(
 
     from tests.test_expenses_reconciliation import add_expense
 
-    add_expense(client, auth_headers, manager, amount="100.00")
+    recon_date = date.today()
+    add_expense(
+        client, auth_headers, manager,
+        amount="100.00", expense_date=recon_date.isoformat(),
+    )
     r = client.post(
         "/reconciliation",
         json={
-            "recon_date": date.today().isoformat(),
+            "recon_date": recon_date.isoformat(),
             "payment_method": "cash",
             "counted_amount": "0.00",
             "notes": "Cash went to the hearse driver",

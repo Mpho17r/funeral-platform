@@ -197,12 +197,15 @@ def test_other_businesses_and_permission(client, db, test_data, auth_headers):
 # ---- arrears ----------------------------------------------------------
 
 def make_arrears(db, biz, days, unpaid, name="Late Payer"):
+    # Resolve the date when the test runs, not at module import. Long CI
+    # suites can cross South African midnight after test collection.
+    today = date.today()
     member = make_member(db, biz)
     member.first_name, member.last_name = name, "Member"
     ms = make_membership(
         db, biz, member, make_plan(db, biz), status="arrears"
     )
-    ms.arrears_since = TODAY - timedelta(days=days)
+    ms.arrears_since = today - timedelta(days=days)
     db.add(
         MembershipContribution(
             business_id=biz.id, membership_id=ms.id,
