@@ -9,11 +9,20 @@ import { useTheme } from "@/components/ThemeProvider";
  * frosted panels on top. It sits below everything (the tenant watermark is a
  * separate layer above the page) and is tinted by the business's brand colours.
  */
-export function GlassScene({ userId }: { userId: string | null }) {
+export function GlassScene({
+  userId,
+  serverStyle,
+}: {
+  userId: string | null;
+  serverStyle?: string | null;
+}) {
   const { glassActive, loadStyleFor } = useTheme();
 
   useEffect(() => {
-    loadStyleFor(userId);
+    loadStyleFor(userId, serverStyle);
+    // Only when who is signed in changes: our own saves must not be undone
+    // by an older copy of the profile.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, loadStyleFor]);
 
   if (!glassActive) return null;

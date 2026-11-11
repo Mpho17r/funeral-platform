@@ -25,6 +25,8 @@ export type CurrentUser = {
   branch_name: string | null;
   business_name: string | null;
   avatar_updated_at: string | null;
+  /** The look they chose ('default' or 'glass'); null until they choose. */
+  ui_style?: string | null;
   member_since: string | null;
 };
 

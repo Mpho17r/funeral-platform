@@ -60,6 +60,8 @@ import { removeToken } from "@/lib/auth";
 import { LindaMark } from "@/components/LindaLogo";
 import { useBranding } from "@/components/BrandingProvider";
 import { PLATFORM_SLOGAN, platformLabel } from "@/lib/platform";
+import { GlassRail } from "@/components/GlassNav";
+import { useTheme } from "@/components/ThemeProvider";
 
 type SidebarProps = {
   onLogout?: () => void;
@@ -480,6 +482,28 @@ export default function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       path: "/help",
     },
   ];
+
+  const { glassActive } = useTheme();
+
+  // Glass look, desktop: the floating icon rail replaces this sidebar. (The
+  // phone drawer passes onNavigate and keeps the full labelled list.)
+  if (glassActive && !onNavigate) {
+    const groups = [
+      { title: "Home", items: [{ label: "Dashboard", icon: <LayoutDashboard size={18} />, path: "/dashboard" }] },
+      { title: "Operations", items: shown(operations) },
+      { title: "Finance", items: shown(membership) },
+      { title: "Records", items: shown(records) },
+      {
+        title: "Workspace",
+        items: shown(workspace).map((item) =>
+          item.path === "/staff" ? { ...item, badge: chatUnread } : item,
+        ),
+      },
+      { title: "Administration", items: shown(administration) },
+    ].filter((group) => group.items.length > 0);
+
+    return <GlassRail groups={groups} onLogout={handleLogout} />;
+  }
 
   const line = "rgba(255,255,255,0.08)";
 

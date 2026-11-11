@@ -72,6 +72,12 @@ class User(Base):
         nullable=True,
     )
 
+    # The look this person chose: "default" or "glass". None = not chosen yet.
+    ui_style: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,

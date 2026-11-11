@@ -1,5 +1,6 @@
 "use client";
 
+import api from "@/lib/api";
 import {
   createContext,
   useCallback,
@@ -20,7 +21,7 @@ type ThemeContextType = {
   /** Show a look without saving it yet (used while choosing). */
   previewUiStyle: (style: UiStyle) => void;
   /** Loads this person's saved look once we know who they are. */
-  loadStyleFor: (userId: string | null) => void;
+  loadStyleFor: (userId: string | null, serverStyle?: string | null) => void;
   /** True once this person has picked a look (or we've loaded their pick). */
   styleChosen: boolean;
   glassActive: boolean;
@@ -62,24 +63,43 @@ export function ThemeProvider({
   const userKey = useRef<string | null>(null);
   const glassActive = uiStyle === "glass";
 
-  // Each person keeps their own look on this device. Someone who has never
-  // chosen gets asked once, the first time they sign in.
-  const loadStyleFor = useCallback((userId: string | null) => {
-    userKey.current = userId;
-    if (!userId) {
+  // The look is saved on the person's account, so it follows them to every
+  // device. A choice made before that existed (kept in this browser) is carried
+  // over once. Someone who has never chosen is asked on first sign-in.
+  const loadStyleFor = useCallback(
+    (userId: string | null, serverStyle?: string | null) => {
+      userKey.current = userId;
+      if (!userId) {
+        setUiStyleState("default");
+        setStyleChosen(true);
+        return;
+      }
+
+      if (serverStyle === "glass" || serverStyle === "default") {
+        setUiStyleState(serverStyle);
+        setStyleChosen(true);
+        return;
+      }
+
+      let saved: string | null = null;
+      try {
+        saved = localStorage.getItem(`linda_ui_style:${userId}`);
+      } catch {
+        /* storage unavailable */
+      }
+
+      if (saved === "glass" || saved === "default") {
+        setUiStyleState(saved);
+        setStyleChosen(true);
+        api.put("/users/me/ui-style", { ui_style: saved }).catch(() => {});
+        return;
+      }
+
       setUiStyleState("default");
-      setStyleChosen(true);
-      return;
-    }
-    let saved: string | null = null;
-    try {
-      saved = localStorage.getItem(`linda_ui_style:${userId}`);
-    } catch {
-      /* storage unavailable */
-    }
-    setUiStyleState(saved === "glass" ? "glass" : "default");
-    setStyleChosen(saved === "glass" || saved === "default");
-  }, []);
+      setStyleChosen(false);
+    },
+    [],
+  );
 
   useEffect(() => {
     function applyTheme() {
@@ -151,6 +171,12 @@ export function ThemeProvider({
       }
     } catch {
       /* ignore */
+    }
+
+    if (userKey.current) {
+      api.put("/users/me/ui-style", { ui_style: next }).catch(() => {
+        /* kept in this browser; saved to the account next time */
+      });
     }
   }
 

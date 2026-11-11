@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Literal
 import secrets
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.constants import (
@@ -278,6 +280,29 @@ def my_access(
             role=current_user["role"],
         ),
     }
+
+
+class UiStyleIn(BaseModel):
+    ui_style: Literal["default", "glass"]
+
+
+@router.put("/me/ui-style")
+def set_my_ui_style(
+    data: UiStyleIn,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Remember the look this person chose, on every device they use."""
+
+    user = db.get(User, current_user["user_id"])
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.ui_style = data.ui_style
+    db.commit()
+
+    return {"ui_style": user.ui_style}
 
 
 @router.post("/me/avatar")

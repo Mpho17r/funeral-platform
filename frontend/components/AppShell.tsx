@@ -16,6 +16,8 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { WorkspaceBadge } from "@/components/WorkspaceBadge";
 import { RouteGuard } from "@/components/RouteGuard";
 import { AccessWarning } from "@/components/AccessWarning";
+import { GlassTopBar } from "@/components/GlassNav";
+import { useTheme } from "@/components/ThemeProvider";
 import { GlassScene } from "@/components/GlassScene";
 import { FirstLoginStylePicker } from "@/components/StylePicker";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
@@ -28,6 +30,7 @@ function AppShellContent({ children }: AppShellProps) {
   const router = useRouter();
   const { user, loading, authUnavailable, refresh } = useCurrentUser();
   const { branding, watermarkObjectUrl } = useBranding();
+  const { glassActive } = useTheme();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -105,7 +108,7 @@ function AppShellContent({ children }: AppShellProps) {
   return (
       <TourProvider>
       <TaskAlert />
-      <GlassScene userId={user?.user_id ?? null} />
+      <GlassScene userId={user?.user_id ?? null} serverStyle={user?.ui_style} />
       <FirstLoginStylePicker />
       <div className="flex min-h-screen bg-[var(--fos-page)] text-[var(--fos-text)]">
         <a
@@ -153,6 +156,11 @@ function AppShellContent({ children }: AppShellProps) {
         {/* Main application area */}
         <div className="relative min-w-0 flex-1">
           {/* Desktop top bar: who is signed in */}
+          {glassActive ? (
+            <div className="glass-topbar sticky top-0 z-[100] hidden h-[72px] items-center px-6 pt-4 lg:flex">
+              <GlassTopBar />
+            </div>
+          ) : (
           <div className="sticky top-0 z-[100] hidden h-16 items-center justify-between gap-4 border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-6 backdrop-blur lg:flex">
             <GlobalSearch />
             <div className="flex min-w-0 shrink-0 items-center gap-4">
@@ -162,6 +170,7 @@ function AppShellContent({ children }: AppShellProps) {
               </div>
             </div>
           </div>
+          )}
 
           {/* Mobile top bar */}
           <div className="sticky top-0 z-[100] flex h-14 items-center gap-3 border-b border-[var(--fos-border)] bg-[var(--fos-surface)]/95 px-4 backdrop-blur lg:hidden">

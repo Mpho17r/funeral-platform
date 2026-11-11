@@ -731,8 +731,13 @@ html[data-ui="glass"] ::placeholder {
 }
 
 /* Primary buttons are light green here, so their text must be dark */
-html[data-ui="glass"] :is([class*="bg-[var(--fos-primary)]"], .bg-slate-900, .bg-gray-900) {
-  color: var(--fos-on-primary);
+html[data-ui="glass"] :is([class*="bg-[var(--fos-primary)]"], .bg-slate-900, .bg-gray-900):not(.min-h-screen) {
+  background-color: var(--fos-primary) !important;
+  color: var(--fos-on-primary) !important;
+}
+
+html[data-ui="glass"] :is(.hover\:bg-slate-800, .hover\:bg-gray-800):hover {
+  background-color: var(--fos-primary-hover) !important;
 }
 
 /* Soft glow on the active/hover states, scrollbars that blend in */
@@ -740,9 +745,10 @@ html[data-ui="glass"] * {
   scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
 }
 
-html[data-ui="glass"] :is(.sticky, header, nav) {
-  -webkit-backdrop-filter: blur(22px) saturate(1.25);
-  backdrop-filter: blur(22px) saturate(1.25);
+/* Page headers that stick to the top stay clear, so no pale band shows */
+html[data-ui="glass"] :is(header, .sticky):not(.glass-topbar):not(aside) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /* The sidebar sets its navy inline, so glass needs !important to frost it */
@@ -766,4 +772,57 @@ html[data-ui="glass"] [class*="dark:bg-slate-900"]:not(.min-h-screen) {
 
 html[data-ui="glass"] [class*="dark:bg-slate-950"]:not(.min-h-screen) {
   background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Glass layout: floating icon rail, and a top bar with no strip behind it */
+.glass-panel {
+  background: linear-gradient(160deg, rgba(44, 58, 51, 0.58), rgba(18, 26, 22, 0.5));
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  backdrop-filter: blur(22px) saturate(1.25);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 24px 50px -26px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+html[data-ui="glass"] .glass-topbar {
+  background: transparent !important;
+  border: 0 !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.glass-scroll {
+  scrollbar-width: none;
+}
+
+.glass-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Coloured text written for white cards (dark green, deep blue, dark red...)
+   is unreadable on the dark glass, so it is lifted to light tints. */
+html[data-ui="glass"] :is(.text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900, .text-sky-700, .text-sky-800, .text-indigo-700, .text-indigo-800) {
+  color: #9ac6f0;
+}
+html[data-ui="glass"] :is(.text-green-600, .text-green-700, .text-green-800, .text-green-900, .text-emerald-600, .text-emerald-700, .text-emerald-800, .text-emerald-900, .text-teal-700, .text-teal-800) {
+  color: #86e0b0;
+}
+html[data-ui="glass"] :is(.text-red-600, .text-red-700, .text-red-800, .text-red-900, .text-rose-700, .text-rose-800) {
+  color: #f6a8a2;
+}
+html[data-ui="glass"] :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900, .text-yellow-700, .text-yellow-800, .text-orange-700, .text-orange-800) {
+  color: #f5c36b;
+}
+html[data-ui="glass"] :is(.text-purple-700, .text-purple-800, .text-violet-700, .text-violet-800, .text-fuchsia-700) {
+  color: #cdb4f6;
+}
+
+/* Pale tinted panels become dark tinted glass */
+html[data-ui="glass"] :is(.bg-blue-50, .bg-blue-100, .bg-sky-50, .bg-indigo-50) {
+  background-color: rgba(80, 140, 210, 0.16);
+}
+html[data-ui="glass"] :is(.bg-green-50, .bg-green-100, .bg-emerald-50, .bg-emerald-100) {
+  background-color: rgba(60, 180, 120, 0.16);
+}
+html[data-ui="glass"] :is(.bg-purple-50, .bg-purple-100, .bg-violet-50, .bg-fuchsia-50) {
+  background-color: rgba(150, 110, 220, 0.16);
 }
