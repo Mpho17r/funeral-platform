@@ -683,19 +683,19 @@ html.dark
 ============================================================ */
 html[data-ui="glass"] {
   --fos-page: transparent;
-  --fos-surface: rgba(26, 36, 31, 0.66);
-  --fos-surface-muted: rgba(255, 255, 255, 0.08);
-  --fos-border: rgba(255, 255, 255, 0.16);
-  --fos-text: rgba(255, 255, 255, 0.94);
-  --fos-text-secondary: rgba(255, 255, 255, 0.78);
-  --fos-text-muted: rgba(255, 255, 255, 0.62);
-  --fos-primary: #bfe0b0;
-  --fos-on-primary: #14201a;
-  --fos-primary-hover: #d3edc6;
+  --fos-surface: rgba(64, 52, 34, 0.5);
+  --fos-surface-muted: rgba(255, 244, 222, 0.12);
+  --fos-border: rgba(255, 240, 210, 0.28);
+  --fos-text: #fffaf0;
+  --fos-text-secondary: rgba(255, 248, 232, 0.86);
+  --fos-text-muted: rgba(255, 246, 226, 0.74);
+  --fos-primary: #cfeab9;
+  --fos-on-primary: #1f2a1c;
+  --fos-primary-hover: #def3cd;
 }
 
 html[data-ui="glass"] {
-  background: #101714;
+  background: #3a3022;
 }
 
 /* The page behind must not paint over the scene (which sits at z-index -10) */
@@ -716,7 +716,7 @@ html[data-ui="glass"] :is(
 /* Native dropdown lists and form fields stay readable over the scene */
 html[data-ui="glass"] option,
 html[data-ui="glass"] optgroup {
-  background: #1b261f;
+  background: #3a3022;
   color: #f1f5ef;
 }
 
@@ -753,7 +753,7 @@ html[data-ui="glass"] :is(header, .sticky):not(.glass-topbar):not(aside) {
 
 /* The sidebar sets its navy inline, so glass needs !important to frost it */
 html[data-ui="glass"] aside {
-  background-color: rgba(14, 22, 18, 0.55) !important;
+  background-color: rgba(60, 48, 30, 0.5) !important;
   -webkit-backdrop-filter: blur(22px) saturate(1.25);
   backdrop-filter: blur(22px) saturate(1.25);
 }
@@ -776,11 +776,11 @@ html[data-ui="glass"] [class*="dark:bg-slate-950"]:not(.min-h-screen) {
 
 /* Glass layout: floating icon rail, and a top bar with no strip behind it */
 .glass-panel {
-  background: linear-gradient(160deg, rgba(44, 58, 51, 0.58), rgba(18, 26, 22, 0.5));
+  background: linear-gradient(160deg, rgba(86, 70, 44, 0.5), rgba(48, 38, 24, 0.5));
   -webkit-backdrop-filter: blur(22px) saturate(1.25);
   backdrop-filter: blur(22px) saturate(1.25);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 24px 50px -26px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 240, 210, 0.28);
+  box-shadow: 0 24px 50px -26px rgba(30, 18, 4, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 html[data-ui="glass"] .glass-topbar {

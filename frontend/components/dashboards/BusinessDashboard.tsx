@@ -8,13 +8,15 @@ import api from "@/lib/api";
 import { formatRand } from "@/lib/format";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 import { SetupChecklist } from "@/components/SetupChecklist";
+import { useTheme } from "@/components/ThemeProvider";
+import GlassBusinessHome from "@/components/glass/BusinessHome";
 
 type Money = { income: number; expenses: number; profit: number; result: "profit" | "loss" };
 type Tasks = { open: number; overdue: number; due_today: number; not_started: number };
 type Person = { id: string; name: string; job_title?: string | null; open?: number; detected?: string[] };
 
 /** The home screen of a general business: money, work and the team. */
-export default function BusinessDashboard() {
+function ClassicBusinessDashboard() {
   const { user, can } = useCurrentUser();
   const [money, setMoney] = useState<Money | null>(null);
   const [tasks, setTasks] = useState<Tasks | null>(null);
@@ -118,4 +120,9 @@ export default function BusinessDashboard() {
       )}
     </main>
   );
+}
+
+export default function BusinessDashboard() {
+  const { glassActive } = useTheme();
+  return glassActive ? <GlassBusinessHome /> : <ClassicBusinessDashboard />;
 }

@@ -33,7 +33,7 @@ export function GlassScene({
       className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
       style={{
         background:
-          "linear-gradient(180deg, #1c2a2d 0%, #3a4842 34%, #8c7c5c 58%, #2c2b22 100%)",
+          "linear-gradient(180deg, #3f5251 0%, #6f7a62 30%, #c8a56a 56%, #8a6c40 76%, #3a3022 100%)",
       }}
     >
       {/* Brand-coloured glow: the business's secondary colour lights the sky */}
@@ -59,15 +59,15 @@ export function GlassScene({
         preserveAspectRatio="none"
         className="absolute bottom-0 left-0 right-0 h-[45vh] w-full"
       >
-        <path d="M0 250 C 160 190, 300 230, 460 170 S 760 120, 940 190 S 1260 150, 1440 210 L1440 520 L0 520 Z" fill="#5a5a45" opacity="0.55" style={{ filter: "blur(3px)" }} />
-        <path d="M0 330 C 200 270, 360 330, 560 280 S 900 230, 1100 290 S 1340 300, 1440 270 L1440 520 L0 520 Z" fill="#3a3a2e" opacity="0.8" style={{ filter: "blur(2px)" }} />
-        <path d="M0 420 C 240 370, 420 430, 700 390 S 1120 350, 1440 400 L1440 520 L0 520 Z" fill="#1d1f19" />
+        <path d="M0 250 C 160 190, 300 230, 460 170 S 760 120, 940 190 S 1260 150, 1440 210 L1440 520 L0 520 Z" fill="#8a7a4e" opacity="0.6" style={{ filter: "blur(3px)" }} />
+        <path d="M0 330 C 200 270, 360 330, 560 280 S 900 230, 1100 290 S 1340 300, 1440 270 L1440 520 L0 520 Z" fill="#5e5035" opacity="0.8" style={{ filter: "blur(2px)" }} />
+        <path d="M0 420 C 240 370, 420 430, 700 390 S 1120 350, 1440 400 L1440 520 L0 520 Z" fill="#2e2619" />
       </svg>
       <div
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0) 45%, rgba(8,12,10,0.55) 100%)",
+            "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0) 45%, rgba(24,16,6,0.40) 100%)",
         }}
       />
     </div>

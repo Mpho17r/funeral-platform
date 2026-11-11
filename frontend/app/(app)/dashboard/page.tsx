@@ -24,6 +24,8 @@ import MortuaryDashboard from "@/components/dashboards/MortuaryDashboard";
 import FinanceDashboard from "@/components/dashboards/FinanceDashboard";
 import OperationsDashboard from "@/components/dashboards/OperationsDashboard";
 import BusinessDashboard from "@/components/dashboards/BusinessDashboard";
+import GlassFuneralHome from "@/components/glass/FuneralHome";
+import { useTheme } from "@/components/ThemeProvider";
 import { removeToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/format";
 
@@ -187,7 +189,7 @@ function getStatusStyle(status: string) {
    PAGE
 ============================================================ */
 
-function OverallDashboard() {
+function ClassicOverallDashboard() {
   const router = useRouter();
 
   const [dashboard, setDashboard] =
@@ -928,6 +930,11 @@ function DepartmentSwitcher({ children }: { children: (d: Department) => React.R
       {children(chosen)}
     </>
   );
+}
+
+function OverallDashboard() {
+  const { glassActive } = useTheme();
+  return glassActive ? <GlassFuneralHome /> : <ClassicOverallDashboard />;
 }
 
 export default function DashboardPage() {
