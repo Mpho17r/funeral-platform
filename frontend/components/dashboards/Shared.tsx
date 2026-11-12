@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 
 import { AREA_LABELS } from "@/lib/access";
 import { titleOf, useCurrentUser } from "@/components/CurrentUserProvider";
+import { useTheme } from "@/components/ThemeProvider";
 
 function greeting() {
   const hour = new Date().getHours();
@@ -18,7 +19,20 @@ function greeting() {
 
 export function DashboardHeader({ subtitle }: { subtitle: string }) {
   const { user, access } = useCurrentUser();
+  const { glassActive } = useTheme();
   const first = (user?.full_name ?? "").split(" ")[0];
+
+  if (glassActive) {
+    return (
+      <div>
+        <h1 className="font-serif text-[40px] font-semibold leading-tight text-white sm:text-5xl">
+          {greeting()}
+          {first ? `, ${first}` : ""}
+        </h1>
+        <p className="mt-1 text-sm text-white/80">{subtitle}</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -49,6 +63,24 @@ export function Tile({
   hint?: string;
   tone?: "neutral" | "warn";
 }) {
+  const { glassActive } = useTheme();
+
+  if (glassActive) {
+    return (
+      <div className="glass-panel rounded-[18px] px-4 py-3.5">
+        <p className="text-xs text-white/75">{label}</p>
+        <p
+          className={`mt-1 font-serif text-3xl font-semibold ${
+            tone === "warn" ? "text-[#f5d58f]" : "text-white"
+          }`}
+        >
+          {value}
+        </p>
+        {hint && <p className="mt-1 text-[11px] text-white/70">{hint}</p>}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`rounded-xl border p-5 shadow-sm ${
@@ -79,6 +111,24 @@ export function Panel({
   linkLabel?: string;
   children: React.ReactNode;
 }) {
+  const { glassActive } = useTheme();
+
+  if (glassActive) {
+    return (
+      <section className="glass-panel overflow-hidden rounded-[22px]">
+        <div className="flex items-center justify-between px-5 pb-1 pt-5">
+          <h2 className="text-[15px] font-semibold text-white">{title}</h2>
+          {href && (
+            <Link href={href} className="inline-flex items-center gap-1 text-xs font-medium text-[#d9f0c6] hover:underline">
+              {linkLabel ?? "Open"} <ArrowRight size={13} />
+            </Link>
+          )}
+        </div>
+        {children}
+      </section>
+    );
+  }
+
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--fos-border)] bg-[var(--fos-surface)] shadow-sm">
       <div className="flex items-center justify-between border-b border-[var(--fos-border)] px-5 py-4">
@@ -112,6 +162,28 @@ export function QuickActions({
 }: {
   actions: { label: string; href: string }[];
 }) {
+  const { glassActive } = useTheme();
+
+  if (glassActive) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {actions.map((a, i) => (
+          <Link
+            key={a.href}
+            href={a.href}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+              i === 0
+                ? "bg-[#cfeab9] text-[#1f2a1c] hover:bg-[#def3cd]"
+                : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            {a.label}
+          </Link>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap gap-2">
       {actions.map((a) => (

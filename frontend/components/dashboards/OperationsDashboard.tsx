@@ -15,6 +15,9 @@ import { formatDate, getApiErrorMessage } from "@/lib/format";
 import { formatDateTime, formatTime } from "@/lib/datetime";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 import { Banner } from "@/components/Notices";
+import { useTheme } from "@/components/ThemeProvider";
+import { AreaChart, Gauge, GlassCard, RouteTimeline, WeatherChip, useWeather } from "@/components/glass/primitives";
+
 import {
   DashboardHeader,
   EmptyRow,
@@ -184,6 +187,8 @@ export default function OperationsDashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<"action" | "all">("action");
+  const { glassActive } = useTheme();
+  const weather = useWeather(null);
 
   const load = useCallback(async () => {
     try {
@@ -275,6 +280,42 @@ export default function OperationsDashboard() {
               hint={`${k.overdue_tasks} overdue tasks`}
             />
           </div>
+
+          {glassActive && (
+            <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.6fr)]">
+              <GlassCard title="Cases on track" subtitle="Live cases with nothing waiting on us">
+                <Gauge
+                  percent={k.live_cases > 0 ? ((data.pipeline.on_track ?? 0) / k.live_cases) * 100 : 0}
+                  caption="on track"
+                />
+                <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-white/75">
+                  <div><dt>Live cases</dt><dd className="mt-0.5 text-sm font-semibold text-white">{k.live_cases}</dd></div>
+                  <div><dt>Need action</dt><dd className="mt-0.5 text-sm font-semibold text-[#f5d58f]">{k.needing_action}</dd></div>
+                </dl>
+              </GlassCard>
+              <GlassCard>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-serif text-3xl font-semibold leading-tight text-white">Today&apos;s programme</h2>
+                    <p className="mt-1 text-xs text-white/80">
+                      {data.programme.length === 0
+                        ? "No funerals or services on the programme today."
+                        : `${data.programme.length} ${data.programme.length === 1 ? "stop" : "stops"} today`}
+                    </p>
+                  </div>
+                  <WeatherChip weather={weather} />
+                </div>
+                {data.programme.length > 0 && (
+                  <RouteTimeline
+                    stops={data.programme.slice(0, 4).map((s) => ({
+                      label: `${s.name}${s.label ? ` · ${s.label}` : ""}`,
+                      time: formatTime(s.at),
+                    }))}
+                  />
+                )}
+              </GlassCard>
+            </div>
+          )}
 
           {/* PIPELINE */}
           <section className="rounded-2xl border border-[var(--fos-border)] bg-[var(--fos-surface)] p-5 shadow-sm">

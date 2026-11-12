@@ -20,6 +20,9 @@ import { formatDateTime, formatTime } from "@/lib/datetime";
 import { useCurrentUser } from "@/components/CurrentUserProvider";
 import { Dialog, Field, inputClass } from "@/components/Dialog";
 import { Banner } from "@/components/Notices";
+import { useTheme } from "@/components/ThemeProvider";
+import { AreaChart, Gauge, GlassCard, RouteTimeline, WeatherChip, useWeather } from "@/components/glass/primitives";
+
 import {
   DashboardHeader,
   EmptyRow,
@@ -609,6 +612,7 @@ export default function MortuaryDashboard() {
   const canLog = can("mortuary.manage");
   const alerts = data?.attention.length ?? 0;
   const occ = data?.occupancy;
+  const { glassActive } = useTheme();
 
   return (
     <main className="space-y-6 p-6 md:p-8">
@@ -656,7 +660,49 @@ export default function MortuaryDashboard() {
 
       {data && occ && (
         <>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          {glassActive && (
+            <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.6fr)]">
+              <GlassCard title="Occupancy" subtitle="Places in use across fridges and cold rooms">
+                <Gauge percent={occ.percent ?? 0} caption="occupied" />
+                <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-white/75">
+                  <div><dt>In use</dt><dd className="mt-0.5 text-sm font-semibold text-white">{occ.occupied}{occ.capacity ? ` of ${occ.capacity}` : ""}</dd></div>
+                  <div><dt>In our care</dt><dd className="mt-0.5 text-sm font-semibold text-white">{data.in_care}</dd></div>
+                  <div><dt>Admitted today</dt><dd className="mt-0.5 text-sm font-semibold text-white">{data.admissions_today}</dd></div>
+                  <div><dt>Pending releases</dt><dd className="mt-0.5 text-sm font-semibold text-[#f5d58f]">{data.pending_releases}</dd></div>
+                </dl>
+              </GlassCard>
+              <GlassCard
+                title="Temperature (°C)"
+                subtitle={`Safe up to ${data.temperature.max_safe_c}°C · ${data.temperature.out_of_range} out of range`}
+                action={
+                  <select
+                    value={hours}
+                    onChange={(e) => setHours(Number(e.target.value))}
+                    aria-label="Period"
+                    className="rounded-lg border border-white/25 bg-white/10 px-2 py-1 text-xs text-white"
+                  >
+                    <option value={24}>Last 24 hours</option>
+                    <option value={72}>Last 3 days</option>
+                    <option value={168}>Last 7 days</option>
+                  </select>
+                }
+              >
+                {data.temperature.points.length > 1 ? (
+                  <AreaChart
+                    points={data.temperature.points.slice(-14).map((pt) => ({
+                      label: new Date(pt.at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }),
+                      value: pt.temperature_c,
+                    }))}
+                    format={(n) => `${n.toFixed(1)}°C`}
+                  />
+                ) : (
+                  <p className="py-10 text-center text-sm text-white/75">Log a temperature reading and the chart appears here.</p>
+                )}
+              </GlassCard>
+            </div>
+          )}
+
+          <div className={`grid grid-cols-1 gap-4 lg:grid-cols-12 ${glassActive ? "hidden" : ""}`}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:col-span-7">
               <Stat
                 icon={<DoorOpen size={20} />}

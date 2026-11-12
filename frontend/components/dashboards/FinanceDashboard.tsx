@@ -7,6 +7,9 @@ import { Loader2, TrendingDown, TrendingUp } from "lucide-react";
 import api from "@/lib/api";
 import { formatDate, formatMoney, getApiErrorMessage } from "@/lib/format";
 import { Banner } from "@/components/Notices";
+import { useTheme } from "@/components/ThemeProvider";
+import { AreaChart, Gauge, GlassCard, RouteTimeline, WeatherChip, useWeather } from "@/components/glass/primitives";
+
 import {
   DashboardHeader,
   EmptyRow,
@@ -182,6 +185,7 @@ export default function FinanceDashboard() {
   const c = data?.collected;
   const k = data?.contributions;
   const m = data?.memberships;
+  const { glassActive } = useTheme();
 
   return (
     <main className="space-y-6 p-6 md:p-8">
@@ -270,9 +274,32 @@ export default function FinanceDashboard() {
             ))}
           </section>
 
-          <Panel title="Money collected, last 6 months">
-            <Trend trend={data.trend} />
-          </Panel>
+          {glassActive ? (
+            <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.6fr)]">
+              <GlassCard title="Collection rate" subtitle="Contributions paid against due, this month">
+                <Gauge percent={k.collection_rate_percent ?? 0} caption="collected" />
+                <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-white/75">
+                  <div><dt>Collected this month</dt><dd className="mt-0.5 text-sm font-semibold text-white">{rand(c.month)}</dd></div>
+                  <div><dt>Last month</dt><dd className="mt-0.5 text-sm font-semibold text-white">{rand(c.last_month)}</dd></div>
+                  <div><dt>Due soon</dt><dd className="mt-0.5 text-sm font-semibold text-white">{rand(k.due_soon_amount)}</dd></div>
+                  <div><dt>Overdue</dt><dd className="mt-0.5 text-sm font-semibold text-[#f5d58f]">{rand(k.overdue_amount)}</dd></div>
+                </dl>
+              </GlassCard>
+              <GlassCard title="Money collected, last 6 months">
+                <AreaChart
+                  points={data.trend.map((t) => ({
+                    label: new Date(t.month).toLocaleDateString("en-ZA", { month: "short" }),
+                    value: Number(t.collected),
+                  }))}
+                  format={(n) => rand(n)}
+                />
+              </GlassCard>
+            </div>
+          ) : (
+            <Panel title="Money collected, last 6 months">
+              <Trend trend={data.trend} />
+            </Panel>
+          )}
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <Panel
