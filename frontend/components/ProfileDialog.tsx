@@ -39,7 +39,7 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
 
       await api.post("/users/me/avatar", form);
       if (user?.user_id) clearUserAvatarCache(user.user_id);
-      await refresh();
+      await refresh({ silent: true });
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not save the picture."));
     } finally {
@@ -58,7 +58,7 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
 
       await api.delete("/users/me/avatar");
       if (user?.user_id) clearUserAvatarCache(user.user_id);
-      await refresh();
+      await refresh({ silent: true });
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not remove the picture."));
     } finally {
@@ -87,7 +87,7 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
         job_title: jobTitle.trim() || null,
       });
 
-      await refresh();
+      await refresh({ silent: true });
       onClose();
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not save your profile."));

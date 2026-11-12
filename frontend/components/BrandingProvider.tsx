@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -31,14 +32,13 @@ type BrandingContextType = {
   refreshBranding: () => Promise<void>;
 };
 
-const BrandingContext =
-  createContext<BrandingContextType>({
-    branding: null,
-    loading: true,
-    logoObjectUrl: null,
-    watermarkObjectUrl: null,
-    refreshBranding: async () => {},
-  });
+const BrandingContext = createContext<BrandingContextType>({
+  branding: null,
+  loading: true,
+  logoObjectUrl: null,
+  watermarkObjectUrl: null,
+  refreshBranding: async () => {},
+});
 
 export function BrandingProvider({
   children,
@@ -58,7 +58,8 @@ export function BrandingProvider({
     useState<string | null>(null);
 
   const refreshBranding = useCallback(async () => {
-    const token = typeof window !== "undefined" ? getToken() : null;
+    const token =
+      typeof window !== "undefined" ? getToken() : null;
 
     /*
      * No authenticated user means there is no
@@ -78,20 +79,11 @@ export function BrandingProvider({
 
       /*
        * First get the authenticated user.
-       *
-       * /auth/me returns the current user,
-       * including business_id.
        */
-      const meResponse =
-        await api.get("/auth/me");
+      const meResponse = await api.get("/auth/me");
+      const currentUser = meResponse.data;
 
-      const currentUser =
-        meResponse.data;
-
-      
-
-      const businessId =
-        currentUser?.business_id;
+      const businessId = currentUser?.business_id;
 
       if (!businessId) {
         console.error(
@@ -101,6 +93,7 @@ export function BrandingProvider({
         setBranding(null);
         setLogoObjectUrl(null);
         setWatermarkObjectUrl(null);
+        clearBrandTheme();
 
         return;
       }
@@ -108,33 +101,20 @@ export function BrandingProvider({
       /*
        * Load the actual business.
        */
-      const businessResponse =
-        await api.get(
-          `/businesses/${businessId}`,
-        );
+      const businessResponse = await api.get(
+        `/businesses/${businessId}`,
+      );
 
-      const data =
-        businessResponse.data;
-
-      
-
-      
-
-      
+      const data = businessResponse.data;
 
       const brandingData: BrandingData = {
         name: data.name,
         logo_url: data.logo_url,
-        watermark_url:
-          data.watermark_url,
-        primary_color:
-          data.primary_color,
-        secondary_color:
-          data.secondary_color,
-        watermark_opacity:
-          data.watermark_opacity,
-        theme_preference:
-          data.theme_preference,
+        watermark_url: data.watermark_url,
+        primary_color: data.primary_color,
+        secondary_color: data.secondary_color,
+        watermark_opacity: data.watermark_opacity,
+        theme_preference: data.theme_preference,
       };
 
       setBranding(brandingData);
@@ -142,7 +122,10 @@ export function BrandingProvider({
       /*
        * Apply business colours globally.
        */
-      applyBrandTheme(data.primary_color, data.secondary_color);
+      applyBrandTheme(
+        data.primary_color,
+        data.secondary_color,
+      );
 
       if (data.primary_color) {
         document.documentElement.style.setProperty(
@@ -159,19 +142,9 @@ export function BrandingProvider({
       }
 
       /*
-       * IMPORTANT:
-       *
-       * The logo and watermark endpoints are protected
-       * by the backend authentication dependency.
-       *
-       * Therefore we cannot simply put the relative URL
-       * into <img src="..."> because the browser would:
-       *
-       * 1. Request localhost:3000 instead of port 8000.
-       * 2. Not automatically include our Axios Bearer token.
-       *
-       * Instead, download the files through the authenticated
-       * Axios instance and create local object URLs.
+       * The logo and watermark endpoints are protected.
+       * Download through Axios so the authentication token
+       * is included, then create browser object URLs.
        */
 
       /*
@@ -179,41 +152,28 @@ export function BrandingProvider({
        */
       if (data.logo_url) {
         try {
-          const logoResponse =
-            await api.get(
-              data.logo_url,
-              {
-                responseType: "blob",
-              },
-            );
-
-          const logoUrl =
-            URL.createObjectURL(
-              logoResponse.data,
-            );
-
-          setLogoObjectUrl(
-            (previousUrl) => {
-              if (previousUrl) {
-                URL.revokeObjectURL(
-                  previousUrl,
-                );
-              }
-
-              return logoUrl;
+          const logoResponse = await api.get(
+            data.logo_url,
+            {
+              responseType: "blob",
             },
           );
 
-          
+          const logoUrl = URL.createObjectURL(
+            logoResponse.data,
+          );
+
+          setLogoObjectUrl(logoUrl);
         } catch (error) {
           console.error(
             "[Branding] Failed to load logo:",
             error,
           );
 
-          setLogoObjectUrl(null);
+          // Preserve the previous working logo.
         }
       } else {
+        // The business has deliberately removed its logo.
         setLogoObjectUrl(null);
       }
 
@@ -222,41 +182,28 @@ export function BrandingProvider({
        */
       if (data.watermark_url) {
         try {
-          const watermarkResponse =
-            await api.get(
-              data.watermark_url,
-              {
-                responseType: "blob",
-              },
-            );
-
-          const watermarkUrl =
-            URL.createObjectURL(
-              watermarkResponse.data,
-            );
-
-          setWatermarkObjectUrl(
-            (previousUrl) => {
-              if (previousUrl) {
-                URL.revokeObjectURL(
-                  previousUrl,
-                );
-              }
-
-              return watermarkUrl;
+          const watermarkResponse = await api.get(
+            data.watermark_url,
+            {
+              responseType: "blob",
             },
           );
 
-          
+          const watermarkUrl = URL.createObjectURL(
+            watermarkResponse.data,
+          );
+
+          setWatermarkObjectUrl(watermarkUrl);
         } catch (error) {
           console.error(
             "[Branding] Failed to load watermark:",
             error,
           );
 
-          setWatermarkObjectUrl(null);
+          // Preserve the previous working watermark.
         }
       } else {
+        // The business has deliberately removed its watermark.
         setWatermarkObjectUrl(null);
       }
     } catch (error) {
@@ -265,54 +212,63 @@ export function BrandingProvider({
         error,
       );
 
-      setBranding(null);
-      setLogoObjectUrl(null);
-      setWatermarkObjectUrl(null);
+      // Preserve the last successfully loaded branding
+      // when a refresh fails temporarily.
     } finally {
       setLoading(false);
     }
   }, []);
 
   /*
-   * Load branding when the provider mounts.
+   * Load branding when the user signs in.
    */
   useEffect(() => {
-    const onSignedIn = () => void refreshBranding();
+    const onSignedIn = () => {
+      void refreshBranding();
+    };
 
-    window.addEventListener("linda-signed-in", onSignedIn);
+    window.addEventListener(
+      "linda-signed-in",
+      onSignedIn,
+    );
 
-    return () => window.removeEventListener("linda-signed-in", onSignedIn);
-  }, [refreshBranding]);
-
-  useEffect(() => {
-    // Intentionally start the asynchronous initial branding load.
-    // The refresh function manages API requests and loading state.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    refreshBranding();
+    return () => {
+      window.removeEventListener(
+        "linda-signed-in",
+        onSignedIn,
+      );
+    };
   }, [refreshBranding]);
 
   /*
-   * Clean up browser object URLs when the provider
-   * is removed from the page.
+   * Load branding when the provider mounts.
+   */
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshBranding();
+  }, [refreshBranding]);
+
+  /*
+   * Clean up the logo URL independently.
    */
   useEffect(() => {
     return () => {
       if (logoObjectUrl) {
-        URL.revokeObjectURL(
-          logoObjectUrl,
-        );
-      }
-
-      if (watermarkObjectUrl) {
-        URL.revokeObjectURL(
-          watermarkObjectUrl,
-        );
+        URL.revokeObjectURL(logoObjectUrl);
       }
     };
-  }, [
-    logoObjectUrl,
-    watermarkObjectUrl,
-  ]);
+  }, [logoObjectUrl]);
+
+  /*
+   * Clean up the watermark URL independently.
+   */
+  useEffect(() => {
+    return () => {
+      if (watermarkObjectUrl) {
+        URL.revokeObjectURL(watermarkObjectUrl);
+      }
+    };
+  }, [watermarkObjectUrl]);
 
   return (
     <BrandingContext.Provider
@@ -330,7 +286,5 @@ export function BrandingProvider({
 }
 
 export function useBranding() {
-  return useContext(
-    BrandingContext,
-  );
+  return useContext(BrandingContext);
 }

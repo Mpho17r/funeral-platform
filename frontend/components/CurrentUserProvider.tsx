@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -10,6 +11,7 @@ import {
 } from "react";
 
 import api from "@/lib/api";
+
 import { getToken, removeToken } from "@/lib/auth";
 
 export type CurrentUser = {
@@ -18,14 +20,12 @@ export type CurrentUser = {
   role: string;
   full_name: string | null;
   email: string | null;
-  /** False until the person follows the emailed link; null if unknown. */
   email_verified: boolean | null;
   job_title: string | null;
   branch_id: string | null;
   branch_name: string | null;
   business_name: string | null;
   avatar_updated_at: string | null;
-  /** The look they chose ('default' or 'glass'); null until they choose. */
   ui_style?: string | null;
   member_since: string | null;
 };
@@ -33,9 +33,7 @@ export type CurrentUser = {
 export type Access = {
   role: string;
   work_area: string;
-  /** "funeral" (the full platform) or "general" (any other business). */
   business_type?: string;
-  /** False when the business has switched the membership scheme off. */
   membership_enabled?: boolean;
   permissions: string[];
 };
@@ -49,8 +47,7 @@ const ROLE_LABELS: Record<string, string> = {
   operations: "Funeral operations",
 };
 
-/** What the person's access level is called on screen. */
-export function roleLabel(role: string | null | undefined): string {
+ export function roleLabel(role: string | null | undefined): string {
   if (!role) {
     return "";
   }
@@ -61,8 +58,7 @@ export function roleLabel(role: string | null | undefined): string {
   );
 }
 
-/** "Thandi Nkosi" -> "TN". Falls back to the first letter, then "?". */
-export function initialsOf(name: string | null | undefined): string {
+ export function initialsOf(name: string | null | undefined): string {
   const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
 
   if (parts.length === 0) {
@@ -76,11 +72,7 @@ export function initialsOf(name: string | null | undefined): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-/**
- * What to show beneath a person's name: the job they do ("Operations
- * Manager") when one is set, otherwise their access level.
- */
-export function titleOf(
+ export function titleOf(
   user: Pick<CurrentUser, "job_title" | "role"> | null,
 ): string {
   if (!user) {
@@ -90,29 +82,21 @@ export function titleOf(
   return user.job_title?.trim() || roleLabel(user.role);
 }
 
+type RefreshOptions = {
+  silent?: boolean;
+};
+
 type CurrentUserContextValue = {
   user: CurrentUser | null;
   loading: boolean;
-  /** True when the server could not be reached to validate the session. */
-  authUnavailable: boolean;
-  /** The profile photo, ready to use as an image source, or null. */
+   authUnavailable: boolean;
   avatarUrl: string | null;
-  /** Re-read who is signed in, e.g. after they change their profile. */
-  refresh: () => Promise<void>;
-  /** What the person may do. Null until it has loaded. */
-  access: Access | null;
-  /**
-   * Whether the person holds a permission. Until access has loaded it
-   * says yes, so a slow request never hides the whole app; the server
-   * enforces the real rule either way.
-   */
+  refresh: (options?: RefreshOptions) => Promise<void>;
+   access: Access | null;
   can: (permission: string) => boolean;
-  /** A general business: no funeral screens, money and tasks instead. */
-  isGeneral: boolean;
-  /** True when the account's access details could not be loaded. */
+   isGeneral: boolean;
   accessFailed: boolean;
-  /** Does this business run a membership scheme? */
-  membershipEnabled: boolean;
+   membershipEnabled: boolean;
 };
 
 const CurrentUserContext = createContext<CurrentUserContextValue>({
@@ -140,93 +124,130 @@ export function CurrentUserProvider({
   const [access, setAccess] = useState<Access | null>(null);
   const [accessFailed, setAccessFailed] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setAuthUnavailable(false);
+  const refresh = useCallback(
+    async (options?: RefreshOptions) => {
+      const silent = options?.silent === true;
 
-    // Do not make an unauthenticated request and wait for its 401. This
-    // also lets the protected shell decide before rendering any app chrome.
-    if (!getToken()) {
-      setUser(null);
-      setAccess(null);
-      setAccessFailed(false);
-      setLoading(false);
-      return;
-    }
+      // Silent refreshes must not replace the workspace with a loading screen.
+      if (!silent) {
+        setLoading(true);
+        setAuthUnavailable(false);
+      }
 
-    try {
-      const response = await api.get<CurrentUser>("/auth/me");
-
-      // A pre-existing session may predate mandatory email verification.
-      // Keep the identity endpoint available for verification UX, but never
-      // hydrate the business workspace for an unverified account.
-      if (response.data.email_verified === false) {
-        removeToken();
+      // Do not make an unauthenticated request.
+      if (!getToken()) {
         setUser(null);
         setAccess(null);
         setAccessFailed(false);
+        setAuthUnavailable(false);
+        setLoading(false);
         return;
       }
 
-      setUser(response.data);
-
       try {
-        const mine = await api.get<Access>("/users/me/access");
-        setAccess(mine.data);
-        setAccessFailed(false);
+        const response = await api.get<CurrentUser>("/auth/me");
+
+        // Never hydrate the workspace for an unverified account.
+        if (response.data.email_verified === false) {
+          removeToken();
+          setUser(null);
+          setAccess(null);
+          setAccessFailed(false);
+          setAuthUnavailable(false);
+          return;
+        }
+
+        setUser(response.data);
+        setAuthUnavailable(false);
+
+        try {
+          const mine = await api.get<Access>("/users/me/access");
+
+          setAccess(mine.data);
+          setAccessFailed(false);
+        } catch (error) {
+          const status = (
+            error as { response?: { status?: number } }
+          ).response?.status;
+
+          if (status === 401) {
+            // The session may expire between the two requests.
+            setUser(null);
+            setAccess(null);
+            setAccessFailed(false);
+            removeToken();
+          } else if (!silent) {
+            // Normal refreshes fail closed if access cannot be loaded.
+            setAccess(null);
+            setAccessFailed(true);
+          }
+
+          // During a silent refresh, retain the last known access
+          // information if this request fails temporarily.
+        }
       } catch (error) {
         const status = (
           error as { response?: { status?: number } }
         ).response?.status;
 
-        setAccess(null);
-
         if (status === 401) {
-          // The session may expire between /auth/me and the access lookup.
+          // An explicitly rejected credential must always be cleared.
           setUser(null);
+          setAccess(null);
+          setAccessFailed(false);
+          setAuthUnavailable(false);
           removeToken();
-        } else {
-          // Keep the authenticated identity, but fail closed for permissions.
-          setAccessFailed(true);
+        } else if (!silent) {
+          // A normal refresh cannot verify the session.
+          setUser(null);
+          setAccess(null);
+          setAccessFailed(false);
+          setAuthUnavailable(true);
+        }
+
+        // A temporary error during a silent refresh preserves the
+        // existing authenticated workspace.
+      } finally {
+        if (!silent) {
+          setLoading(false);
         }
       }
-    } catch (error) {
-      const status = (
-        error as { response?: { status?: number } }
-      ).response?.status;
+    },
+    [],
+  );
 
-      setUser(null);
-      setAccess(null);
-      setAccessFailed(false);
+    useEffect(() => {
+    let cancelled = false;
 
-      if (status === 401) {
-        // Only an explicitly rejected credential is cleared. Network errors
-        // must not silently sign a customer out.
-        removeToken();
-      } else {
-        setAuthUnavailable(true);
+    queueMicrotask(() => {
+      if (!cancelled) {
+        void refresh();
       }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    });
 
-  useEffect(() => {
-    void refresh();
+    return () => {
+      cancelled = true;
+    };
   }, [refresh]);
 
-  // The photo needs the sign-in token, so it is fetched as a file and shown
-  // from a local address. It is fetched again only when it changes.
+  // Fetch the profile photo using the authenticated API client.
   const userId = user?.user_id;
   const avatarVersion = user?.avatar_updated_at;
 
-  useEffect(() => {
-    if (!userId || !avatarVersion) {
-      setAvatarUrl(null);
-      return;
-    }
-
+    useEffect(() => {
     let cancelled = false;
+
+    if (!userId || !avatarVersion) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setAvatarUrl(null);
+        }
+      });
+
+      return () => {
+        cancelled = true;
+      };
+    }
     let created: string | null = null;
 
     api
@@ -264,20 +285,23 @@ export function CurrentUserProvider({
       avatarUrl,
       refresh,
       access,
-      // While loading, say yes so a slow request never hides the app. If the
-      // details could not be loaded at all, say no: showing every screen
-      // (funeral ones included) to a business that may not have them is worse.
-      can: (permission: string) =>
+       can: (permission: string) =>
         held ? held.has(permission) : !accessFailed,
       accessFailed,
-      isGeneral: access?.business_type === "general",
-      // Memberships belong to the funeral side only: a general business
-      // never has them, whatever the stored flag says.
+       isGeneral: access?.business_type === "general",
       membershipEnabled:
         access?.business_type !== "general" &&
         access?.membership_enabled !== false,
     };
-  }, [user, loading, authUnavailable, avatarUrl, refresh, access, accessFailed]);
+  }, [
+    user,
+    loading,
+    authUnavailable,
+    avatarUrl,
+    refresh,
+    access,
+    accessFailed,
+  ]);
 
   return (
     <CurrentUserContext.Provider value={value}>
