@@ -11,6 +11,7 @@ class RegisterRequest(BaseModel):
     # "funeral" = the full funeral platform; "general" = any other
     # business that wants jobs, tasks, money and staff managed.
     business_type: Literal["funeral", "general"] = "funeral"
+    plan_code: str | None = Field(default=None, min_length=1, max_length=40)
 
     full_name: str = Field(min_length=2, max_length=150)
     email: EmailStr
