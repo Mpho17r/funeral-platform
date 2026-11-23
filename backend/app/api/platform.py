@@ -120,6 +120,7 @@ def _business_row(db: Session, b: Business) -> dict:
         "tier": b.subscription_tier,
         "status": b.subscription_status,
         "trial_ends_at": b.trial_ends_at,
+        "subscription_paid_through": b.subscription_paid_through,
         "limits": plan_limits.limits(b),
         "usage": plan_limits.usage(db, b.id),
         "base_price_override_cents": b.base_price_override_cents,
