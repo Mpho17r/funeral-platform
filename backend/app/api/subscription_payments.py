@@ -1,7 +1,7 @@
 """LINDA platform subscription payments via PayFast hosted checkout."""
 
 import calendar
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
@@ -56,7 +56,7 @@ def create_payfast_checkout(
         raise HTTPException(404, "Business or account not found.")
 
     today = pricing_service.today()
-    period_start = date(today.year, today.month, 1)
+    period_start = today
     staff, branches = pricing_service.peaks(db, business, today.year, today.month)
     plan = pricing_service.plan_for(db, business)
     vat = pricing_service.get_pricing(db).vat_percent
@@ -71,17 +71,12 @@ def create_payfast_checkout(
     if amount_cents < 500:
         raise HTTPException(422, "The subscription amount is below PayFast's R5 minimum.")
 
-    existing = (
-        db.query(PlatformPayment)
-        .filter(
-            PlatformPayment.business_id == business.id,
-            PlatformPayment.period_start == period_start,
-            PlatformPayment.status == "paid",
-        )
-        .first()
-    )
-    if existing is not None:
-        raise HTTPException(409, "This month's LINDA subscription payment is already complete.")
+    if (
+        business.subscription_status == "active"
+        and business.subscription_paid_through is not None
+        and business.subscription_paid_through >= today
+    ):
+        raise HTTPException(409, "Your LINDA subscription is already paid through its current billing period.")
 
     payment = (
         db.query(PlatformPayment)
@@ -203,9 +198,14 @@ async def payfast_itn(request: Request, db: Session = Depends(get_db)):
     if business is None:
         raise HTTPException(404, "LINDA business no longer exists.")
     business.subscription_status = "active"
-    last_day = calendar.monthrange(payment.period_start.year, payment.period_start.month)[1]
-    business.subscription_paid_through = date(
-        payment.period_start.year, payment.period_start.month, last_day
+    next_month = payment.period_start.month % 12 + 1
+    next_year = payment.period_start.year + (1 if payment.period_start.month == 12 else 0)
+    next_month_day = min(
+        payment.period_start.day,
+        calendar.monthrange(next_year, next_month)[1],
     )
+    business.subscription_paid_through = date(
+        next_year, next_month, next_month_day
+    ) - timedelta(days=1)
     db.commit()
     return "OK"
