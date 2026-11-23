@@ -35,7 +35,7 @@ def test_expired_trial_is_blocked_with_payment_recovery_details():
         ensure_active(business)
     assert caught.value.status_code == 402
     assert caught.value.detail["code"] == "trial_expired"
-    assert caught.value.detail["subscription_url"] == "/settings/subscription"
+    assert caught.value.detail["subscription_url"] == "/subscription"
 
 
 def test_naive_legacy_trial_end_is_interpreted_as_utc():
