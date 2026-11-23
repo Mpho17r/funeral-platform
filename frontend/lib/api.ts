@@ -14,6 +14,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
+    const detail = error?.response?.data?.detail;
+    if (
+      typeof window !== "undefined" &&
+      status === 402 &&
+      detail?.code === "trial_expired" &&
+      window.location.pathname !== "/subscription"
+    ) {
+      window.location.assign("/subscription");
+    }
     const hadAuthenticatedRequest = Boolean(
       error?.config?.headers?.Authorization,
     );
