@@ -304,7 +304,7 @@ class PlanChoice(BaseModel):
 def choose_plan(
     data: PlanChoice,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_for_subscription),
 ):
     """The people who run the business pick (or change) its plan."""
     if not has_permission(
