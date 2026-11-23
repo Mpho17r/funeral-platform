@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -303,6 +303,11 @@ class Business(Base):
     )
     trial_ends_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # Date through which the latest subscription payment grants access.
+    # None is reserved for legacy/manual subscriptions not yet on online billing.
+    subscription_paid_through: Mapped[datetime | None] = mapped_column(
+        Date, nullable=True
     )
     # A special base price agreed with this customer, in cents. None = the
     # standard price. Extra staff and branches are still charged as usual.
