@@ -150,7 +150,7 @@ export default function RegisterPage() {
 
           <label className="block text-sm font-semibold text-slate-900">
             Choose your LINDA plan
-            <select className={`${input} mt-1`} value={planCode} onChange={(e) => setPlanCode(e.target.value)} required disabled={!plans.length}>
+            <select className={`${input} mt-1`} value={planCode} onChange={(e) => setPlanCode(e.target.value)} required disabled={!plans[kind].length}>
               {plans[kind].map((p) => (
                 <option key={p.code} value={p.code}>{p.name} — {rands(p.base_price_cents)} / month</option>
               ))}
