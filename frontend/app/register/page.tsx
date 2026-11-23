@@ -199,7 +199,7 @@ export default function RegisterPage() {
             {busy && <Loader2 size={18} className="animate-spin" />}
             {busy ? "Creating your account" : "Create account"}
           </button>
-          <p className="text-xs text-slate-500">You will be the main administrator and can invite your team afterwards. Your 7-day trial starts when you create your account.</p>
+          <p className="text-xs text-slate-500">You will be the main administrator and can invite your team afterwards. Your 7-day trial starts when you verify your email address.</p>
         </form>
       )}
 
