@@ -62,23 +62,25 @@ def seed_default_plans(db: Session) -> None:
         "general-standard": (95000, 5000, 5000),
         "general-enterprise": (150000, 5000, 5000),
     }
-    for order, (kind, code, name, tag, base, staff, branches, xs, xb) in enumerate(
-        DEFAULT_PLANS
-    ):
-        existing = db.query(PricingPlan).filter(PricingPlan.code == code).first()
-        if existing is None:
-            if db.query(PricingPlan.id).first() is None:
-                db.add(
-                    PricingPlan(
-                        business_type=kind, code=code, name=name, tagline=tag,
-                        base_price_cents=base, included_staff=staff,
-                        included_branches=branches, extra_staff_cents=xs,
-                        extra_branch_cents=xb, sort_order=order, is_active=True,
-                    )
+    if db.query(PricingPlan.id).first() is None:
+        for order, (kind, code, name, tag, base, staff, branches, xs, xb) in enumerate(
+            DEFAULT_PLANS
+        ):
+            db.add(
+                PricingPlan(
+                    business_type=kind, code=code, name=name, tagline=tag,
+                    base_price_cents=base, included_staff=staff,
+                    included_branches=branches, extra_staff_cents=xs,
+                    extra_branch_cents=xb, sort_order=order, is_active=True,
                 )
-            continue
+            )
+        db.flush()
+        return
+
+    for kind, code, name, tag, base, staff, branches, xs, xb in DEFAULT_PLANS:
+        existing = db.query(PricingPlan).filter(PricingPlan.code == code).first()
         legacy = legacy_prices.get(code)
-        if legacy and (
+        if existing is not None and legacy and (
             existing.base_price_cents,
             existing.extra_staff_cents,
             existing.extra_branch_cents,
