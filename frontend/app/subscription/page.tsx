@@ -10,6 +10,9 @@ export default function SubscriptionPage() {
   const [selected, setSelected] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [checkout, setCheckout] = useState<{ action: string; fields: Record<string, string>; amount_cents: number } | null>(null);
+  const [startingPayment, setStartingPayment] = useState(false);
+  const [paymentNotice, setPaymentNotice] = useState("");
 
   async function load() {
     const { data } = await api.get<Subscription>("/subscription");
@@ -19,7 +22,24 @@ export default function SubscriptionPage() {
 
   useEffect(() => {
     load().catch(() => setError("We could not load your subscription details. Please try again."));
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("payment") === "returned") setPaymentNotice("Thank you. We are waiting for PayFast to confirm your payment. Access will update only after server verification.");
+    if (query.get("payment") === "cancelled") setPaymentNotice("Payment was cancelled. Your subscription has not been activated.");
   }, []);
+
+  async function startPayment() {
+    setStartingPayment(true);
+    setError("");
+    setCheckout(null);
+    try {
+      const { data } = await api.post("/subscription/payfast/checkout");
+      setCheckout(data);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || "We could not start PayFast checkout. Please try again.");
+    } finally {
+      setStartingPayment(false);
+    }
+  }
 
   async function savePlan() {
     if (!selected) return;
@@ -79,9 +99,22 @@ export default function SubscriptionPage() {
       )}
 
       <section className="rounded-xl border border-slate-200 p-5">
-        <h2 className="font-semibold text-slate-900">Payment setup</h2>
-        <p className="mt-2 text-sm text-slate-600">Secure online checkout is not connected yet. LINDA will only activate a paid subscription after the payment provider confirms the transaction. No payment has been taken on this page.</p>
-        <p className="mt-2 text-xs text-slate-500">Your workspace data is retained while access is paused.</p>
+        <h2 className="font-semibold text-slate-900">Pay your LINDA subscription</h2>
+        <p className="mt-2 text-sm text-slate-600">Your monthly amount is calculated by LINDA from your selected plan, staff and branch usage. You will complete payment on PayFast's secure hosted checkout.</p>
+        <button type="button" onClick={startPayment} disabled={startingPayment} className="mt-4 rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
+          {startingPayment ? "Preparing secure checkout…" : "Continue to PayFast"}
+        </button>
+        {checkout && (
+          <form action={checkout.action} method="POST" className="mt-4">
+            {Object.entries(checkout.fields).map(([name, value]) => (
+              <input key={name} type="hidden" name={name} value={value} />
+            ))}
+            <p className="mb-3 text-sm text-slate-700">Amount to pay: <strong>{rands(checkout.amount_cents)} ZAR</strong></p>
+            <button type="submit" className="rounded-lg bg-emerald-700 px-4 py-3 text-sm font-semibold text-white">Open PayFast secure payment</button>
+          </form>
+        )}
+        {paymentNotice && <p role="status" className="mt-3 text-sm text-blue-800">{paymentNotice}</p>}
+        <p className="mt-3 text-xs text-slate-500">Returning from PayFast does not itself activate your subscription. LINDA waits for a verified payment notification. Your workspace data is retained while access is paused.</p>
       </section>
 
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
