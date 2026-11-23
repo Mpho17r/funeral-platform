@@ -69,16 +69,20 @@ def limits(business: Business) -> dict:
 def ensure_active(business: Business | None) -> None:
     if business is None:
         return
-    if business.subscription_status == "trial" and business.trial_ends_at is not None:
+    if business.subscription_status == "trial":
         end = business.trial_ends_at
-        if end.tzinfo is None:
-            end = end.replace(tzinfo=timezone.utc)
-        if end <= datetime.now(timezone.utc):
+        if end is None:
+            expired = True
+        else:
+            if end.tzinfo is None:
+                end = end.replace(tzinfo=timezone.utc)
+            expired = end <= datetime.now(timezone.utc)
+        if expired:
             raise HTTPException(
                 status_code=402,
                 detail={
                     "code": "trial_expired",
-                    "message": "Your 7-day LINDA trial has ended. Choose a plan and complete payment to restore access. Your business data is safe.",
+                    "message": "Your LINDA trial has ended or has not been activated. Verify your email, choose a plan and complete payment to restore access. Your business data is safe.",
                     "subscription_url": "/subscription",
                 },
             )
