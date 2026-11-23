@@ -18,7 +18,7 @@ api.interceptors.response.use(
     if (
       typeof window !== "undefined" &&
       status === 402 &&
-      detail?.code === "trial_expired" &&
+      ["trial_expired", "payment_due"].includes(detail?.code) &&
       window.location.pathname !== "/subscription"
     ) {
       window.location.assign("/subscription");
