@@ -1,5 +1,6 @@
 """LINDA platform subscription payments via PayFast hosted checkout."""
 
+import calendar
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
@@ -202,5 +203,9 @@ async def payfast_itn(request: Request, db: Session = Depends(get_db)):
     if business is None:
         raise HTTPException(404, "LINDA business no longer exists.")
     business.subscription_status = "active"
+    last_day = calendar.monthrange(payment.period_start.year, payment.period_start.month)[1]
+    business.subscription_paid_through = date(
+        payment.period_start.year, payment.period_start.month, last_day
+    )
     db.commit()
     return "OK"
