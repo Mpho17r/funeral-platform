@@ -30,7 +30,7 @@ const KINDS: { value: Kind; title: string; body: string; icon: typeof Briefcase 
 export default function RegisterPage() {
   const [open, setOpen] = useState<boolean | null>(null);
   const [kind, setKind] = useState<Kind>("funeral");
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plans, setPlans] = useState<{ funeral: Plan[]; general: Plan[] }>({ funeral: [], general: [] });
   const [planCode, setPlanCode] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [phone, setPhone] = useState("");
@@ -50,7 +50,7 @@ export default function RegisterPage() {
     api.get<PublicPricing>("/pricing").then(({ data }) => {
       const selectedKind = requestedKind === "general" ? "general" : "funeral";
       const available = data.plans[selectedKind];
-      setPlans(available);
+      setPlans(data.plans);
       setPlanCode(available.some((p) => p.code === requestedPlan) ? requestedPlan! : available[0]?.code ?? "");
     }).catch(() => setPlans([]));
     api
@@ -58,6 +58,13 @@ export default function RegisterPage() {
       .then((r) => setOpen(r.data.open))
       .catch(() => setOpen(true));
   }, []);
+
+  useEffect(() => {
+    const available = plans[kind];
+    if (available.length && !available.some((p) => p.code === planCode)) {
+      setPlanCode(available[0].code);
+    }
+  }, [kind, plans, planCode]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -144,7 +151,7 @@ export default function RegisterPage() {
           <label className="block text-sm font-semibold text-slate-900">
             Choose your LINDA plan
             <select className={`${input} mt-1`} value={planCode} onChange={(e) => setPlanCode(e.target.value)} required disabled={!plans.length}>
-              {plans.filter((p) => p.business_type === kind).map((p) => (
+              {plans[kind].map((p) => (
                 <option key={p.code} value={p.code}>{p.name} — {rands(p.base_price_cents)} / month</option>
               ))}
             </select>
