@@ -53,6 +53,7 @@ def test_active_subscription_is_not_blocked_by_trial_timestamp():
     business = SimpleNamespace(
         subscription_status="active",
         trial_ends_at=datetime.now(timezone.utc) - timedelta(days=10),
+        subscription_paid_through=None,
     )
     assert ensure_active(business) is None
 
@@ -90,3 +91,28 @@ def test_trial_without_start_date_is_not_an_unlimited_trial():
         ensure_active(business)
     assert caught.value.status_code == 402
     assert caught.value.detail["code"] == "trial_expired"
+
+
+def test_active_subscription_past_paid_through_date_is_blocked():
+    from datetime import date, timedelta
+
+    business = SimpleNamespace(
+        subscription_status="active",
+        trial_ends_at=None,
+        subscription_paid_through=date.today() - timedelta(days=1),
+    )
+    with pytest.raises(HTTPException) as caught:
+        ensure_active(business)
+    assert caught.value.status_code == 402
+    assert caught.value.detail["code"] == "payment_due"
+
+
+def test_active_subscription_paid_through_today_remains_available():
+    from datetime import date
+
+    business = SimpleNamespace(
+        subscription_status="active",
+        trial_ends_at=None,
+        subscription_paid_through=date.today(),
+    )
+    assert ensure_active(business) is None
