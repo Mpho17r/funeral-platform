@@ -1,6 +1,6 @@
 import uuid
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from decimal import Decimal
 
@@ -306,7 +306,7 @@ class Business(Base):
     )
     # Date through which the latest subscription payment grants access.
     # None is reserved for legacy/manual subscriptions not yet on online billing.
-    subscription_paid_through: Mapped[datetime | None] = mapped_column(
+    subscription_paid_through: Mapped[date | None] = mapped_column(
         Date, nullable=True
     )
     # A special base price agreed with this customer, in cents. None = the
