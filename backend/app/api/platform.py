@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, get_current_user_for_subscription
 from app.models.audit_log import AuditLog
 from app.models.business import Business
 from app.models.platform_admin import PlatformAdmin
@@ -248,7 +248,7 @@ def update_subscription(
 @router.get("/subscription")
 def my_subscription(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_for_subscription),
 ):
     b = db.get(Business, current_user["business_id"])
     used = plan_limits.usage(db, b.id)
