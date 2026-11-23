@@ -79,7 +79,7 @@ def ensure_active(business: Business | None) -> None:
                 detail={
                     "code": "trial_expired",
                     "message": "Your 7-day LINDA trial has ended. Choose a plan and complete payment to restore access. Your business data is safe.",
-                    "subscription_url": "/settings/subscription",
+                    "subscription_url": "/subscription",
                 },
             )
     if business.subscription_status in ("suspended", "cancelled"):
