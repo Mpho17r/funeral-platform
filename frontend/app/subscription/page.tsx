@@ -5,8 +5,10 @@ import Link from "next/link";
 import api from "@/lib/api";
 import { Plan, Subscription, rands } from "@/lib/pricing";
 
+type BillingSubscription = Subscription & { subscription_paid_through?: string | null };
+
 export default function SubscriptionPage() {
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
   const [selected, setSelected] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -15,7 +17,7 @@ export default function SubscriptionPage() {
   const [paymentNotice, setPaymentNotice] = useState("");
 
   async function load() {
-    const { data } = await api.get<Subscription>("/subscription");
+    const { data } = await api.get<BillingSubscription>("/subscription");
     setSubscription(data);
     setSelected(data.plan.code);
   }
@@ -58,6 +60,9 @@ export default function SubscriptionPage() {
   const expired = subscription?.status === "trial"
     ? !subscription.trial_ends_at || new Date(subscription.trial_ends_at).getTime() <= Date.now()
     : false;
+  const paymentDue = subscription?.status === "active" && subscription.subscription_paid_through
+    ? new Date(`${subscription.subscription_paid_through}T23:59:59`).getTime() < Date.now()
+    : false;
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 p-6 py-12">
@@ -71,6 +76,13 @@ export default function SubscriptionPage() {
         <section className="rounded-xl border border-amber-300 bg-amber-50 p-5 text-amber-950">
           <h2 className="font-semibold">Your 7-day free trial has ended</h2>
           <p className="mt-2 text-sm">Choose your plan below. Your business data is safe, and access will be restored after a successful payment.</p>
+        </section>
+      )}
+
+      {paymentDue && (
+        <section className="rounded-xl border border-amber-300 bg-amber-50 p-5 text-amber-950">
+          <h2 className="font-semibold">Your monthly LINDA payment is due</h2>
+          <p className="mt-2 text-sm">Your last payment covered the month ending {subscription?.subscription_paid_through}. Complete this month's payment to restore workspace access. Your business data is safe.</p>
         </section>
       )}
 
