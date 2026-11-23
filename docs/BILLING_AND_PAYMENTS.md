@@ -11,7 +11,7 @@ LINDA uses PayFast hosted checkout. Card details are entered on PayFast; LINDA d
 5. LINDA creates a pending payment and redirects the customer to PayFast hosted checkout.
 6. The browser return URL is informational only. LINDA activates the subscription only after a signed ITN has passed PayFast's server-to-server validation and the merchant, payment reference and gross amount checks.
 
-The first integration supports one-off monthly payments. Automatic recurring collections are intentionally not enabled yet because the monthly amount changes with the business's peak staff and branch usage. Recurring card subscriptions/tokenisation need a separate design for variable usage, plan changes, retries and cancellation.
+The first integration supports one-off monthly payments. A verified payment grants access through the end of that calendar month; the platform then requires the next month's payment before access continues. Automatic recurring collections are intentionally not enabled yet because the monthly amount changes with the business's peak staff and branch usage. Recurring card subscriptions/tokenisation need a separate design for variable usage, plan changes, retries and cancellation.
 
 ## Required backend environment
 
