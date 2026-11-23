@@ -16,6 +16,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    op.add_column("businesses", sa.Column("subscription_paid_through", sa.Date(), nullable=True))
     op.create_table(
         "platform_payments",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
@@ -41,5 +42,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_column("businesses", "subscription_paid_through")
     op.drop_index("ix_platform_payments_business_id", table_name="platform_payments")
     op.drop_table("platform_payments")
