@@ -1,5 +1,6 @@
 """LINDA platform subscription payments via PayFast hosted checkout."""
 
+import asyncio
 import calendar
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
@@ -143,7 +144,10 @@ async def payfast_itn(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(400, "Invalid PayFast signature.")
     if data.get("merchant_id") != settings.payfast_merchant_id:
         raise HTTPException(400, "PayFast merchant mismatch.")
-    if not payfast.validate_itn(fields, sandbox=settings.payfast_sandbox):
+    verified = await asyncio.to_thread(
+        payfast.validate_itn, fields, sandbox=settings.payfast_sandbox
+    )
+    if not verified:
         raise HTTPException(400, "PayFast notification could not be verified.")
 
     merchant_payment_id = data.get("m_payment_id", "")
