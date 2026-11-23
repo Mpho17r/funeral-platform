@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from app.services.plan_limits import ensure_active
 from app.services.pricing import DEFAULT_PLANS
+from app.api.account_security import _start_trial_after_verification
 
 
 def test_recommended_funeral_and_general_prices_are_the_defaults():
@@ -54,3 +55,30 @@ def test_active_subscription_is_not_blocked_by_trial_timestamp():
         trial_ends_at=datetime.now(timezone.utc) - timedelta(days=10),
     )
     assert ensure_active(business) is None
+
+
+
+def test_seven_day_trial_starts_at_email_verification():
+    now = datetime.now(timezone.utc)
+    business = SimpleNamespace(subscription_status="trial", trial_ends_at=None)
+    user = SimpleNamespace(business_id="business-id")
+
+    class FakeDB:
+        def get(self, model, business_id):
+            return business
+
+    _start_trial_after_verification(FakeDB(), user, now)
+    assert business.trial_ends_at == now + timedelta(days=7)
+
+
+def test_trial_start_is_not_reset_on_a_second_verification():
+    original = datetime.now(timezone.utc) - timedelta(days=2)
+    business = SimpleNamespace(subscription_status="trial", trial_ends_at=original)
+    user = SimpleNamespace(business_id="business-id")
+
+    class FakeDB:
+        def get(self, model, business_id):
+            return business
+
+    _start_trial_after_verification(FakeDB(), user, datetime.now(timezone.utc))
+    assert business.trial_ends_at == original
