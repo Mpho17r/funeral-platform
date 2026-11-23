@@ -52,7 +52,7 @@ export default function RegisterPage() {
       const available = data.plans[selectedKind];
       setPlans(data.plans);
       setPlanCode(available.some((p) => p.code === requestedPlan) ? requestedPlan! : available[0]?.code ?? "");
-    }).catch(() => setPlans([]));
+    }).catch(() => setPlans({ funeral: [], general: [] }));
     api
       .get<{ open: boolean }>("/auth/registration-status")
       .then((r) => setOpen(r.data.open))
