@@ -6,6 +6,8 @@ when records are saved, so every route and import obeys them. A suspended
 or cancelled business cannot use the system at all.
 """
 
+from datetime import datetime, timezone
+
 from fastapi import HTTPException
 from sqlalchemy import event, func
 from sqlalchemy.orm import Session
@@ -65,9 +67,22 @@ def limits(business: Business) -> dict:
 
 
 def ensure_active(business: Business | None) -> None:
-    if business is not None and business.subscription_status in (
-        "suspended", "cancelled",
-    ):
+    if business is None:
+        return
+    if business.subscription_status == "trial" and business.trial_ends_at is not None:
+        end = business.trial_ends_at
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+        if end <= datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "code": "trial_expired",
+                    "message": "Your 7-day LINDA trial has ended. Choose a plan and complete payment to restore access. Your business data is safe.",
+                    "subscription_url": "/settings/subscription",
+                },
+            )
+    if business.subscription_status in ("suspended", "cancelled"):
         raise HTTPException(
             status_code=403,
             detail=(
