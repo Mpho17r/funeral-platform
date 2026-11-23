@@ -21,7 +21,7 @@ Set these only in the deployment secret store or ignored backend .env file. Neve
 - PAYFAST_MERCHANT_KEY
 - PAYFAST_PASSPHRASE
 - PAYFAST_SANDBOX=true for sandbox; set false only after live merchant approval and end-to-end tests.
-- PUBLIC_API_URL must be the public HTTPS API base URL that can receive /subscription/payfast/itn.
+- PUBLIC_API_URL must be the public HTTPS API base URL that can receive /subscription/payfast/itn. If the reverse proxy exposes the API under /api, include that prefix (for example, https://your-linda-host/api).
 - PUBLIC_APP_URL must be the public HTTPS LINDA frontend URL.
 
 PayFast sandbox and live checkout/ITN validation hosts are selected by PAYFAST_SANDBOX.
