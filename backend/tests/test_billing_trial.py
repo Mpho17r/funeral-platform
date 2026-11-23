@@ -82,3 +82,11 @@ def test_trial_start_is_not_reset_on_a_second_verification():
 
     _start_trial_after_verification(FakeDB(), user, datetime.now(timezone.utc))
     assert business.trial_ends_at == original
+
+
+def test_trial_without_start_date_is_not_an_unlimited_trial():
+    business = SimpleNamespace(subscription_status="trial", trial_ends_at=None)
+    with pytest.raises(HTTPException) as caught:
+        ensure_active(business)
+    assert caught.value.status_code == 402
+    assert caught.value.detail["code"] == "trial_expired"
