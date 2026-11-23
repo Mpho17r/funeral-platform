@@ -159,6 +159,8 @@ async def payfast_itn(request: Request, db: Session = Depends(get_db)):
     )
     if payment is None:
         raise HTTPException(404, "LINDA payment reference not found.")
+    if data.get("custom_str1") != str(payment.business_id):
+        raise HTTPException(400, "PayFast business reference mismatch.")
 
     if data.get("payment_status") == "CANCELLED":
         if payment.status == "pending":
