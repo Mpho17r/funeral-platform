@@ -55,8 +55,8 @@ export default function SubscriptionPage() {
     }
   }
 
-  const expired = subscription?.status === "trial" && subscription.trial_ends_at
-    ? new Date(subscription.trial_ends_at).getTime() <= Date.now()
+  const expired = subscription?.status === "trial"
+    ? !subscription.trial_ends_at || new Date(subscription.trial_ends_at).getTime() <= Date.now()
     : false;
 
   return (
