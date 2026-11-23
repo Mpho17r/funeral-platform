@@ -81,6 +81,14 @@ export default function PricingPage() {
               selected={selected[kind]}
               onSelect={(code) => setSelected((s) => ({ ...s, [kind]: code }))}
             />
+            <div className="mt-5">
+              <Link
+                href={`/register?business_type=${kind}&plan=${encodeURIComponent(selected[kind] || pricing.plans[kind][0]?.code || "")}`}
+                className="inline-flex rounded-lg bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-700"
+              >
+                Start your 7-day free trial
+              </Link>
+            </div>
             {pricing.price_note && (
               <p className="mt-4 text-sm text-slate-500">{pricing.price_note}</p>
             )}
