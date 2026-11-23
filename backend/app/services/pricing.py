@@ -48,20 +48,44 @@ DEFAULT_PLANS = [
 
 
 def seed_default_plans(db: Session) -> None:
-    """Create the starting plans if there are none."""
-    if db.query(PricingPlan.id).first() is not None:
-        return
+    """Seed plans and upgrade only untouched legacy defaults.
+
+    Existing owner-customised prices are deliberately preserved. The legacy
+    values below are the exact original defaults; matching rows are upgraded
+    once to the approved launch pricing when this service next runs.
+    """
+    legacy_prices = {
+        "funeral-beginner": (80000, 6000, 6000),
+        "funeral-standard": (100000, 6000, 6000),
+        "funeral-enterprise": (180000, 6000, 6000),
+        "general-startup": (45000, 5000, 5000),
+        "general-standard": (95000, 5000, 5000),
+        "general-enterprise": (150000, 5000, 5000),
+    }
     for order, (kind, code, name, tag, base, staff, branches, xs, xb) in enumerate(
         DEFAULT_PLANS
     ):
-        db.add(
-            PricingPlan(
-                business_type=kind, code=code, name=name, tagline=tag,
-                base_price_cents=base, included_staff=staff,
-                included_branches=branches, extra_staff_cents=xs,
-                extra_branch_cents=xb, sort_order=order, is_active=True,
-            )
-        )
+        existing = db.query(PricingPlan).filter(PricingPlan.code == code).first()
+        if existing is None:
+            if db.query(PricingPlan.id).first() is None:
+                db.add(
+                    PricingPlan(
+                        business_type=kind, code=code, name=name, tagline=tag,
+                        base_price_cents=base, included_staff=staff,
+                        included_branches=branches, extra_staff_cents=xs,
+                        extra_branch_cents=xb, sort_order=order, is_active=True,
+                    )
+                )
+            continue
+        legacy = legacy_prices.get(code)
+        if legacy and (
+            existing.base_price_cents,
+            existing.extra_staff_cents,
+            existing.extra_branch_cents,
+        ) == legacy:
+            existing.base_price_cents = base
+            existing.extra_staff_cents = xs
+            existing.extra_branch_cents = xb
     db.flush()
 
 
