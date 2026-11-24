@@ -267,9 +267,9 @@ def test_the_bill_follows_the_chosen_plan_and_shows_vat(
     bill = client.get("/subscription", headers=headers).json()["bill"]
 
     assert bill["plan"] == "Enterprise"
-    assert bill["amount_due_cents"] == 180000
-    assert bill["vat_cents"] == 27000
-    assert bill["amount_due_incl_vat_cents"] == 207000
+    assert bill["amount_due_cents"] == 249900
+    assert bill["vat_cents"] == 37485
+    assert bill["amount_due_incl_vat_cents"] == 287385
 
 
 # ============================================================
