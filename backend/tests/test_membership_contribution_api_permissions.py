@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -248,7 +248,7 @@ def test_staff_with_contributions_create_can_create_contribution(
             "membership_id": str(membership.id),
             "contribution_period": "2026-11-01",
             "amount_due": "500.00",
-            "due_date": "2026-11-15",
+            "due_date": (date.today() + timedelta(days=7)).isoformat(),
         },
     )
 

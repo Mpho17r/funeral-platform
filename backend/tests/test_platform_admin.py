@@ -110,9 +110,11 @@ def test_suspended_business_is_locked_out_and_can_be_restored(
     headers = auth_headers(admin)
     assert client.get("/subscription", headers=headers).status_code == 200
     patch(client, operator, biz, status="suspended")
+    # Subscription recovery remains available even when the business is
+    # suspended; ordinary business work must still be blocked.
     r = client.get("/subscription", headers=headers)
-    assert r.status_code == 403
-    assert "not active" in r.json()["detail"]
+    assert r.status_code == 200
+    assert client.get("/cases", headers=headers).status_code == 403
     # other businesses are not affected
     other = auth_headers(test_data["other_business_manager"])
     assert client.get("/subscription", headers=other).status_code == 200

@@ -91,3 +91,5 @@ from app.models.appointments import Appointment, BusinessDocument, ContactMessag
 
 from app.models.auth_token import AuthToken  # noqa: E402,F401
 from app.models.pricing import PlatformPricing, PricingPlan, UsageSnapshot  # noqa: E402,F401
+
+from app.models.platform_payment import PlatformPayment  # noqa: E402,F401

@@ -1,6 +1,6 @@
 """Forgot password and email verification (the emailed-link flows)."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
+from app.models.business import Business
 from app.security import hash_password
 from app.services import account_tokens as tokens
 from app.services import message_delivery
@@ -48,6 +49,17 @@ class AcceptInviteIn(BaseModel):
 
     token: str = Field(min_length=20, max_length=200)
     new_password: str = Field(min_length=8, max_length=128)
+
+
+def _start_trial_after_verification(db: Session, user: User, now: datetime) -> None:
+    """Start the 7-day clock only once the owner has verified their email."""
+    business = db.get(Business, user.business_id)
+    if (
+        business is not None
+        and business.subscription_status == "trial"
+        and business.trial_ends_at is None
+    ):
+        business.trial_ends_at = now + timedelta(days=7)
 
 
 def _by_email(db: Session, email: str) -> User | None:
@@ -103,6 +115,7 @@ def reset_password(
     # Receiving the email proves the address is theirs.
     if user.email_verified_at is None:
         user.email_verified_at = now
+        _start_trial_after_verification(db, user, now)
     token.used_at = now
 
     create_audit_log(
@@ -175,6 +188,7 @@ def verify_email(data: VerifyIn, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     if user.email_verified_at is None:
         user.email_verified_at = now
+        _start_trial_after_verification(db, user, now)
     token.used_at = now
 
     create_audit_log(

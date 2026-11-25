@@ -32,8 +32,6 @@ jobs:
           --health-retries 10
 
     env:
-      # The tests connect as "mac" to funeralos_test on localhost; the
-      # password comes from PGPASSWORD.
       PGPASSWORD: ci-password
       DATABASE_URL: postgresql+psycopg://mac:ci-password@localhost:5432/funeralos_test
       JWT_SECRET_KEY: ci-only-secret-key-that-is-long-enough-for-hs256
@@ -58,8 +56,10 @@ jobs:
 
       - name: Migrations have a single head
         run: |
-          heads=$(alembic heads | wc -l)
-          echo "alembic heads: $heads"
+          set -o pipefail
+          alembic heads | tee /tmp/alembic-heads.txt
+          heads=$(grep -c ' (head)' /tmp/alembic-heads.txt || true)
+          echo "Detected Alembic head revisions: $heads"
           test "$heads" -eq 1
 
       - name: alembic upgrade head

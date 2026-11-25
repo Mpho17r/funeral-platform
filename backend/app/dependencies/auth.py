@@ -13,7 +13,7 @@ from app.models.user import User
 security = HTTPBearer()
 
 
-def _authenticate(credentials, db, *, require_verified=True):
+def _authenticate(credentials, db, *, require_verified=True, enforce_subscription=True):
     token = credentials.credentials
 
     try:
@@ -73,7 +73,8 @@ def _authenticate(credentials, db, *, require_verified=True):
         from app.models.business import Business
         from app.services.plan_limits import ensure_active
 
-        ensure_active(db.get(Business, user.business_id))
+        if enforce_subscription:
+            ensure_active(db.get(Business, user.business_id))
 
         # A password change or reset ends every earlier session.
         if user.password_changed_at is not None:
@@ -135,5 +136,19 @@ def get_current_user_allow_unverified(
 
     try:
         yield _authenticate(credentials, db, require_verified=False)
+    finally:
+        set_scope(db, None)
+
+
+
+def get_current_user_for_subscription(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    """Authenticated identity for subscription recovery after a trial expires."""
+    from app.services.branch_scope import set_scope
+
+    try:
+        yield _authenticate(credentials, db, enforce_subscription=False)
     finally:
         set_scope(db, None)
