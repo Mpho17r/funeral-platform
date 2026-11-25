@@ -6,7 +6,12 @@ when records are saved, so every route and import obeys them. A suspended
 or cancelled business cannot use the system at all.
 """
 
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
 from fastapi import HTTPException
+
+from app.config import settings
 from sqlalchemy import event, func
 from sqlalchemy.orm import Session
 
@@ -65,9 +70,40 @@ def limits(business: Business) -> dict:
 
 
 def ensure_active(business: Business | None) -> None:
-    if business is not None and business.subscription_status in (
-        "suspended", "cancelled",
+    if business is None:
+        return
+    if business.subscription_status == "trial":
+        end = business.trial_ends_at
+        if end is None:
+            expired = True
+        else:
+            if end.tzinfo is None:
+                end = end.replace(tzinfo=timezone.utc)
+            expired = end <= datetime.now(timezone.utc)
+        if expired:
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "code": "trial_expired",
+                    "message": "Your LINDA trial has ended or has not been activated. Verify your email, choose a plan and complete payment to restore access. Your business data is safe.",
+                    "subscription_url": "/subscription",
+                },
+            )
+    if (
+        business.subscription_status == "active"
+        and business.subscription_paid_through is not None
+        and business.subscription_paid_through
+        < datetime.now(ZoneInfo(settings.scheduler_timezone)).date()
     ):
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "payment_due",
+                "message": "Your LINDA subscription payment is due. Complete this month's payment to restore access. Your business data is safe.",
+                "subscription_url": "/subscription",
+            },
+        )
+    if business.subscription_status in ("suspended", "cancelled"):
         raise HTTPException(
             status_code=403,
             detail=(

@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.services import account_tokens
 from app.services.audit_service import create_audit_log
+from app.services import pricing as pricing_service
 from app.services.branch_service import create_main_branch
 from app.services.login_security import (
     clear_expired_lock,
@@ -161,6 +162,21 @@ def create_business_with_owner(
         )
 
     # ---------------------------------------------------------
+    # SELECT THE REGISTRATION PLAN
+    # ---------------------------------------------------------
+
+    pricing_service.seed_default_plans(db)
+    available_plans = pricing_service.plans_for(db, data.business_type)
+    selected_plan = next(
+        (p for p in available_plans if p.code == data.plan_code), None
+    ) if data.plan_code else (available_plans[0] if available_plans else None)
+    if selected_plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Choose a valid plan for your business type.",
+        )
+
+    # ---------------------------------------------------------
     # CREATE BUSINESS
     # ---------------------------------------------------------
 
@@ -178,8 +194,9 @@ def create_business_with_owner(
         is_active=True,
         business_type=data.business_type,
         subscription_status="trial",
+        plan_id=selected_plan.id,
         tax_enabled=True,  # South Africa: VAT 15%; change in Settings
-        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=30),
+        trial_ends_at=None,
     )
 
     db.add(business)

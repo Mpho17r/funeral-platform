@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, get_current_user_for_subscription
 from app.models.audit_log import AuditLog
 from app.models.business import Business
 from app.models.platform_admin import PlatformAdmin
@@ -120,6 +120,7 @@ def _business_row(db: Session, b: Business) -> dict:
         "tier": b.subscription_tier,
         "status": b.subscription_status,
         "trial_ends_at": b.trial_ends_at,
+        "subscription_paid_through": b.subscription_paid_through,
         "limits": plan_limits.limits(b),
         "usage": plan_limits.usage(db, b.id),
         "base_price_override_cents": b.base_price_override_cents,
@@ -248,7 +249,7 @@ def update_subscription(
 @router.get("/subscription")
 def my_subscription(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_for_subscription),
 ):
     b = db.get(Business, current_user["business_id"])
     used = plan_limits.usage(db, b.id)
@@ -304,7 +305,7 @@ class PlanChoice(BaseModel):
 def choose_plan(
     data: PlanChoice,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_for_subscription),
 ):
     """The people who run the business pick (or change) its plan."""
     if not has_permission(

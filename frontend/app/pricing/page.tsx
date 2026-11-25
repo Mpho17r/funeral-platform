@@ -56,9 +56,10 @@ export default function PricingPage() {
           Simple, honest pricing
         </h1>
         <p className="mt-2 text-slate-600 dark:text-slate-400">
-          Pick the plan that fits where you are. Every plan has every feature.
-          Grow past what it includes and you only pay a little more for each
-          extra person or branch. Nothing is ever locked.
+          Choose a plan and start with a 7-day free trial. Every plan includes
+          the full LINDA experience. After your trial, keep using LINDA by
+          completing your subscription payment. Your business data stays safe
+          if your trial ends before payment.
         </p>
 
         <div className="mt-6 flex gap-2">
@@ -80,12 +81,21 @@ export default function PricingPage() {
               selected={selected[kind]}
               onSelect={(code) => setSelected((s) => ({ ...s, [kind]: code }))}
             />
+            <div className="mt-5">
+              <Link
+                href={`/register?business_type=${kind}&plan=${encodeURIComponent(selected[kind] || pricing.plans[kind][0]?.code || "")}`}
+                className="inline-flex rounded-lg bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-700"
+              >
+                Start your 7-day free trial
+              </Link>
+            </div>
             {pricing.price_note && (
               <p className="mt-4 text-sm text-slate-500">{pricing.price_note}</p>
             )}
             <p className="mt-2 text-sm text-slate-500">
-              VAT is {pricing.vat_percent}%. The bill follows the busiest day of
-              the month. Removing people brings next month&apos;s price back down.
+              VAT is {pricing.vat_percent}%. Additional staff and branches are
+              billed monthly when they exceed your plan allowance. Your bill
+              follows the busiest day of the month.
             </p>
           </div>
         )}

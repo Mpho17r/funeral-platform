@@ -154,6 +154,11 @@ def test_registration_chooses_the_kind_of_business(client, db):
         assert "access_token" not in r.json()
         owner = db.query(User).filter(User.email == email).one()
         owner.email_verified_at = datetime.now(timezone.utc)
+        # Verification starts the seven-day trial; mirror that state here.
+        from datetime import timedelta
+        from app.models.business import Business
+        business = db.get(Business, owner.business_id)
+        business.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=7)
         db.commit()
         login = client.post("/auth/login", json={"email": email, "password": "TestPassword123!"})
         assert login.status_code == 200, login.text

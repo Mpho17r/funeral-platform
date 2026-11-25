@@ -52,6 +52,13 @@ class Settings(BaseSettings):
     verify_token_hours: int = 72
     delivery_max_attempts: int = 3
 
+    # PayFast hosted checkout. Leave credentials blank until merchant setup is complete.
+    payfast_merchant_id: str = ""
+    payfast_merchant_key: str = ""
+    payfast_passphrase: str = ""
+    payfast_sandbox: bool = True
+    public_api_url: str = ""
+
     # Built-in scheduler (python -m app.run_scheduler).
     scheduler_timezone: str = "Africa/Johannesburg"
     scheduler_backup_hour: int = 2       # nightly backup, local time

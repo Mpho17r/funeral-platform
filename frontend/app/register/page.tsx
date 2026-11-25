@@ -8,6 +8,7 @@ import api from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/format";
 import { LindaMark } from "@/components/LindaLogo";
 import { PLATFORM_OWNER, PLATFORM_SLOGAN } from "@/lib/platform";
+import { Plan, PublicPricing, rands } from "@/lib/pricing";
 
 type Kind = "funeral" | "general";
 
@@ -29,6 +30,8 @@ const KINDS: { value: Kind; title: string; body: string; icon: typeof Briefcase 
 export default function RegisterPage() {
   const [open, setOpen] = useState<boolean | null>(null);
   const [kind, setKind] = useState<Kind>("funeral");
+  const [plans, setPlans] = useState<{ funeral: Plan[]; general: Plan[] }>({ funeral: [], general: [] });
+  const [planCode, setPlanCode] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [phone, setPhone] = useState("");
   const [fullName, setFullName] = useState("");
@@ -40,14 +43,35 @@ export default function RegisterPage() {
   const [created, setCreated] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedKind = params.get("business_type");
+    const requestedPlan = params.get("plan");
+    if (requestedKind === "funeral" || requestedKind === "general") setKind(requestedKind);
+    api.get<PublicPricing>("/pricing").then(({ data }) => {
+      const selectedKind = requestedKind === "general" ? "general" : "funeral";
+      const available = data.plans[selectedKind];
+      setPlans(data.plans);
+      setPlanCode(available.some((p) => p.code === requestedPlan) ? requestedPlan! : available[0]?.code ?? "");
+    }).catch(() => setPlans({ funeral: [], general: [] }));
     api
       .get<{ open: boolean }>("/auth/registration-status")
       .then((r) => setOpen(r.data.open))
       .catch(() => setOpen(true));
   }, []);
 
+  useEffect(() => {
+    const available = plans[kind];
+    if (available.length && !available.some((p) => p.code === planCode)) {
+      setPlanCode(available[0].code);
+    }
+  }, [kind, plans, planCode]);
+
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (!planCode) {
+      setError("Please choose a LINDA plan before creating your account.");
+      return;
+    }
     if (password !== confirm) {
       setError("The two passwords are not the same.");
       return;
@@ -59,6 +83,7 @@ export default function RegisterPage() {
         business_name: businessName,
         business_phone: phone.trim() || null,
         business_type: kind,
+        plan_code: planCode,
         full_name: fullName,
         email,
         password,
@@ -123,6 +148,16 @@ export default function RegisterPage() {
             </div>
           </fieldset>
 
+          <label className="block text-sm font-semibold text-slate-900">
+            Choose your LINDA plan
+            <select className={`${input} mt-1`} value={planCode} onChange={(e) => setPlanCode(e.target.value)} required disabled={!plans[kind].length}>
+              {plans[kind].map((p) => (
+                <option key={p.code} value={p.code}>{p.name} — {rands(p.base_price_cents)} / month</option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs font-normal text-slate-500">7 days free. Payment is required to continue after your trial.</span>
+          </label>
+
           {error && (
             <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
@@ -164,7 +199,7 @@ export default function RegisterPage() {
             {busy && <Loader2 size={18} className="animate-spin" />}
             {busy ? "Creating your account" : "Create account"}
           </button>
-          <p className="text-xs text-slate-500">You will be the main administrator and can invite your team afterwards.</p>
+          <p className="text-xs text-slate-500">You will be the main administrator and can invite your team afterwards. Your 7-day trial starts when you verify your email address.</p>
         </form>
       )}
 
